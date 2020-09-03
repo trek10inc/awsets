@@ -80,8 +80,7 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 				tag := v.(map[string]interface{})
 				key := tag["Key"].(*string)
 				value := tag["Value"].(*string)
-				//fmt.Printf("%s - %s\n", *key, *value)
-				resource.Tags[*key] = *value //v.(string)
+				resource.Tags[*key] = *value
 			}
 		case map[string]string:
 			for k, v := range t {

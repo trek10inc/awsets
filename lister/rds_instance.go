@@ -40,7 +40,7 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				r.AddRelation(resource.RdsDbParameterGroup, pgroup.DBParameterGroupName, "")
 			}
 			for _, sgroup := range dbInstance.DBSecurityGroups {
-				// TODO uhh...
+				// TODO figure out distinction between Ec2SecurityGroups and DBSecurityGroups
 				r.AddRelation(resource.Ec2SecurityGroup, sgroup.DBSecurityGroupName, "")
 			}
 			if dbInstance.DBSubnetGroup != nil {

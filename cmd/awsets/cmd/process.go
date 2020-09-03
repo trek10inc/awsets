@@ -167,7 +167,7 @@ var stats = &cli.Command{
 
 var dotGenerator = &cli.Command{
 	Name:  "dot",
-	Usage: "generates dotGenerator file of relationships in input file",
+	Usage: "generates dot file of relationships in input file",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:      "input",
