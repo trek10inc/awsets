@@ -77,6 +77,9 @@ func Listers(include []string, exclude []string) []ListerName {
 		}
 	}
 	for _, name := range exclude {
+		if len(name) == 0 {
+			continue
+		}
 		for _, v := range lister.AllListers() {
 			for _, t := range v.Types() {
 				if strings.HasPrefix(t.String(), name) {
