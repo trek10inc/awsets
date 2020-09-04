@@ -5,7 +5,7 @@ A utility for crawling an AWS account and exporting all its resources for furthe
 ## Badges
 [![Release](https://img.shields.io/github/release/trek10inc/awsets.svg?style=for-the-badge)](https://github.com/trek10inc/awsets/releases/latest)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=for-the-badge)](/LICENSE.md)
-[![Build status](https://img.shields.io/github/workflow/status/trek10inc/awsets/build?style=for-the-badge)](https://github.com/trek10inc/awsets/actions?workflow=test)
+[![Build status](https://img.shields.io/github/workflow/status/trek10inc/awsets/test?style=for-the-badge)](https://github.com/trek10inc/awsets/actions?workflow=test)
 
 ## Motivation
 Trek10 frequently gets pulled into existing AWS accounts that lack documentation, don’t practice proper tagging, don’t use infrastructure as code, or just contain so many resources that it is difficult to get an understanding of what we’re working with. Unfortunately, there is no single AWS call or service that can provide a complete assessment of everything in an account so that we can start to piece together a map of what is going on.
