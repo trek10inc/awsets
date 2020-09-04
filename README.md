@@ -3,7 +3,7 @@
 A utility for crawling an AWS account and exporting all its resources for further analysis.
 
 ## Badges
-[![Release](https://img.shields.io/github/release/trek10inc/awsets.svg?style=for-the-badge)](https://github.com/trek10inc/awsets/releases/latest)
+[![Release](https://img.shields.io/github/v/release/trek10inc/awsets?include_prereleases)](https://github.com/trek10inc/awsets/releases/latest)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=for-the-badge)](/LICENSE.md)
 [![Build status](https://img.shields.io/github/workflow/status/trek10inc/awsets/test?style=for-the-badge)](https://github.com/trek10inc/awsets/actions?workflow=test)
 
