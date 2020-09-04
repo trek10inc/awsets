@@ -95,26 +95,26 @@ func Listers(include []string, exclude []string) []ListerName {
 	return ret
 }
 
-func GetByName(name ListerName) lister.Lister {
+func GetByName(name ListerName) (lister.Lister, error) {
 
 	for _, v := range lister.AllListers() {
 		if name == ListerName(reflect.TypeOf(v).Name()) {
-			return v
+			return v, nil
 		}
 	}
-	panic(fmt.Errorf("no lister found for %s", name))
+	return nil, fmt.Errorf("no lister found for %s", name)
 }
 
-func GetByType(kind resource.ResourceType) lister.Lister {
+func GetByType(kind resource.ResourceType) (lister.Lister, error) {
 
 	for _, v := range lister.AllListers() {
 		for _, t := range v.Types() {
 			if t == kind {
-				return v
+				return v, nil
 			}
 		}
 	}
-	panic(fmt.Errorf("no lister found for %s", kind))
+	return nil, fmt.Errorf("no lister found for %s", kind)
 }
 
 func Regions(prefixes ...string) ([]string, error) {
@@ -197,9 +197,13 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 						rg.Merge(group)
 					} else {
 						ctx.Logger.Infof("%d: not cached: %s - %s\n", id, job.region, job.lister)
-						idx := GetByName(job.lister)
+						lister, err := GetByName(job.lister)
+						if err != nil {
+							ctx.Logger.Errorf("failed to get lister by name: %v", err)
+							continue
+						}
 						ctxcp := ctx.Copy(job.region)
-						group, err := idx.List(ctxcp)
+						group, err := lister.List(ctxcp)
 						if err != nil {
 							// indicates service is not supported in a region, likely a better way to do this though
 							// eks returns "AccessDenied" if the service isn't in the region though
