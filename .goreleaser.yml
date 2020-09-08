@@ -50,12 +50,11 @@ release:
   # in case there is an indicator for this in the tag e.g. v1.0.0-rc1
   # If set to true, will mark the release as not ready for production.
   # Default is false.
-#  prerelease: auto
-  prerelease: true
+  prerelease: auto
 
   # You can change the name of the GitHub release.
   # Default is `{{.Tag}}`
-  name_template: "{{.ProjectName}}-v{{.Version}} {{.Env.USER}}"
+  name_template: "v{{.Version}}"
 
   # You can disable this pipe in order to not upload any artifacts to
   # GitHub.

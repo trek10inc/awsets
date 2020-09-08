@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func Execute(version string) {
+func Execute(buildInfo map[string]string) {
 	app := &cli.App{
 		Name:  "awsets",
 		Usage: "query aws resources",
@@ -24,7 +24,7 @@ func Execute(version string) {
 			regionsCmd,
 			typesCmd,
 			processCmd,
-			versionCmd(version),
+			versionCmd(buildInfo),
 		},
 	}
 	if err := app.Run(os.Args); err != nil {
@@ -32,12 +32,12 @@ func Execute(version string) {
 	}
 }
 
-func versionCmd(version string) *cli.Command {
+func versionCmd(buildInfo map[string]string) *cli.Command {
 	return &cli.Command{
 		Name:  "version",
 		Usage: "prints version information",
 		Action: func(c *cli.Context) error {
-			fmt.Printf("awsets version: %s\n", version)
+			fmt.Printf("awsets - version: %s\tcommit: %s\tdate: %s\n", buildInfo["version"], buildInfo["commit"], buildInfo["date"])
 			return nil
 		},
 	}

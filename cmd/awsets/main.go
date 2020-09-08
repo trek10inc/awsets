@@ -3,9 +3,15 @@ package main
 import "github.com/trek10inc/awsets/cmd/awsets/cmd"
 
 var (
-	version string
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 func main() {
-	cmd.Execute(version)
+	cmd.Execute(map[string]string{
+		"version": version,
+		"commit":  commit,
+		"date":    date,
+	})
 }
