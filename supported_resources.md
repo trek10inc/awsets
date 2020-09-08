@@ -1,6 +1,9 @@
 ```
 accessanalyzer/analyzer
 acm/certificate
+amplify/app
+amplify/branch
+amplify/domain
 apig/apikey
 apig/authorizer
 apig/basepathmapping
