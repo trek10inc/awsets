@@ -3,6 +3,8 @@ package lister
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
+
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -38,6 +40,12 @@ func (l AWSApiGatewayV2DomainName) List(ctx context.AWSetsCtx) (*resource.Group,
 			NextToken:  nextToken,
 		}).Send(ctx.Context)
 		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				if aerr.Code() == "AccessDeniedException" {
+					// If api gateway is not supported in a region, returns access denied
+					return rg, nil
+				}
+			}
 			return rg, fmt.Errorf("failed to list apigatewayv2 domain names: %w", err)
 		}
 		for _, v := range res.Items {

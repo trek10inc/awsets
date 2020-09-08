@@ -1,6 +1,9 @@
 package lister
 
 import (
+	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 
@@ -38,5 +41,14 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 		}
 	}
 	err := paginator.Err()
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == "InvalidAction" &&
+				strings.Contains(aerr.Message(), "is not valid for this web service") {
+				// If transit gateways are not supported in a region, returns invalid action
+				err = nil
+			}
+		}
+	}
 	return rg, err
 }

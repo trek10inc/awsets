@@ -2,6 +2,9 @@ package lister
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 
 	"github.com/trek10inc/awsets/context"
 
@@ -45,5 +48,14 @@ func (l AWSCloudFormationStackSet) List(ctx context.AWSetsCtx) (*resource.Group,
 		}
 	}
 	err := paginator.Err()
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == "ValidationException" &&
+				strings.Contains(aerr.Message(), "is not supported in this region") {
+				// If stacksets are not supported in a region, returns validation exception
+				err = nil
+			}
+		}
+	}
 	return rg, err
 }
