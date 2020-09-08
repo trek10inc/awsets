@@ -2,6 +2,9 @@ package lister
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
 
@@ -38,6 +41,13 @@ func (l AWSGreengrassSubscriptionDefinition) List(ctx context.AWSetsCtx) (*resou
 			NextToken:  nextToken,
 		}).Send(ctx.Context)
 		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				if aerr.Code() == "TooManyRequestsException" &&
+					strings.Contains(aerr.Message(), "exceeded maximum number of attempts") {
+					// If greengrass is not supported in a region, returns "TooManyRequests exception"
+					return rg, nil
+				}
+			}
 			return rg, fmt.Errorf("failed to list greengrass subscription definitions: %w", err)
 		}
 		for _, v := range subscriptiondefs.Definitions {

@@ -77,8 +77,10 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						roleArn := arn.ParseP(service.RoleArn)
 						serviceResource.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
 					}
-					taskDefArn := arn.ParseP(service.TaskDefinition)
-					serviceResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
+					if arn.IsArnP(service.TaskDefinition) {
+						taskDefArn := arn.ParseP(service.TaskDefinition)
+						serviceResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
+					}
 					if arn.IsArnP(service.RoleArn) { //TODO this seems to be just a name, not an ARN?
 						roleArn := arn.ParseP(service.RoleArn)
 						serviceResource.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
