@@ -50,14 +50,14 @@ Filters can be added to the query in order to restrict regions and resource type
 ## Getting Started
 
 ### Installation
-#### With Go
+#### From source
 ```
 git clone https://github.com/trek10inc/awsets.git
 cd awsets/cmd/awsets
 go build && go install
 ```
 
-#### Without Go
+#### From binaries
 Binaries are available [here](https://github.com/trek10inc/awsets/releases)
 
 ## Usage:
