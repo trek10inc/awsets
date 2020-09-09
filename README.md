@@ -51,7 +51,11 @@ Filters can be added to the query in order to restrict regions and resource type
 
 ### Installation
 #### With Go
-Run `GO111MODULE="on" go get github.com/trek10inc/awsets/cmd/awsets`
+```
+git clone https://github.com/trek10inc/awsets.git
+cd awsets/cmd/awsets
+go build && go install
+```
 
 #### Without Go
 Binaries are available [here](https://github.com/trek10inc/awsets/releases)
