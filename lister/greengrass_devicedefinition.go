@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -37,12 +36,10 @@ func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 			NextToken:  nextToken,
 		}).Send(ctx.Context)
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == "TooManyRequestsException" &&
-					strings.Contains(aerr.Message(), "exceeded maximum number of attempts") {
-					// If greengrass is not supported in a region, returns "TooManyRequests exception"
-					return rg, nil
-				}
+			// greengrass errors are not of type awserr.Error
+			if strings.Contains(err.Error(), "TooManyRequestsException") {
+				// If greengrass is not supported in a region, returns "TooManyRequests exception"
+				return rg, nil
 			}
 			return rg, fmt.Errorf("failed to list greengrass device definitions: %w", err)
 		}

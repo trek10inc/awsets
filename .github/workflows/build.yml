@@ -19,8 +19,21 @@ jobs:
           fetch-depth: 0
       - name: Test
         run: go test ./...
-      - name: Run GoReleaser
+      - name: Update go.mod
         if: success()
+        run: |
+          sed -i -e '/trek10inc\/awsets v/ s/ v.*/ v'"${{ github.event.release.tag_name }}"'/' cmd/awsets/go.mod
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add cmd/awsets/go.mod
+          git commit -m "Update version in go.mod"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
           version: ${{ github.event.release.tag_name }}

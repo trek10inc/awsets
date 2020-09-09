@@ -20,36 +20,18 @@ import (
 type ListerName string
 
 func Types(include []string, exclude []string) []resource.ResourceType {
-	typeMap := make(map[resource.ResourceType]struct{})
-	if len(include) == 0 {
-		for _, v := range lister.AllListers() {
-			for _, t := range v.Types() {
-				typeMap[t] = struct{}{}
-			}
-		}
-	} else {
-		for _, name := range include {
+	filteredListers := Listers(include, exclude)
 
-			for _, v := range lister.AllListers() {
-				for _, t := range v.Types() {
-					if strings.HasPrefix(t.String(), name) {
-						typeMap[t] = struct{}{}
-					}
+	typeMap := make(map[resource.ResourceType]struct{})
+	for _, v := range filteredListers {
+		for _, l := range lister.AllListers() {
+			if v == ListerName(reflect.TypeOf(l).Name()) {
+				for _, t := range l.Types() {
+					typeMap[t] = struct{}{}
 				}
 			}
 		}
-	}
-	for _, name := range exclude {
-		if len(name) == 0 {
-			continue
-		}
-		for _, v := range lister.AllListers() {
-			for _, t := range v.Types() {
-				if strings.HasPrefix(t.String(), name) {
-					delete(typeMap, t)
-				}
-			}
-		}
+
 	}
 
 	ret := make([]resource.ResourceType, 0)
@@ -60,17 +42,17 @@ func Types(include []string, exclude []string) []resource.ResourceType {
 }
 
 func Listers(include []string, exclude []string) []ListerName {
-	idxMap := make(map[ListerName]struct{}, 0)
+	listerMap := make(map[ListerName]struct{}, 0)
 	if len(include) == 0 {
 		for _, v := range lister.AllListers() {
-			idxMap[ListerName(reflect.TypeOf(v).Name())] = struct{}{}
+			listerMap[ListerName(reflect.TypeOf(v).Name())] = struct{}{}
 		}
 	} else {
 		for _, name := range include {
 			for _, v := range lister.AllListers() {
 				for _, t := range v.Types() {
 					if strings.HasPrefix(t.String(), name) {
-						idxMap[ListerName(reflect.TypeOf(v).Name())] = struct{}{}
+						listerMap[ListerName(reflect.TypeOf(v).Name())] = struct{}{}
 					}
 				}
 			}
@@ -83,13 +65,13 @@ func Listers(include []string, exclude []string) []ListerName {
 		for _, v := range lister.AllListers() {
 			for _, t := range v.Types() {
 				if strings.HasPrefix(t.String(), name) {
-					delete(idxMap, ListerName(reflect.TypeOf(v).Name()))
+					delete(listerMap, ListerName(reflect.TypeOf(v).Name()))
 				}
 			}
 		}
 	}
 	ret := make([]ListerName, 0)
-	for v := range idxMap {
+	for v := range listerMap {
 		ret = append(ret, v)
 	}
 	return ret

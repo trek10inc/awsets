@@ -1,6 +1,6 @@
 module github.com/trek10inc/awsets/cmd/awsets
 
-go 1.14
+go 1.15
 
 require (
 	github.com/trek10inc/awsets v0.1.0
