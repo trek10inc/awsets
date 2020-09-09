@@ -22,7 +22,9 @@ jobs:
       - name: Update go.mod
         if: success()
         run: |
-          sed -i -e '/trek10inc\/awsets v/ s/ v.*/ v'"$github.event.release.tag_name"'/' cmd/awsets/go.mod
+          sed -i -e '/trek10inc\/awsets v/ s/ v.*/ v'"$TAG"'/' cmd/awsets/go.mod
+        env:
+          TAG: ${{ github.event.release.tag_name }}
       - name: Commit changes
         run: |
           git config --local user.email "action@github.com"
