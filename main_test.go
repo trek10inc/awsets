@@ -1,4 +1,4 @@
-package awspelunk
+package awsets
 
 import (
 	"strings"

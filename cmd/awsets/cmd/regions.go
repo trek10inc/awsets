@@ -14,7 +14,7 @@ var regionsCmd = &cli.Command{
 	ArgsUsage: "[region prefixes]",
 	Action: func(c *cli.Context) error {
 
-		regions, err := awspelunk.Regions(c.Args().Slice()...)
+		regions, err := awsets.Regions(c.Args().Slice()...)
 
 		if err != nil {
 			return err

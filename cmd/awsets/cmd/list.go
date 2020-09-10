@@ -22,6 +22,7 @@ var listCmd = &cli.Command{
 	Name:      "list",
 	Usage:     "lists all requested aws resources",
 	ArgsUsage: " ",
+	Before:    validateNumArgs(0),
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "dryrun",
@@ -62,16 +63,16 @@ var listCmd = &cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) error {
-		listers := awspelunk.Listers(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
+		listers := awsets.Listers(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
 
-		regions, err := awspelunk.Regions(strings.Split(c.String("regions"), ",")...)
+		regions, err := awsets.Regions(strings.Split(c.String("regions"), ",")...)
 		if err != nil {
 			log.Fatalf("unable to load regions: %v", err)
 		}
 
 		if c.Bool("dryrun") || c.Bool("verbose") {
 			fmt.Printf("regions: %s\n", regions)
-			types := awspelunk.Types(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
+			types := awsets.Types(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
 			ret := make([]string, 0)
 			for _, t := range types {
 				ret = append(ret, t.String())
@@ -108,7 +109,7 @@ var listCmd = &cli.Command{
 			log.Fatalf("failed to open cache: %v", err)
 		}
 
-		rg, err := awspelunk.List(ctx, regions, listers, bc)
+		rg, err := awsets.List(ctx, regions, listers, bc)
 		if err != nil {
 			log.Fatalf("failed to query resources? %v\n", err)
 		}

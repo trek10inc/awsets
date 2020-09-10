@@ -42,7 +42,7 @@ func NewBoltCache(account string, refresh bool) (*BoltCache, error) {
 	}, err
 }
 
-func (c *BoltCache) IsCached(accountId, region string, kind awspelunk.ListerName) bool {
+func (c *BoltCache) IsCached(accountId, region string, kind awsets.ListerName) bool {
 	if c.refresh {
 		return false
 	}
@@ -68,7 +68,7 @@ func (c *BoltCache) IsCached(accountId, region string, kind awspelunk.ListerName
 	return true
 }
 
-func (c *BoltCache) SaveGroup(rg *resource.Group, region string, kind awspelunk.ListerName) error {
+func (c *BoltCache) SaveGroup(rg *resource.Group, region string, kind awsets.ListerName) error {
 	data, err := rg.JSON()
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (c *BoltCache) SaveGroup(rg *resource.Group, region string, kind awspelunk.
 	})
 }
 
-func (c *BoltCache) LoadGroup(region string, kind awspelunk.ListerName) (*resource.Group, error) {
+func (c *BoltCache) LoadGroup(region string, kind awsets.ListerName) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	err := c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(c.account))

@@ -32,6 +32,15 @@ func Execute(buildInfo map[string]string) {
 	}
 }
 
+func validateNumArgs(nArgs int) cli.BeforeFunc {
+	return func(ctx *cli.Context) error {
+		if ctx.NArg() != nArgs {
+			return fmt.Errorf("expected %d arguments, but received %d", nArgs, ctx.NArg())
+		}
+		return nil
+	}
+}
+
 func versionCmd(buildInfo map[string]string) *cli.Command {
 	return &cli.Command{
 		Name:  "version",

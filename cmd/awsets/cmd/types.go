@@ -13,6 +13,7 @@ var typesCmd = &cli.Command{
 	Name:      "types",
 	Usage:     "lists supported resource types",
 	ArgsUsage: " ",
+	Before:    validateNumArgs(0),
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "include",
@@ -27,7 +28,7 @@ var typesCmd = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 
-		types := awspelunk.Types(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
+		types := awsets.Types(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
 		ret := make([]string, 0)
 
 		for _, t := range types {
