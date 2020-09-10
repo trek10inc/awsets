@@ -115,7 +115,7 @@ Query everything, save to `all.json`
 `awsets list -o all.json`
 
 Query all resources managed by the IAM & EC2 services in us-east-1:
-`awsets list --regions us-east-1 -o all.json --types iam,ec2`
+`awsets list --regions us-east-1 -o all.json --include iam,ec2`
 
 #### regions
 
