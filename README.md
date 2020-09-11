@@ -149,7 +149,7 @@ A section of experimentation. There are a few custom processors here that are us
 
 ##### dot
 
-Command that takes a file that is output from `awsets list` and generates a DOT graph. This can then be rendered into an image via `fdp <dot file> -Tsvg <output.svg>`
+Command that takes a file that is output from `awsets list` and generates a DOT graph. This can then be rendered into an image via `fdp <dot file> -Tsvg -o <output.svg>`
 
 ```
 USAGE:
