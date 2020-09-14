@@ -57,6 +57,12 @@ cd awsets/cmd/awsets
 go build && go install
 ```
 
+#### Homebrew
+```
+brew tap trek10inc/awsets
+brew install awsets
+```
+
 #### From binaries
 Binaries are available [here](https://github.com/trek10inc/awsets/releases)
 
