@@ -71,10 +71,10 @@ release:
 #    - glob: ./glob/foo/to/bar/file/foobar/override_from_previous
 
 brews:
-  - github:
+  - tap:
       owner: trek10inc
       name: homebrew-awsets
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      token: "{{ .HOMEBREW_TAP_TOKEN }}"
     folder: Formula
     homepage: https://github.com/trek10inc/awsets
     description: A utility for crawling an AWS account and exporting all its resources for further analysis.
