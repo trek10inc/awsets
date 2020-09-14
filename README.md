@@ -59,7 +59,7 @@ go build && go install
 
 #### Homebrew
 ```
-brew tap trek10inc/awsets
+brew tap trek10inc/tap
 brew install awsets
 ```
 
