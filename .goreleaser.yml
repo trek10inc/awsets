@@ -74,7 +74,7 @@ brews:
   - tap:
       owner: trek10inc
       name: homebrew-awsets
-      token: "{{ .HOMEBREW_TAP_TOKEN }}"
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     folder: Formula
     homepage: https://github.com/trek10inc/awsets
     description: A utility for crawling an AWS account and exporting all its resources for further analysis.
