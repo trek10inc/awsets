@@ -155,7 +155,7 @@ A section of experimentation. There are a few custom processors here that are us
 
 ##### dot
 
-Command that takes a file that is output from `awsets list` and generates a DOT graph. This can then be rendered into an image via `fdp <dot file> -Tsvg -o <output.svg>`
+Command that takes a file that is output from `awsets list` and generates a DOT graph. This can then be rendered into an image via `fdp <dot file> -Tsvg -o <output.svg>`. This step can take a while to complete, and the resulting image is typically rather large. There is ongoing work to try and improve this process.
 
 ```
 USAGE:
@@ -164,6 +164,7 @@ USAGE:
 OPTIONS:
    --input value, -i value   input file containing data to process
    --output value, -o value  output file to save results
+   --hide-unrelated          remove unrelated resources from dot file (default: false)
    --help, -h                show help (default: false)
 ```
 
