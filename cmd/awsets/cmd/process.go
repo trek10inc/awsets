@@ -183,6 +183,11 @@ var dotGenerator = &cli.Command{
 			Usage:     "output file to save results",
 			TakesFile: true,
 		},
+		&cli.BoolFlag{
+			Name:  "hide-unrelated",
+			Value: false,
+			Usage: "remove unrelated resources from dot file",
+		},
 	},
 	Action: func(c *cli.Context) error {
 
@@ -264,21 +269,23 @@ var dotGenerator = &cli.Command{
 			}
 		}
 
-		// write unrelated items
-		for k, r := range resources {
-			regionGraph, ok := subgraphs[k.Region]
-			if !ok {
-				regionGraph = graph.Subgraph(k.Region, dot.ClusterOption{})
-				subgraphs[k.Region] = regionGraph
+		if !c.Bool("hide-unrelated") {
+			// write unrelated items
+			for k, r := range resources {
+				regionGraph, ok := subgraphs[k.Region]
+				if !ok {
+					regionGraph = graph.Subgraph(k.Region, dot.ClusterOption{})
+					subgraphs[k.Region] = regionGraph
+				}
+				unrelatedGraph, ok := subgraphs[k.Region+"_unrelated"]
+				if !ok {
+					unrelatedGraph = regionGraph.Subgraph(k.Region+"_unrelated", dot.ClusterOption{})
+					unrelatedGraph.Attr("style", "filled")
+					unrelatedGraph.Attr("color", "#ffffee")
+					subgraphs[k.Region+"_unrelated"] = unrelatedGraph
+				}
+				unrelatedGraph.Node(nodeIds[k]).Box().Label(makeLabel(r))
 			}
-			unrelatedGraph, ok := subgraphs[k.Region+"_unrelated"]
-			if !ok {
-				unrelatedGraph = regionGraph.Subgraph(k.Region+"_unrelated", dot.ClusterOption{})
-				unrelatedGraph.Attr("style", "filled")
-				unrelatedGraph.Attr("color", "#ffffee")
-				subgraphs[k.Region+"_unrelated"] = unrelatedGraph
-			}
-			unrelatedGraph.Node(nodeIds[k]).Box().Label(makeLabel(r))
 		}
 
 		if c.String("output") == "" {

@@ -63,8 +63,7 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				r.AddRelation(resource.RdsDbInstance, *dbInstance.ReadReplicaSourceDBInstanceIdentifier, "")
 			}
 			for _, replicaCluster := range dbInstance.ReadReplicaDBClusterIdentifiers {
-				clusterArn := arn.Parse(replicaCluster)
-				r.AddRelation(resource.RdsDbCluster, clusterArn.ResourceId, clusterArn.ResourceVersion)
+				r.AddRelation(resource.RdsDbCluster, replicaCluster, "")
 			}
 			for _, replicaInstance := range dbInstance.ReadReplicaDBInstanceIdentifiers {
 				r.AddRelation(resource.RdsDbInstance, replicaInstance, "")

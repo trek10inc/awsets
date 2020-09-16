@@ -48,14 +48,14 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		for i, bucket := range res.Buckets {
 			bucketLocation, err := svc.GetBucketLocationRequest(&s3.GetBucketLocationInput{Bucket: bucket.Name}).Send(ctx.Context)
 			if err != nil {
-				ctx.Logger.Errorln(fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err))
+				ctx.Logger.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
 				continue
 				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
 				//return
 			}
 			reg, err := bucketLocation.LocationConstraint.MarshalValue()
 			if err != nil {
-				ctx.Logger.Errorln("failed to marshal s3 location for bucket %s: %v\n", *bucket.Name, err)
+				ctx.Logger.Errorf("failed to marshal s3 location for bucket %s: %v\n", *bucket.Name, err)
 			}
 			if len(reg) == 0 {
 				reg = "us-east-1"
@@ -98,7 +98,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		if err == nil {
 			buck["Encryption"] = structs.Map(encrRes.GetBucketEncryptionOutput)
 		} else {
-			buck["Policy"] = nil
+			buck["Encryption"] = nil
 		}
 
 		tagRes, err := svc.GetBucketTaggingRequest(&s3.GetBucketTaggingInput{

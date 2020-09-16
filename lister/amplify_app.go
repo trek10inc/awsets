@@ -51,7 +51,7 @@ func (l AWSAmplifyApp) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for {
 				branches, err := svc.ListBranchesRequest(&amplify.ListBranchesInput{
 					AppId:      v.AppId,
-					MaxResults: aws.Int64(100),
+					MaxResults: aws.Int64(50),
 					NextToken:  branchNextToken,
 				}).Send(ctx.Context)
 				if err != nil {
@@ -74,7 +74,7 @@ func (l AWSAmplifyApp) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for {
 				domains, err := svc.ListDomainAssociationsRequest(&amplify.ListDomainAssociationsInput{
 					AppId:      v.AppId,
-					MaxResults: aws.Int64(100),
+					MaxResults: aws.Int64(50),
 					NextToken:  domainNextToken,
 				}).Send(ctx.Context)
 				if err != nil {

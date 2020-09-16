@@ -24,6 +24,9 @@ func (l AWSAppsyncGraphqlApi) Types() []resource.ResourceType {
 		resource.AppSyncGraphQLApi,
 		resource.AppSyncApiKey,
 		resource.AppSyncDataSource,
+		resource.AppSyncFunction,
+		resource.AppSyncResolver,
+		resource.AppSyncApiCache,
 	}
 }
 
@@ -137,6 +140,18 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					break
 				}
 				apiKeyToken = apiKeys.NextToken
+			}
+
+			apiCache, err := svc.GetApiCacheRequest(&appsync.GetApiCacheInput{
+				ApiId: api.ApiId,
+			}).Send(ctx.Context)
+			if err != nil {
+				return rg, fmt.Errorf("failed to get api cache for %s: %w", *api.ApiId, err)
+			}
+			if v := apiCache.ApiCache; v != nil {
+				cacheR := resource.New(ctx, resource.AppSyncApiCache, fmt.Sprintf("%s-cache", *api.ApiId), fmt.Sprintf("%s-cache", *api.ApiId), v)
+				cacheR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
+				rg.AddResource(cacheR)
 			}
 		}
 		if apis.NextToken == nil {

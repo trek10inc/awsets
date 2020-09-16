@@ -3,11 +3,11 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -159,5 +159,13 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 		}
 	}
 	err := paginator.Err()
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == "AccessDeniedException" {
+				// If api gateway is not supported in a region, returns access denied
+				err = nil
+			}
+		}
+	}
 	return rg, err
 }

@@ -24,6 +24,7 @@ func (l AWSAppMeshMesh) Types() []resource.ResourceType {
 		resource.AppMeshRoute,
 		resource.AppMeshVirtualNode,
 		resource.AppMeshVirtualService,
+		resource.AppMeshVirtualGateway,
 	}
 }
 
@@ -165,6 +166,34 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			if err = vsPaginator.Err(); err != nil {
 				return rg, fmt.Errorf("failed to list virtual services for mesh %s: %w", *mesh.MeshName, err)
+			}
+
+			// Virtual Gateways
+			vgPaginator := appmesh.NewListVirtualGatewaysPaginator(svc.ListVirtualGatewaysRequest(&appmesh.ListVirtualGatewaysInput{
+				Limit:     aws.Int64(100),
+				MeshName:  mesh.MeshName,
+				MeshOwner: mesh.MeshOwner,
+			}))
+			for vgPaginator.Next(ctx.Context) {
+				vgPage := vgPaginator.CurrentPage()
+				for _, vgId := range vgPage.VirtualGateways {
+					vgRes, err := svc.DescribeVirtualGatewayRequest(&appmesh.DescribeVirtualGatewayInput{
+						MeshName:           mesh.MeshName,
+						MeshOwner:          mesh.MeshOwner,
+						VirtualGatewayName: vgId.VirtualGatewayName,
+					}).Send(ctx.Context)
+					if err != nil {
+						return rg, fmt.Errorf("failed to describe virtual gateways %s for mesh %s: %w", *vgId.VirtualGatewayName, *mesh.MeshName, err)
+					}
+					if vg := vgRes.VirtualGateway; vg != nil {
+						vgR := resource.New(ctx, resource.AppMeshVirtualGateway, vg.VirtualGatewayName, vg.VirtualGatewayName, vg)
+						vgR.AddRelation(resource.AppMeshMesh, mesh.MeshName, "")
+						rg.AddResource(vgR)
+					}
+				}
+			}
+			if err = vgPaginator.Err(); err != nil {
+				return rg, fmt.Errorf("failed to list virtual gateways for mesh %s: %w", *mesh.MeshName, err)
 			}
 
 			rg.AddResource(r)

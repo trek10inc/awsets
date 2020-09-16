@@ -24,7 +24,11 @@ func init() {
 }
 
 func (l AWSEksCluster) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.EksCluster}
+	return []resource.ResourceType{
+		resource.EksCluster,
+		resource.EksNodeGroup,
+		resource.EksFargateProfile,
+	}
 }
 
 func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
@@ -49,10 +53,9 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			cluster := clusterRes.Cluster
 			r := resource.New(ctx, resource.EksCluster, cluster.Name, cluster.Name, cluster)
-			if cluster.RoleArn != nil {
-				roleArn := arn.ParseP(cluster.RoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
-			}
+			r.AddARNRelation(resource.IamRole, cluster.RoleArn)
+
+			// Node groups
 			ngPaginator := eks.NewListNodegroupsPaginator(svc.ListNodegroupsRequest(&eks.ListNodegroupsInput{
 				ClusterName: &clusterName,
 				MaxResults:  aws.Int64(100),
@@ -81,6 +84,33 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			if err != nil {
 				return rg, fmt.Errorf("failed to list node groups for cluster %s: %w", clusterName, err)
 			}
+
+			// Fargate profiles
+			fpPaginator := eks.NewListFargateProfilesPaginator(svc.ListFargateProfilesRequest(&eks.ListFargateProfilesInput{
+				ClusterName: &clusterName,
+			}))
+			for fpPaginator.Next(ctx.Context) {
+				fpPage := fpPaginator.CurrentPage()
+				for _, fpName := range fpPage.FargateProfileNames {
+					fpRes, err := svc.DescribeFargateProfileRequest(&eks.DescribeFargateProfileInput{
+						ClusterName:        &clusterName,
+						FargateProfileName: &fpName,
+					}).Send(ctx.Context)
+					if err != nil {
+						return rg, fmt.Errorf("failed to describe fargate profile %s for cluster %s: %w", fpName, clusterName, err)
+					}
+					if fp := fpRes.FargateProfile; fp != nil {
+						fpResource := resource.New(ctx, resource.EksFargateProfile, fmt.Sprintf("%s-%s", clusterName, fpName), fp.FargateProfileName, fp)
+						for _, sn := range fp.Subnets {
+							fpResource.AddRelation(resource.Ec2Subnet, sn, "")
+						}
+						fpResource.AddARNRelation(resource.IamRole, fp.PodExecutionRoleArn)
+						fpResource.AddRelation(resource.EksCluster, clusterName, "")
+						rg.AddResource(fpResource)
+					}
+				}
+			}
+
 			rg.AddResource(r)
 		}
 	}

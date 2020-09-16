@@ -64,9 +64,9 @@ func (l AWSCloudFormationStack) List(ctx context.AWSetsCtx) (*resource.Group, er
 	}
 	err := paginator.Err()
 	if len(unmapped) > 0 {
-		ctx.Logger.Infof("unmapped cf types for region %s:\n", ctx.Region())
+		ctx.Logger.Debugf("unmapped cf types for region %s:\n", ctx.Region())
 		for k, v := range unmapped {
-			ctx.Logger.Infof("%s,%03d\n", k, v)
+			ctx.Logger.Debugf("%s,%03d\n", k, v)
 		}
 	}
 	return rg, err

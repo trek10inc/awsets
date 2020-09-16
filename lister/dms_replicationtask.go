@@ -1,6 +1,8 @@
 package lister
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/trek10inc/awsets/context"
@@ -37,5 +39,12 @@ func (l AWSDMSReplicationTask) List(ctx context.AWSetsCtx) (*resource.Group, err
 		}
 	}
 	err := paginator.Err()
+
+	if err != nil {
+		if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
+			// If DMS is not supported in a region, it triggers this error
+			err = nil
+		}
+	}
 	return rg, err
 }

@@ -137,14 +137,10 @@ func (l VerboseLogger) Errorf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
 
-func (l VerboseLogger) Errorln(a ...interface{}) {
-	fmt.Fprintln(os.Stderr, a...)
-}
-
 func (l VerboseLogger) Infof(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stdout, format, a...)
 }
 
-func (l VerboseLogger) Infoln(a ...interface{}) {
-	fmt.Fprintln(os.Stdout, a...)
+func (l VerboseLogger) Debugf(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stdout, format, a...)
 }

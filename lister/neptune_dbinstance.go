@@ -58,14 +58,10 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
 			if v.ReadReplicaSourceDBInstanceIdentifier != nil {
-				if arn.IsArnP(v.ReadReplicaSourceDBInstanceIdentifier) {
-					ctx.Logger.Errorf("source db instance is actually an arn!: %s\n", *v.ReadReplicaSourceDBInstanceIdentifier)
-				}
 				r.AddRelation(resource.NeptuneDbInstance, *v.ReadReplicaSourceDBInstanceIdentifier, "")
 			}
 			for _, replicaCluster := range v.ReadReplicaDBClusterIdentifiers {
-				clusterArn := arn.Parse(replicaCluster)
-				r.AddRelation(resource.NeptuneDbCluster, clusterArn.ResourceId, clusterArn.ResourceVersion)
+				r.AddRelation(resource.NeptuneDbCluster, replicaCluster, "")
 			}
 			for _, replicaInstance := range v.ReadReplicaDBInstanceIdentifiers {
 				r.AddRelation(resource.NeptuneDbInstance, replicaInstance, "")

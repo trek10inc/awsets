@@ -20,7 +20,12 @@ func init() {
 }
 
 func (l AWSEcsCluster) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.EcsCluster, resource.EcsService, resource.EcsTask}
+	return []resource.ResourceType{
+		resource.EcsCluster,
+		resource.EcsService,
+		resource.EcsTask,
+		resource.EcsCapacityProvider,
+	}
 }
 
 func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
@@ -48,11 +53,11 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			clusterArn := arn.ParseP(v.ClusterArn)
 			clusterResource := resource.New(ctx, resource.EcsCluster, clusterArn.ResourceId, v.ClusterName, v)
 
-			listServicesRequest := svc.ListServicesRequest(&ecs.ListServicesInput{
+			// ECS Services
+			servicesPaginator := ecs.NewListServicesPaginator(svc.ListServicesRequest(&ecs.ListServicesInput{
 				Cluster:    v.ClusterArn,
 				MaxResults: aws.Int64(10),
-			})
-			servicesPaginator := ecs.NewListServicesPaginator(listServicesRequest)
+			}))
 			for servicesPaginator.Next(ctx.Context) {
 				servicesPage := servicesPaginator.CurrentPage()
 				if len(servicesPage.ServiceArns) == 0 {
@@ -71,16 +76,10 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 					serviceArn := arn.ParseP(service.ServiceArn)
 					serviceResource := resource.New(ctx, resource.EcsService, serviceArn.ResourceId, service.ServiceName, service)
-					serviceResource.AddRelation(resource.EcsCluster, clusterArn.ResourceId, "")
+					serviceResource.AddARNRelation(resource.EcsCluster, v.ClusterArn)
+					serviceResource.AddARNRelation(resource.IamRole, service.RoleArn)
+					serviceResource.AddARNRelation(resource.EcsTaskDefinition, service.TaskDefinition)
 
-					if arn.IsArnP(service.RoleArn) {
-						roleArn := arn.ParseP(service.RoleArn)
-						serviceResource.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
-					}
-					if arn.IsArnP(service.TaskDefinition) {
-						taskDefArn := arn.ParseP(service.TaskDefinition)
-						serviceResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
-					}
 					if arn.IsArnP(service.RoleArn) { //TODO this seems to be just a name, not an ARN?
 						roleArn := arn.ParseP(service.RoleArn)
 						serviceResource.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
@@ -88,11 +87,12 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					}
 				}
 			}
-			listTasksRequest := svc.ListTasksRequest(&ecs.ListTasksInput{
+
+			// ECS Tasks
+			tasksPaginator := ecs.NewListTasksPaginator(svc.ListTasksRequest(&ecs.ListTasksInput{
 				Cluster:    v.ClusterArn,
 				MaxResults: aws.Int64(100),
-			})
-			tasksPaginator := ecs.NewListTasksPaginator(listTasksRequest)
+			}))
 			for tasksPaginator.Next(ctx.Context) {
 				tasksPage := tasksPaginator.CurrentPage()
 				if len(tasksPage.TaskArns) == 0 {
@@ -111,7 +111,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 					taskArn := arn.ParseP(task.TaskArn)
 					taskResource := resource.New(ctx, resource.EcsTask, taskArn.ResourceId, "", task)
-					taskResource.AddRelation(resource.EcsCluster, clusterArn.ResourceId, "")
+					taskResource.AddARNRelation(resource.EcsCluster, v.ClusterArn)
 					taskDefArn := arn.ParseP(task.TaskDefinitionArn)
 					taskResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
 					rg.AddResource(taskResource)
@@ -122,6 +122,30 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			if err != nil {
 				return rg, fmt.Errorf("failed to paginate services: %w", err)
 			}
+
+			// ECS Capacity Providers
+			var nextToken *string
+			for {
+				providers, err := svc.DescribeCapacityProvidersRequest(&ecs.DescribeCapacityProvidersInput{
+					CapacityProviders: v.CapacityProviders,
+					Include:           []ecs.CapacityProviderField{ecs.CapacityProviderFieldTags},
+					NextToken:         nextToken,
+				}).Send(ctx.Context)
+				if err != nil {
+					return rg, fmt.Errorf("failed to describe ecs capacity providers for %s: %w", *v.ClusterName, err)
+				}
+				for _, provider := range providers.CapacityProviders {
+					providerArn := arn.ParseP(provider.CapacityProviderArn)
+					providerRes := resource.New(ctx, resource.EcsCapacityProvider, providerArn.ResourceId, provider.Name, provider)
+					providerRes.AddARNRelation(resource.EcsCluster, v.ClusterArn)
+					rg.AddResource(providerRes)
+				}
+				if providers.NextToken == nil {
+					break
+				}
+				nextToken = providers.NextToken
+			}
+			// TODO: task sets?
 		}
 	}
 	err := paginator.Err()

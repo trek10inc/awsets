@@ -11,19 +11,19 @@ import (
 	"github.com/trek10inc/awsets/arn"
 )
 
-type AWSnsTopic struct {
+type AWSSnsTopic struct {
 }
 
 func init() {
-	i := AWSnsTopic{}
+	i := AWSSnsTopic{}
 	listers = append(listers, i)
 }
 
-func (l AWSnsTopic) Types() []resource.ResourceType {
+func (l AWSSnsTopic) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.SnsTopic, resource.SnsSubscription}
 }
 
-func (l AWSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := sns.New(ctx.AWSCfg)
 
 	req := svc.ListTopicsRequest(&sns.ListTopicsInput{})

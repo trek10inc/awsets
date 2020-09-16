@@ -23,12 +23,17 @@ apigv2/domainname
 apigv2/integration
 appmesh/mesh
 appmesh/route
+appmesh/virtualgateway
 appmesh/virtualnode
 appmesh/virtualrouter
 appmesh/virtualservice
+appsync/apicache
 appsync/apikey
 appsync/datasource
+appsync/function
 appsync/graphqlapi
+appsync/resolver
+athena/datacatalog
 athena/namedquery
 athena/workgroup
 autoscaling/group
@@ -46,8 +51,10 @@ budgets/budget
 cloud9/environment
 cloudformation/stack
 cloudformation/stackset
+cloudfront/cachepolicy
 cloudfront/distribution
 cloudfront/originaccessidentity
+cloudfront/originrequestpolicy
 cloudfront/streamingdistribution
 cloudtrail/trail
 cloudwatch/alarm
@@ -64,7 +71,11 @@ cognito/userpoolresourceserver
 config/aggregationauthorizer
 config/configurationaggregator
 config/configurationrecorder
+config/conformancepack
 config/deliverychannel
+config/organizationconfigrule
+config/organizationconformancepack
+config/remediationconfiguration
 config/rule
 dax/parametergroup
 dax/subnetgroup
@@ -97,6 +108,7 @@ ec2/vpc
 ec2/vpcpeering
 ec2/vpngateway
 ecr/repository
+ecs/capacityprovider
 ecs/cluster
 ecs/service
 ecs/task
@@ -104,6 +116,8 @@ ecs/taskdefinition
 efs/filesystem
 efs/mounttarget
 eks/cluster
+eks/fargateprofile
+eks/nodegroup
 elasticache/cluster
 elasticache/parametergroup
 elasticache/replicationgroup
@@ -143,6 +157,7 @@ greengrass/resourcedefinition
 greengrass/resourcedefinitionversion
 greengrass/subscriptiondefinition
 greengrass/subscriptiondefinitionversion
+iam/accesskey
 iam/group
 iam/instanceprofile
 iam/policy
@@ -182,6 +197,8 @@ rds/dbclusterparametergroup
 rds/dbclustersnapshot
 rds/dbinstance
 rds/dbparametergroup
+rds/dbproxy
+rds/dbproxytargetgroup
 rds/dbsnapshot
 rds/dbsubnetgroup
 redshift/cluster
@@ -219,4 +236,9 @@ wafregional/sizeconstraintset
 wafregional/sqlinjectionmatchset
 wafregional/webacl
 wafregional/xssmatchset
+wafv2/ipset
+wafv2/regexpatternset
+wafv2/rulegroup
+wafv2/webacl
+workspaces/workspace
 ```
