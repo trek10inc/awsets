@@ -14,18 +14,6 @@ func Execute(buildInfo map[string]string) {
 	app := &cli.App{
 		Name:  "awsets",
 		Usage: "query aws resources",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "verbose",
-				Value: false,
-				Usage: "enable verbose logging",
-			},
-			&cli.StringFlag{
-				Name:  "profile",
-				Value: "",
-				Usage: "AWS profile to use",
-			},
-		},
 		Commands: []*cli.Command{
 			listCmd,
 			regionsCmd,

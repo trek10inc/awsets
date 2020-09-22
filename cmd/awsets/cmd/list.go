@@ -27,28 +27,6 @@ var listCmd = &cli.Command{
 			Usage: "do a dry run of query",
 		},
 		&cli.StringFlag{
-			Name:    "output",
-			Aliases: []string{"o"},
-			Value:   "",
-			Usage:   "output file to save results",
-		},
-		&cli.BoolFlag{
-			Name:  "refresh",
-			Value: false,
-			Usage: "force a refresh of cache",
-		},
-		&cli.BoolFlag{
-			Name:    "verbose",
-			Aliases: []string{"v"},
-			Value:   false,
-			Usage:   "toggle verbose logging",
-		},
-		&cli.StringFlag{
-			Name:  "regions",
-			Value: "",
-			Usage: "comma separated list of region prefixes",
-		},
-		&cli.StringFlag{
 			Name:  "include",
 			Value: "",
 			Usage: "comma separated list of resource type prefixes to include",
@@ -59,9 +37,31 @@ var listCmd = &cli.Command{
 			Usage: "comma separated list of resource type prefixes to exclude",
 		},
 		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Value:   "",
+			Usage:   "output file to save results",
+		},
+		&cli.StringFlag{
 			Name:  "profile",
 			Value: "",
 			Usage: "AWS profile to use",
+		},
+		&cli.BoolFlag{
+			Name:  "refresh",
+			Value: false,
+			Usage: "force a refresh of cache",
+		},
+		&cli.StringFlag{
+			Name:  "regions",
+			Value: "",
+			Usage: "comma separated list of region prefixes",
+		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Value:   false,
+			Usage:   "toggle verbose logging",
 		},
 	},
 	Action: func(c *cli.Context) error {

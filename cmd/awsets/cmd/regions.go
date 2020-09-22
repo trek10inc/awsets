@@ -13,6 +13,13 @@ var regionsCmd = &cli.Command{
 	Name:      "regions",
 	Usage:     "lists regions supported by account",
 	ArgsUsage: "[region prefixes]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "profile",
+			Value: "",
+			Usage: "AWS profile to use",
+		},
+	},
 	Action: func(c *cli.Context) error {
 
 		awscfg, err := configureAWS(c)

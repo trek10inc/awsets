@@ -80,7 +80,6 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --verbose   enable verbose logging (default: false)
    --help, -h  show help (default: false)
 ```
 
@@ -106,12 +105,13 @@ USAGE:
 
 OPTIONS:
    --dryrun                  do a dry run of query (default: false)
-   --output value, -o value  output file to save results
-   --refresh                 force a refresh of cache (default: false)
-   --verbose, -v             toggle verbose logging (default: false)
-   --regions value           comma separated list of region prefixes
    --include value           comma separated list of resource type prefixes to include
    --exclude value           comma separated list of resource type prefixes to exclude
+   --output value, -o value  output file to save results
+   --profile value           AWS profile to use
+   --refresh                 force a refresh of cache (default: false)
+   --regions value           comma separated list of region prefixes
+   --verbose, -v             toggle verbose logging (default: false)
    --help, -h                show help (default: false)
 ```
 
@@ -132,6 +132,7 @@ USAGE:
    awsets regions [command options] [region prefixes]
 
 OPTIONS:
+   --profile value  AWS profile to use
    --help, -h  show help (default: false)
 ```
 
