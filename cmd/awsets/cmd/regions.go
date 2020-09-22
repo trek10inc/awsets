@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/trek10inc/awsets"
@@ -14,10 +15,14 @@ var regionsCmd = &cli.Command{
 	ArgsUsage: "[region prefixes]",
 	Action: func(c *cli.Context) error {
 
-		regions, err := awsets.Regions(c.Args().Slice()...)
-
+		awscfg, err := configureAWS(c)
 		if err != nil {
-			return err
+			log.Fatalf("failed to load aws config: %v\n", err)
+		}
+
+		regions, err := awsets.Regions(awscfg, c.Args().Slice()...)
+		if err != nil {
+			log.Fatalf("failed to list regions: %v", err)
 		}
 
 		ret := make([]string, 0)

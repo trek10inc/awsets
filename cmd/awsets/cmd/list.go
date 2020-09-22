@@ -9,13 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/urfave/cli/v2"
-
-	context2 "github.com/trek10inc/awsets/context"
-
-	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/trek10inc/awsets"
 	"github.com/trek10inc/awsets/cmd/awsets/cache"
+	context2 "github.com/trek10inc/awsets/context"
+	"github.com/urfave/cli/v2"
 )
 
 var listCmd = &cli.Command{
@@ -61,13 +58,35 @@ var listCmd = &cli.Command{
 			Value: "",
 			Usage: "comma separated list of resource type prefixes to exclude",
 		},
+		&cli.StringFlag{
+			Name:  "profile",
+			Value: "",
+			Usage: "AWS profile to use",
+		},
 	},
 	Action: func(c *cli.Context) error {
+
+		awscfg, err := configureAWS(c)
+		if err != nil {
+			log.Fatalf("failed to load aws config: %v\n", err)
+		}
+		var logger context2.Logger
+		if c.Bool("verbose") {
+			logger = VerboseLogger{}
+		} else {
+			logger = context2.DefaultLogger{}
+		}
+
+		ctx, err := context2.New(awscfg, context.Background(), logger)
+		if err != nil {
+			return fmt.Errorf("failed to initialize AWSets: %w", err)
+		}
+
 		listers := awsets.Listers(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
 
-		regions, err := awsets.Regions(strings.Split(c.String("regions"), ",")...)
+		regions, err := awsets.Regions(awscfg, strings.Split(c.String("regions"), ",")...)
 		if err != nil {
-			log.Fatalf("unable to load regions: %v", err)
+			return fmt.Errorf("failed to list regions: %w", err)
 		}
 
 		if c.Bool("dryrun") || c.Bool("verbose") {
@@ -88,31 +107,12 @@ var listCmd = &cli.Command{
 			fmt.Printf("querying %d combinations\n", len(regions)*len(listers))
 		}
 
-		var logger context2.Logger
-		if c.Bool("verbose") {
-			logger = VerboseLogger{}
-		} else {
-			logger = context2.DefaultLogger{}
-		}
-
-		awscfg, err := external.LoadDefaultAWSConfig()
-		if err != nil {
-			log.Fatalf("failed to load aws config: %v\n", err)
-		}
-		ctx, err := context2.New(awscfg, context.Background(), logger)
-		if err != nil {
-			log.Fatalf("failed to create ctx: %v", err)
-		}
-
 		bc, err := cache.NewBoltCache(ctx.AccountId, c.Bool("refresh"))
 		if err != nil {
 			log.Fatalf("failed to open cache: %v", err)
 		}
 
-		rg, err := awsets.List(ctx, regions, listers, bc)
-		if err != nil {
-			log.Fatalf("failed to query resources? %v\n", err)
-		}
+		rg := awsets.List(ctx, regions, listers, bc)
 
 		j, err := rg.JSON()
 		if err != nil {
@@ -142,5 +142,6 @@ func (l VerboseLogger) Infof(format string, a ...interface{}) {
 }
 
 func (l VerboseLogger) Debugf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stdout, format, a...)
+	// No op for now until various levels of verbosity are supported
+	//fmt.Fprintf(os.Stdout, format, a...)
 }

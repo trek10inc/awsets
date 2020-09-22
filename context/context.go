@@ -19,6 +19,9 @@ func New(config aws.Config, ctx context.Context, logger Logger) (AWSetsCtx, erro
 	config.Region = "us-east-1"
 	svc := sts.New(config)
 	res, err := svc.GetCallerIdentityRequest(&sts.GetCallerIdentityInput{}).Send(context.Background())
+	if err != nil {
+		return AWSetsCtx{}, fmt.Errorf("failed to get account id: %w", err)
+	}
 	if logger == nil {
 		logger = DefaultLogger{}
 	}
@@ -28,9 +31,7 @@ func New(config aws.Config, ctx context.Context, logger Logger) (AWSetsCtx, erro
 		Context: ctx,
 		Logger:  logger,
 	}
-	if err != nil {
-		return AWSetsCtx{}, fmt.Errorf("failed to get account id: %w", err)
-	}
+
 	cfg.AccountId = *res.Account
 	return cfg, nil
 }

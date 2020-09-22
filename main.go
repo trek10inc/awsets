@@ -9,7 +9,6 @@ import (
 
 	context2 "github.com/trek10inc/awsets/context"
 
-	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/trek10inc/awsets/lister"
 	"github.com/trek10inc/awsets/resource"
 
@@ -19,6 +18,17 @@ import (
 
 type ListerName string
 
+type AWSets struct {
+	AWSCfg    aws.Config
+	AccountId string
+	regions   []string
+	Logger    context2.Logger
+}
+
+// Types applies a filter to all supported AWS resources types and returns a
+// slice of the ones that match. It first builds a list of all resources types
+// that match any of the prefixes defined in `include`, and then removes any
+// resource types that match any of the prefixes defined in `exclude`
 func Types(include []string, exclude []string) []resource.ResourceType {
 	filteredListers := Listers(include, exclude)
 
@@ -31,7 +41,6 @@ func Types(include []string, exclude []string) []resource.ResourceType {
 				}
 			}
 		}
-
 	}
 
 	ret := make([]resource.ResourceType, 0)
@@ -41,6 +50,9 @@ func Types(include []string, exclude []string) []resource.ResourceType {
 	return ret
 }
 
+// Listers applies an include/exclude filter to all implemented listers and
+// returns a slice of the lister names that match. The filter is processed
+// against the resource types handled by each Lister.
 func Listers(include []string, exclude []string) []ListerName {
 	listerMap := make(map[ListerName]struct{}, 0)
 	if len(include) == 0 {
@@ -77,6 +89,8 @@ func Listers(include []string, exclude []string) []ListerName {
 	return ret
 }
 
+// GetByName finds the Lister that matches the name of the input argument. It
+// returns an error if no match is found.
 func GetByName(name ListerName) (lister.Lister, error) {
 
 	for _, v := range lister.AllListers() {
@@ -87,6 +101,8 @@ func GetByName(name ListerName) (lister.Lister, error) {
 	return nil, fmt.Errorf("no lister found for %s", name)
 }
 
+// GetByType finds the Lister that processes the ResourceType given as an
+// argument. It returns an error if no match is found.
 func GetByType(kind resource.ResourceType) (lister.Lister, error) {
 
 	for _, v := range lister.AllListers() {
@@ -99,16 +115,16 @@ func GetByType(kind resource.ResourceType) (lister.Lister, error) {
 	return nil, fmt.Errorf("no lister found for %s", kind)
 }
 
-func Regions(prefixes ...string) ([]string, error) {
+// Regions applies a filter to all available AWS regions and returns a list
+// of the ones that match. The filtering is done by finding the regions that
+// start with any of the prefixes pass in as arguments. If no prefixes are
+// given, all available regions are returned.
+func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 
-	ctx, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load aws config: %w", err)
-	}
-	ctx.Region = "us-east-1"
-
-	regionMap := make(map[string]struct{}, 0)
-	ec2svc := ec2.New(ctx)
+	// query AWS to find a list of all regions that the given credentials
+	// have access to
+	cfg.Region = "us-east-1"
+	ec2svc := ec2.New(cfg)
 	regionsRes, err := ec2svc.DescribeRegionsRequest(&ec2.DescribeRegionsInput{
 		AllRegions: aws.Bool(true),
 	}).Send(context.TODO())
@@ -116,6 +132,8 @@ func Regions(prefixes ...string) ([]string, error) {
 		return nil, fmt.Errorf("failed to query regions: %w", err)
 	}
 
+	// remove any AWS regions that are disabled in the current account
+	regionMap := make(map[string]struct{}, 0)
 	for _, r := range regionsRes.Regions {
 		if r.OptInStatus != nil && *r.OptInStatus == "not-opted-in" {
 			continue
@@ -137,23 +155,30 @@ func Regions(prefixes ...string) ([]string, error) {
 	return regions, nil
 }
 
-func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache Cacher) (*resource.Group, error) {
+// List handles the execution of listers across multiple regions. It creates a
+// worker pool to process every Lister/Region combination and aggregates the
+// results together before returning them. If a cache is provided, each
+// Lister/Region combination will first check for an existing result before
+// querying AWS. Any new results will be updated in the cache.
+func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache Cacher) *resource.Group {
 
 	if cache == nil {
 		cache = NoopCache{}
 	}
 
+	// Creates a work queue
 	jobs := make(chan job, 0)
 
 	rg := resource.NewGroup()
-	wg := &sync.WaitGroup{}
 
+	// Build worker pool
+	wg := &sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(id int, workQueue <-chan job) {
 			//var j job
 			defer func() {
-				ctx.Logger.Infof("%d: finished worker\n", id)
+				ctx.Logger.Debugf("%d: finished worker\n", id)
 				wg.Done()
 			}()
 			//defer func() {
@@ -169,44 +194,56 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 						return
 					}
 					//j = job
-					ctx.Logger.Infof("%d: processing: %s - %s\n", id, job.region, job.lister)
-					if cache.IsCached(ctx.AccountId, job.region, job.lister) {
-						ctx.Logger.Infof("%d: cached: %s - %s\n", id, job.region, job.lister)
+					ctx.Logger.Debugf("%d: processing: %s - %s\n", id, job.region, job.lister)
+
+					// If listing is cached, return it
+					if cache.IsCached(job.region, job.lister) {
+						ctx.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
 						group, err := cache.LoadGroup(job.region, job.lister)
 						if err != nil {
 							ctx.Logger.Errorf("failed to load group: %v", err)
 						}
 						rg.Merge(group)
 					} else {
-						ctx.Logger.Infof("%d: not cached: %s - %s\n", id, job.region, job.lister)
-						lister, err := GetByName(job.lister)
+						ctx.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
+
+						// Find the appropriate Lister
+						l, err := GetByName(job.lister)
 						if err != nil {
 							ctx.Logger.Errorf("failed to get lister by name: %v", err)
 							continue
 						}
+
+						// Copies the AWSets context - this also configures the region in the AWS config
 						ctxcp := ctx.Copy(job.region)
-						group, err := lister.List(ctxcp)
+
+						// Execute listing
+						group, err := l.List(ctxcp)
 						if err != nil {
-							// indicates service is not supported in a region, likely a better way to do this though
-							// eks returns "AccessDenied" if the service isn't in the region though
+							// indicates service is not supported in a region
 							if strings.Contains(err.Error(), "no such host") {
 								continue
 							}
 							ctx.Logger.Errorf("%d: failed job %s - %s\n with error: %v\n", id, job.region, job.lister, err)
 							continue
 						}
-						err = cache.SaveGroup(group, job.region, job.lister)
+
+						// Update the results in the cache
+						err = cache.SaveGroup(job.lister, group)
 						if err != nil {
 							ctx.Logger.Errorf("%d: failed to write cache for %s - %s: %v\n", id, job.region, job.lister, err)
 						}
+
+						// Merge the new results in with the rest
 						rg.Merge(group)
 					}
-					ctx.Logger.Infof("%d: complete: %s - %s\n", id, job.region, job.lister)
+					ctx.Logger.Debugf("%d: complete: %s - %s\n", id, job.region, job.lister)
 				}
 			}
 		}(i, jobs)
 	}
 
+	// Populate work queue with all Region/ListerName combinations
 	for _, k := range listers {
 		for _, r := range regions {
 			jobs <- job{
@@ -215,10 +252,12 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 			}
 		}
 	}
+
+	// Closes worker queue so the worker pool knows to stop
 	close(jobs)
 
 	wg.Wait()
-	return rg, nil
+	return rg
 }
 
 type job struct {
@@ -226,20 +265,24 @@ type job struct {
 	region string
 }
 
+// Cacher is an interface that defines the necessary functions for an AWSets
+// cache.
 type Cacher interface {
-	IsCached(account, region string, kind ListerName) bool
-	SaveGroup(group *resource.Group, region string, kind ListerName) error
+	IsCached(region string, kind ListerName) bool
+	SaveGroup(kind ListerName, group *resource.Group) error
 	LoadGroup(region string, kind ListerName) (*resource.Group, error)
 }
 
+// NoopCache is the default cache provided by AWSets. It does nothing, and
+// will never load nor save any data.
 type NoopCache struct {
 }
 
-func (c NoopCache) IsCached(account, region string, kind ListerName) bool {
+func (c NoopCache) IsCached(region string, kind ListerName) bool {
 	return false
 }
 
-func (c NoopCache) SaveGroup(group *resource.Group, region string, kind ListerName) error {
+func (c NoopCache) SaveGroup(kind ListerName, group *resource.Group) error {
 	return nil
 }
 

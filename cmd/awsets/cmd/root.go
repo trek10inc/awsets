@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/urfave/cli/v2"
 )
 
@@ -18,6 +20,11 @@ func Execute(buildInfo map[string]string) {
 				Value: false,
 				Usage: "enable verbose logging",
 			},
+			&cli.StringFlag{
+				Name:  "profile",
+				Value: "",
+				Usage: "AWS profile to use",
+			},
 		},
 		Commands: []*cli.Command{
 			listCmd,
@@ -30,6 +37,13 @@ func Execute(buildInfo map[string]string) {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func configureAWS(ctx *cli.Context) (aws.Config, error) {
+	if ctx.String("profile") != "" {
+		return external.LoadDefaultAWSConfig(external.WithSharedConfigProfile(ctx.String("profile")))
+	}
+	return external.LoadDefaultAWSConfig()
 }
 
 func validateNumArgs(nArgs int) cli.BeforeFunc {
