@@ -2,6 +2,7 @@ package lister
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/trek10inc/awsets/context"
 
@@ -42,6 +43,10 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			NextToken:  nextToken,
 		}).Send(ctx.Context)
 		if err != nil {
+			if strings.Contains(err.Error(), "ForbiddenException") {
+				// If appsync isn't supported in a region, it returns 403, ForbiddenException
+				return rg, nil
+			}
 			return rg, fmt.Errorf("failed to list graphql apis: %w", err)
 		}
 		for _, api := range apis.GraphqlApis {

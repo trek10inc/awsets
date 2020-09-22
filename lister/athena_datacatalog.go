@@ -38,8 +38,7 @@ func (l AWSAthenaDataCatalog) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				Name: dcSummary.CatalogName,
 			}).Send(ctx.Context)
 			if err != nil {
-				ctx.Logger.Errorf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err)
-				//return rg, fmt.Errorf("failed to get data catalog %s: %w", *dcSummary.CatalogName, err)
+				//ctx.Logger.Errorf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err)
 			} else if v := dc.DataCatalog; v != nil {
 				r.AddAttribute("Description", v.Description)
 				r.AddAttribute("Parameters", v.Parameters)
