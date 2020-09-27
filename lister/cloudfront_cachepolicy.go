@@ -44,7 +44,7 @@ func (l AWSCloudfrontCachePolicy) List(ctx context.AWSetsCtx) (*resource.Group, 
 			}
 			if policies := res.CachePolicyList; policies != nil {
 				for _, v := range policies.Items {
-					r := resource.New(ctx, resource.CloudFrontCachePolicy, v.CachePolicy.Id, v.CachePolicy.Id, v)
+					r := resource.NewGlobal(ctx, resource.CloudFrontCachePolicy, v.CachePolicy.Id, v.CachePolicy.Id, v)
 					rg.AddResource(r)
 				}
 				if policies.NextMarker == nil {

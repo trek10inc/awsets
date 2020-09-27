@@ -48,7 +48,7 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				for akPaginator.Next(ctx.Context) {
 					akPage := akPaginator.CurrentPage()
 					for _, ak := range akPage.AccessKeyMetadata {
-						akR := resource.New(ctx, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
+						akR := resource.NewGlobal(ctx, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
 						akR.AddRelation(resource.IamUser, user.UserId, "")
 
 						lastUsed, err := svc.GetAccessKeyLastUsedRequest(&iam.GetAccessKeyLastUsedInput{
