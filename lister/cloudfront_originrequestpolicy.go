@@ -44,7 +44,7 @@ func (l AWSCloudfrontOriginRequestPolicy) List(ctx context.AWSetsCtx) (*resource
 			}
 			if policies := res.OriginRequestPolicyList; policies != nil {
 				for _, v := range policies.Items {
-					r := resource.New(ctx, resource.CloudFrontOriginRequestPolicy, v.OriginRequestPolicy.Id, v.OriginRequestPolicy.Id, v)
+					r := resource.NewGlobal(ctx, resource.CloudFrontOriginRequestPolicy, v.OriginRequestPolicy.Id, v.OriginRequestPolicy.Id, v)
 					rg.AddResource(r)
 				}
 				if policies.NextMarker == nil {
