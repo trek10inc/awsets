@@ -32,8 +32,16 @@ func ParseP(arn *string) Arn {
 	return Parse(*arn)
 }
 
+func InjectResourceIdAndVersion(arn Arn, resourceArnPart string) Arn {
+	resourceParts := strings.SplitN(resourceArnPart, ":", 2)
+	arn.ResourceId = resourceParts[0]
+	if len(resourceParts) == 2 {
+		arn.ResourceVersion = resourceParts[1]
+	}
+	return arn
+}
+
 func Parse(arn string) Arn {
-	//"arn:aws:ecs:us-east-1:067142875141:cluster/baseinfr-ECSCluster-1GQBLCJV73B1G"
 	split := strings.SplitN(arn, ":", 6)
 	ret := Arn{
 		Raw:       arn,
@@ -42,23 +50,28 @@ func Parse(arn string) Arn {
 		Service:   split[2],
 		Region:    split[3],
 		Account:   split[4],
-		//rest:      split[5],
 	}
 
-	if n := strings.Count(split[5], ":"); n > 0 {
+	colonPos := strings.Index(split[5], ":")
+	slashPos := strings.Index(split[5], "/")
+	
+	// type of resource followed by a colon (:)
+	// example: arn:aws:logs:us-east-1:111000111000:log-group:/aws/kinesisfirehose/aws-waf-logs-us-east-1-analytics-us2:*
+	if colonPos != -1 && (slashPos == -1 || slashPos > colonPos) {
 		resourceParts := strings.SplitN(split[5], ":", 2)
 		ret.ResourceType = resourceParts[0]
-		ret.ResourceId = resourceParts[1]
-	} else {
-		if m := strings.Count(split[5], "/"); m == 0 {
-			ret.ResourceId = split[5]
-		} else {
-			resourceParts := strings.SplitN(split[5], "/", 2)
-			ret.ResourceType = resourceParts[0]
-			ret.ResourceId = resourceParts[1]
-		}
+		return InjectResourceIdAndVersion(ret, resourceParts[1])
 	}
-	// log group: "arn:aws:logs:us-east-1:067142875141:log-group:/aws/kinesisfirehose/aws-waf-logs-us-east-1-analytics-us2:*" -> for log group, resource id shouldn't have :* at the end
-	return ret
-	// TODO: doesn't handle versions
+
+	// no resource type
+	// example: arn:aws:sns:eu-west-2:111000111000:foo
+	if m := strings.Count(split[5], "/"); m == 0 {
+		return InjectResourceIdAndVersion(ret, split[5])
+	}
+
+	// type of resource followed by a slash (/)
+	// example: arn:aws:ecs:us-east-2:111000111000:task-definition/test-OHKJUeQfdbdv:1
+	resourceParts := strings.SplitN(split[5], "/", 2)
+	ret.ResourceType = resourceParts[0]
+	return InjectResourceIdAndVersion(ret, resourceParts[1])
 }
