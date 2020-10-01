@@ -3,6 +3,7 @@ package resource
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -205,6 +206,23 @@ func (g *Group) JSON() (string, error) {
 	for _, v := range g.Resources {
 		res = append(res, v)
 	}
+	sort.Slice(res, func(i, j int) bool {
+		a, b := res[i], res[j]
+
+		// Sort resources in JSON by Account, Type, Region, Id, then Version to allow for consisting diff-ing
+
+		if a.Account != b.Account {
+			return a.Account < b.Account
+		} else if a.Type != b.Type {
+			return a.Type.String() < b.Type.String()
+		} else if a.Region != b.Region {
+			return a.Region < b.Region
+		} else if a.Id != b.Id {
+			return a.Id < b.Id
+		} else {
+			return a.Version < b.Version
+		}
+	})
 	b, err := json.MarshalIndent(res, "", "  ")
 	return string(b), err
 }
