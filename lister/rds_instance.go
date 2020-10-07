@@ -56,30 +56,19 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for _, vpcSg := range dbInstance.VpcSecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
-			if dbInstance.ReadReplicaSourceDBInstanceIdentifier != nil {
-				if arn.IsArnP(dbInstance.ReadReplicaSourceDBInstanceIdentifier) {
-					ctx.Logger.Errorf("source db instance is actually an arn!: %s\n", *dbInstance.ReadReplicaSourceDBInstanceIdentifier)
-				}
-				r.AddRelation(resource.RdsDbInstance, *dbInstance.ReadReplicaSourceDBInstanceIdentifier, "")
-			}
+			r.AddARNRelation(resource.RdsDbInstance, dbInstance.ReadReplicaSourceDBInstanceIdentifier)
 			for _, replicaCluster := range dbInstance.ReadReplicaDBClusterIdentifiers {
 				r.AddRelation(resource.RdsDbCluster, replicaCluster, "")
 			}
 			for _, replicaInstance := range dbInstance.ReadReplicaDBInstanceIdentifiers {
-				r.AddRelation(resource.RdsDbInstance, replicaInstance, "")
+				r.AddARNRelation(resource.RdsDbInstance, replicaInstance)
 			}
 			for _, role := range dbInstance.AssociatedRoles {
 				roleArn := arn.ParseP(role.RoleArn)
 				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
 			}
-			if dbInstance.MonitoringRoleArn != nil {
-				roleArn := arn.ParseP(dbInstance.MonitoringRoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
-			}
-			if dbInstance.KmsKeyId != nil {
-				kmsKeyArn := arn.ParseP(dbInstance.KmsKeyId)
-				r.AddRelation(resource.KmsKey, kmsKeyArn.ResourceId, kmsKeyArn.ResourceVersion)
-			}
+			r.AddARNRelation(resource.IamRole, dbInstance.MonitoringRoleArn)
+			r.AddARNRelation(resource.KmsKey, dbInstance.KmsKeyId)
 
 			rg.AddResource(r)
 		}

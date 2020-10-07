@@ -35,7 +35,7 @@ func (l AWSCloudtrailTrail) List(ctx context.AWSetsCtx) (*resource.Group, error)
 	}
 	for _, trail := range trails.TrailList {
 		r := resource.New(ctx, resource.CloudtrailTrail, trail.Name, trail.Name, trail)
-		r.AddRelation(resource.KmsKey, trail.KmsKeyId, "")
+		r.AddARNRelation(resource.KmsKey, trail.KmsKeyId)
 		if trail.S3BucketName != nil {
 			r.AddRelation(resource.S3Bucket, trail.S3BucketName, "")
 		}

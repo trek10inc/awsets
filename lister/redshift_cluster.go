@@ -48,7 +48,7 @@ func (l AWSRedshiftCluster) List(ctx context.AWSetsCtx) (*resource.Group, error)
 				roleArn := arn.ParseP(role.IamRoleArn)
 				r.AddRelation(resource.IamRole, roleArn.ResourceId, "")
 			}
-			r.AddRelation(resource.KmsKey, cluster.KmsKeyId, "")
+			r.AddARNRelation(resource.KmsKey, cluster.KmsKeyId)
 
 			if cluster.ElasticIpStatus != nil {
 				r.AddRelation(resource.Ec2Eip, cluster.ElasticIpStatus.ElasticIp, "")

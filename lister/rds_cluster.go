@@ -45,23 +45,15 @@ func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for _, vpcSg := range cluster.VpcSecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
-			if cluster.ReplicationSourceIdentifier != nil {
-				sourceArn := arn.ParseP(cluster.ReplicationSourceIdentifier)
-				r.AddRelation(resource.RdsDbInstance, sourceArn.ResourceId, sourceArn.ResourceVersion)
-			}
+			r.AddARNRelation(resource.RdsDbInstance, cluster.ReplicationSourceIdentifier)
 			for _, replica := range cluster.ReadReplicaIdentifiers {
 				//TODO: cluster vs instance based on type?
-				replicaArn := arn.Parse(replica)
-				r.AddRelation(resource.RdsDbCluster, replicaArn.ResourceId, replicaArn.ResourceVersion)
+				r.AddARNRelation(resource.RdsDbCluster, replica)
 			}
 			for _, role := range cluster.AssociatedRoles {
-				roleArn := arn.ParseP(role.RoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
+				r.AddARNRelation(resource.IamRole, role.RoleArn)
 			}
-			if cluster.KmsKeyId != nil {
-				kmsKeyArn := arn.ParseP(cluster.KmsKeyId)
-				r.AddRelation(resource.KmsKey, kmsKeyArn.ResourceId, kmsKeyArn.ResourceVersion)
-			}
+			r.AddARNRelation(resource.KmsKey, cluster.KmsKeyId)
 
 			rg.AddResource(r)
 		}

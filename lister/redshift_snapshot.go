@@ -35,7 +35,7 @@ func (l AWSRedshiftSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error
 		for _, v := range page.Snapshots {
 			r := resource.New(ctx, resource.RedshiftSnapshot, v.SnapshotIdentifier, v.SnapshotIdentifier, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
-			r.AddRelation(resource.KmsKey, v.KmsKeyId, "")
+			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.RedshiftCluster, v.ClusterIdentifier, "")
 
 			rg.AddResource(r)

@@ -34,7 +34,7 @@ func (l AWSBatchJobQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		for _, v := range page.JobQueues {
 			r := resource.New(ctx, resource.BatchJobQueue, v.JobQueueName, v.JobQueueName, v)
 			for _, ce := range v.ComputeEnvironmentOrder {
-				r.AddRelation(resource.BatchComputeEnvironment, ce.ComputeEnvironment, "")
+				r.AddARNRelation(resource.BatchComputeEnvironment, ce.ComputeEnvironment)
 			}
 			rg.AddResource(r)
 		}

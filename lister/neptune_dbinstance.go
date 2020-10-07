@@ -57,23 +57,15 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			for _, vpcSg := range v.VpcSecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
-			if v.ReadReplicaSourceDBInstanceIdentifier != nil {
-				r.AddRelation(resource.NeptuneDbInstance, *v.ReadReplicaSourceDBInstanceIdentifier, "")
-			}
+			r.AddARNRelation(resource.NeptuneDbInstance, v.ReadReplicaSourceDBInstanceIdentifier)
 			for _, replicaCluster := range v.ReadReplicaDBClusterIdentifiers {
 				r.AddRelation(resource.NeptuneDbCluster, replicaCluster, "")
 			}
 			for _, replicaInstance := range v.ReadReplicaDBInstanceIdentifiers {
-				r.AddRelation(resource.NeptuneDbInstance, replicaInstance, "")
+				r.AddARNRelation(resource.NeptuneDbInstance, replicaInstance)
 			}
-			if v.MonitoringRoleArn != nil {
-				roleArn := arn.ParseP(v.MonitoringRoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
-			}
-			if v.KmsKeyId != nil {
-				kmsKeyArn := arn.ParseP(v.KmsKeyId)
-				r.AddRelation(resource.KmsKey, kmsKeyArn.ResourceId, kmsKeyArn.ResourceVersion)
-			}
+			r.AddARNRelation(resource.IamRole, v.MonitoringRoleArn)
+			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 
 			rg.AddResource(r)
 		}

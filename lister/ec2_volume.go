@@ -33,7 +33,7 @@ func (l AWSEc2Volume) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		page := paginator.CurrentPage()
 		for _, v := range page.Volumes {
 			r := resource.New(ctx, resource.Ec2Volume, v.VolumeId, v.VolumeId, v)
-			r.AddRelation(resource.KmsKey, v.KmsKeyId, "")
+			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			for _, va := range v.Attachments {
 				r.AddRelation(resource.Ec2Instance, va.InstanceId, "")
 			}

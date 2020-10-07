@@ -57,7 +57,7 @@ func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				r.AddRelation(resource.Ec2KeyPair, data.KeyName, "")
 				for _, bm := range data.BlockDeviceMappings {
 					if bm.Ebs != nil {
-						r.AddRelation(resource.KmsKey, bm.Ebs.KmsKeyId, "")
+						r.AddARNRelation(resource.KmsKey, bm.Ebs.KmsKeyId)
 						r.AddRelation(resource.Ec2Snapshot, bm.Ebs.SnapshotId, "")
 					}
 				}

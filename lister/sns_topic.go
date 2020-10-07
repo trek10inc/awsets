@@ -42,10 +42,12 @@ func (l AWSSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for subPag.Next(ctx.Context) {
 				subs := subPag.CurrentPage()
 				for _, sub := range subs.Subscriptions {
-					subArn := arn.ParseP(sub.SubscriptionArn)
-					subR := resource.New(ctx, resource.SnsSubscription, subArn.ResourceId, "", sub)
-					subR.AddRelation(resource.SnsTopic, topicArn.ResourceId, "")
-					rg.AddResource(subR)
+					if arn.IsArnP(sub.SubscriptionArn) {
+						subArn := arn.ParseP(sub.SubscriptionArn)
+						subR := resource.New(ctx, resource.SnsSubscription, subArn.ResourceId, "", sub)
+						subR.AddRelation(resource.SnsTopic, topicArn.ResourceId, "")
+						rg.AddResource(subR)
+					}
 				}
 			}
 			// TODO: tags. policy?

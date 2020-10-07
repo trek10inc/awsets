@@ -67,7 +67,7 @@ func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, er
 				}
 			}
 			if domain.EncryptionAtRestOptions != nil {
-				r.AddRelation(resource.KmsKey, domain.EncryptionAtRestOptions.KmsKeyId, "")
+				r.AddARNRelation(resource.KmsKey, domain.EncryptionAtRestOptions.KmsKeyId)
 			}
 			tagsRes, err := svc.ListTagsRequest(&elasticsearchservice.ListTagsInput{
 				ARN: domain.ARN,

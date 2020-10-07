@@ -27,12 +27,12 @@ func New(config aws.Config, ctx context.Context, logger Logger) (AWSetsCtx, erro
 	}
 
 	cfg := AWSetsCtx{
-		AWSCfg:  config,
-		Context: ctx,
-		Logger:  logger,
+		AWSCfg:    config,
+		AccountId: *res.Account,
+		Context:   ctx,
+		Logger:    logger,
 	}
 
-	cfg.AccountId = *res.Account
 	return cfg, nil
 }
 
