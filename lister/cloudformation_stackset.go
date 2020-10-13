@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,33 +23,32 @@ func (l AWSCloudFormationStackSet) Types() []resource.ResourceType {
 }
 
 func (l AWSCloudFormationStackSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cloudformation.New(ctx.AWSCfg)
-
-	req := svc.ListStackSetsRequest(&cloudformation.ListStackSetsInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := cloudformation.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := cloudformation.NewListStackSetsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, summary := range page.Summaries {
-			v, err := svc.DescribeStackSetRequest(&cloudformation.DescribeStackSetInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListStackSets(ctx.Context, &cloudformation.ListStackSetsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "StackSets is not supported in this region") {
+				// If StackSets are not supported in a region, returns validation exception
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, summary := range res.Summaries {
+			v, err := svc.DescribeStackSet(ctx.Context, &cloudformation.DescribeStackSetInput{
 				StackSetName: summary.StackSetName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe stack set %s: %w", *summary.StackSetName, err)
+				return nil, fmt.Errorf("failed to describe stack set %s: %w", *summary.StackSetName, err)
 			}
 			r := resource.New(ctx, resource.CloudFormationStackSet, v.StackSet.StackSetId, v.StackSet.StackSetName, v.StackSet)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if strings.Contains(err.Error(), "StackSets is not supported in this region") {
-			// If StackSets are not supported in a region, returns validation exception
-			err = nil
-		}
-	}
+		return res.NextToken, nil
+	})
 	return rg, err
 }

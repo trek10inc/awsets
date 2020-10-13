@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/appsync"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -32,37 +31,36 @@ func (l AWSAppsyncGraphqlApi) Types() []resource.ResourceType {
 }
 
 func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := appsync.New(ctx.AWSCfg)
+	svc := appsync.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	var nextToken *string
-	for {
-		apis, err := svc.ListGraphqlApisRequest(&appsync.ListGraphqlApisInput{
-			MaxResults: aws.Int64(25),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		apis, err := svc.ListGraphqlApis(ctx.Context, &appsync.ListGraphqlApisInput{
+			MaxResults: aws.Int32(25),
+			NextToken:  nt,
+		})
 		if err != nil {
 			if strings.Contains(err.Error(), "ForbiddenException") {
 				// If appsync isn't supported in a region, it returns 403, ForbiddenException
-				return rg, nil
+				return nil, nil
 			}
-			return rg, fmt.Errorf("failed to list graphql apis: %w", err)
+			return nil, fmt.Errorf("failed to list graphql apis: %w", err)
 		}
 		for _, api := range apis.GraphqlApis {
 			r := resource.New(ctx, resource.AppSyncGraphQLApi, api.ApiId, api.Name, api)
-			//TODO: relation to user pool?
+			// TODO: relation to user pool?
 			rg.AddResource(r)
 
-			var dsToken *string
-			for {
-				datasources, err := svc.ListDataSourcesRequest(&appsync.ListDataSourcesInput{
+			// DataSources
+			err = Paginator(func(nt2 *string) (*string, error) {
+				datasources, err := svc.ListDataSources(ctx.Context, &appsync.ListDataSourcesInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int64(25),
-					NextToken:  dsToken,
-				}).Send(ctx.Context)
+					MaxResults: aws.Int32(25),
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list datasources for api %s: %w", aws.StringValue(api.ApiId), err)
+					return nil, fmt.Errorf("failed to list datasources for api %s: %w", *api.ApiId, err)
 				}
 				for _, ds := range datasources.DataSources {
 					dsArn := arn.ParseP(ds.DataSourceArn)
@@ -74,36 +72,35 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					}
 					rg.AddResource(dsRes)
 				}
-				if datasources.NextToken == nil {
-					break
-				}
-				dsToken = datasources.NextToken
+				return datasources.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			var funcToken *string
-			for {
-				functions, err := svc.ListFunctionsRequest(&appsync.ListFunctionsInput{
+			// Functions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				functions, err := svc.ListFunctions(ctx.Context, &appsync.ListFunctionsInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int64(25),
-					NextToken:  funcToken,
-				}).Send(ctx.Context)
+					MaxResults: aws.Int32(25),
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to get functions for %s: %w", *api.ApiId, err)
+					return nil, fmt.Errorf("failed to get functions for %s: %w", *api.ApiId, err)
 				}
 				for _, function := range functions.Functions {
 					funcR := resource.New(ctx, resource.AppSyncFunction, function.FunctionId, function.Name, function)
 					funcR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 
-					var resolverToken *string
-					for {
-						resolvers, err := svc.ListResolversByFunctionRequest(&appsync.ListResolversByFunctionInput{
+					err = Paginator(func(nt3 *string) (*string, error) {
+						resolvers, err := svc.ListResolversByFunction(ctx.Context, &appsync.ListResolversByFunctionInput{
 							ApiId:      api.ApiId,
 							FunctionId: function.FunctionId,
-							MaxResults: aws.Int64(25),
-							NextToken:  resolverToken,
-						}).Send(ctx.Context)
+							MaxResults: aws.Int32(25),
+							NextToken:  nt3,
+						})
 						if err != nil {
-							return rg, fmt.Errorf("failed to list resolvers for api %s: %w", aws.StringValue(api.ApiId), err)
+							return nil, fmt.Errorf("failed to list resolvers for api %s: %w", *api.ApiId, err)
 						}
 						for _, resolver := range resolvers.Resolvers {
 							resolverArn := arn.ParseP(resolver.ResolverArn)
@@ -112,46 +109,47 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 							resolverR.AddRelation(resource.AppSyncFunction, function.FunctionId, "")
 							rg.AddResource(resolverR)
 						}
-						if resolvers.NextToken == nil {
-							break
-						}
-						resolverToken = resolvers.NextToken
+						return resolvers.NextToken, nil
+					})
+					if err != nil {
+						return nil, err
 					}
 
 					rg.AddResource(funcR)
 				}
-				if functions.NextToken == nil {
-					break
-				}
-				funcToken = functions.NextToken
+				return functions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			var apiKeyToken *string
-			for {
-				apiKeys, err := svc.ListApiKeysRequest(&appsync.ListApiKeysInput{
+			// API Keys
+			err = Paginator(func(nt2 *string) (*string, error) {
+				apiKeys, err := svc.ListApiKeys(ctx.Context, &appsync.ListApiKeysInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int64(25),
-					NextToken:  apiKeyToken,
-				}).Send(ctx.Context)
+					MaxResults: aws.Int32(25),
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to get api keys for %s: %w", *api.ApiId, err)
+					return nil, fmt.Errorf("failed to get api keys for %s: %w", *api.ApiId, err)
 				}
 				for _, apiKey := range apiKeys.ApiKeys {
 					keyR := resource.New(ctx, resource.AppSyncApiKey, apiKey.Id, apiKey.Id, apiKey)
 					keyR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 					rg.AddResource(keyR)
 				}
-				if apiKeys.NextToken == nil {
-					break
-				}
-				apiKeyToken = apiKeys.NextToken
+				return apiKeys.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			apiCache, err := svc.GetApiCacheRequest(&appsync.GetApiCacheInput{
+			// Cache
+			apiCache, err := svc.GetApiCache(ctx.Context, &appsync.GetApiCacheInput{
 				ApiId: api.ApiId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get api cache for %s: %w", *api.ApiId, err)
+				return nil, fmt.Errorf("failed to get api cache for %s: %w", *api.ApiId, err)
 			}
 			if v := apiCache.ApiCache; v != nil {
 				cacheR := resource.New(ctx, resource.AppSyncApiCache, fmt.Sprintf("%s-cache", *api.ApiId), fmt.Sprintf("%s-cache", *api.ApiId), v)
@@ -159,11 +157,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				rg.AddResource(cacheR)
 			}
 		}
-		if apis.NextToken == nil {
-			break
-		}
-		nextToken = apis.NextToken
-	}
-
-	return rg, nil
+		return apis.NextToken, nil
+	})
+	return rg, err
 }

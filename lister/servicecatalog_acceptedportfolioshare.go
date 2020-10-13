@@ -22,21 +22,21 @@ func (l AWSServiceCatalogAcceptedPortfolioShare) Types() []resource.ResourceType
 }
 
 func (l AWSServiceCatalogAcceptedPortfolioShare) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := servicecatalog.New(ctx.AWSCfg)
+	svc := servicecatalog.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListAcceptedPortfolioSharesRequest(&servicecatalog.ListAcceptedPortfolioSharesInput{
-		PageSize: aws.Int64(20),
+	res, err := svc.ListAcceptedPortfolioShares(ctx.Context, &servicecatalog.ListAcceptedPortfolioSharesInput{
+		PageSize: aws.Int32(20),
 	})
 	rg := resource.NewGroup()
 	paginator := servicecatalog.NewListAcceptedPortfolioSharesPaginator(req)
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, v := range page.PortfolioDetails {
-			detail, err := svc.DescribePortfolioRequest(&servicecatalog.DescribePortfolioInput{
+			detail, err := svc.DescribePortfolio(ctx.Context, &servicecatalog.DescribePortfolioInput{
 				Id: v.Id,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe service catalog portfolio %s: %w", *v.Id, err)
+				return nil, fmt.Errorf("failed to describe service catalog portfolio %s: %w", *v.Id, err)
 			}
 			r := resource.New(ctx, resource.ServiceCatalogAcceptedPortfolioShare, v.Id, v.DisplayName, detail.DescribePortfolioOutput)
 			rg.AddResource(r)

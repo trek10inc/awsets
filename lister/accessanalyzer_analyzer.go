@@ -20,21 +20,22 @@ func (l AWSAccessAnalyzerAnalyzer) Types() []resource.ResourceType {
 }
 
 func (l AWSAccessAnalyzerAnalyzer) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := accessanalyzer.New(ctx.AWSCfg)
-
-	req := svc.ListAnalyzersRequest(&accessanalyzer.ListAnalyzersInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := accessanalyzer.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := accessanalyzer.NewListAnalyzersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Analyzers {
+	err := Paginator(func(nt *string) (*string, error) {
+		req, err := svc.ListAnalyzers(ctx.Context, &accessanalyzer.ListAnalyzersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range req.Analyzers {
 			r := resource.New(ctx, resource.AccessAnalyzerAnalyzer, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return req.NextToken, nil
+	})
 	return rg, err
 }

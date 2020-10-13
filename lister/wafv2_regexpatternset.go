@@ -32,7 +32,7 @@ func (l AWSWafv2RegexPatternSet) List(ctx context.AWSetsCtx) (*resource.Group, e
 
 	rg, err := wafv2RegexPatternSetQuery(ctx, wafv2.ScopeRegional)
 	if err != nil {
-		return rg, fmt.Errorf("failed to list ipsets: %w", err)
+		return nil, fmt.Errorf("failed to list ipsets: %w", err)
 	}
 
 	// Do global
@@ -50,26 +50,26 @@ func (l AWSWafv2RegexPatternSet) List(ctx context.AWSetsCtx) (*resource.Group, e
 }
 
 func wafv2RegexPatternSetQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Group, error) {
-	svc := wafv2.New(ctx.AWSCfg)
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextMarker *string
 	for {
-		res, err := svc.ListRegexPatternSetsRequest(&wafv2.ListRegexPatternSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListRegexPatternSets(ctx.Context, &wafv2.ListRegexPatternSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
 			Scope:      scope,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			return rg, err
 		}
 		for _, rpsId := range res.RegexPatternSets {
-			rps, err := svc.GetRegexPatternSetRequest(&wafv2.GetRegexPatternSetInput{
+			rps, err := svc.GetRegexPatternSet(ctx.Context, &wafv2.GetRegexPatternSetInput{
 				Id:    rpsId.Id,
 				Name:  rpsId.Name,
 				Scope: scope,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get regex pattern set %s for scope %v: %w", *rpsId.Id, scope, err)
+				return nil, fmt.Errorf("failed to get regex pattern set %s for scope %v: %w", *rpsId.Id, scope, err)
 			}
 			if v := rps.RegexPatternSet; v != nil {
 				var r resource.Resource

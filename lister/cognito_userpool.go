@@ -3,12 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
-
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/arn"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -31,42 +28,47 @@ func (l AWSCognitoUserpool) Types() []resource.ResourceType {
 }
 
 func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cognitoidentityprovider.New(ctx.AWSCfg)
-
-	req := svc.ListUserPoolsRequest(&cognitoidentityprovider.ListUserPoolsInput{
-		MaxResults: aws.Int64(60),
-	})
+	svc := cognitoidentityprovider.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := cognitoidentityprovider.NewListUserPoolsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.UserPools {
-			userPoolResponse, err := svc.DescribeUserPoolRequest(&cognitoidentityprovider.DescribeUserPoolInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListUserPools(ctx.Context, &cognitoidentityprovider.ListUserPoolsInput{
+			MaxResults: aws.Int32(60),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.UserPools {
+			userPoolResponse, err := svc.DescribeUserPool(ctx.Context, &cognitoidentityprovider.DescribeUserPoolInput{
 				UserPoolId: v.Id,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get user pool %s: %w", *v.Id, err)
+				return nil, fmt.Errorf("failed to get user pool %s: %w", *v.Id, err)
 			}
 			up := userPoolResponse.UserPool
 			r := resource.New(ctx, resource.CognitoUserPool, up.Id, up.Name, up)
 			for tagName, tagValue := range up.UserPoolTags {
-				r.Tags[tagName] = tagValue
+				r.Tags[tagName] = aws.ToString(tagValue)
 			}
 
-			clientPaginator := cognitoidentityprovider.NewListUserPoolClientsPaginator(svc.ListUserPoolClientsRequest(&cognitoidentityprovider.ListUserPoolClientsInput{
-				UserPoolId: v.Id,
-			}))
-			for clientPaginator.Next(ctx.Context) {
-				clientPage := clientPaginator.CurrentPage()
-				for _, client := range clientPage.UserPoolClients {
+			// Clients
+			err = Paginator(func(nt2 *string) (*string, error) {
+				clients, err := svc.ListUserPoolClients(ctx.Context, &cognitoidentityprovider.ListUserPoolClientsInput{
+					UserPoolId: v.Id,
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list clients for user pool %s: %w", *up.Id, err)
+				}
+				for _, client := range clients.UserPoolClients {
 
-					clientResponse, err := svc.DescribeUserPoolClientRequest(&cognitoidentityprovider.DescribeUserPoolClientInput{
+					clientResponse, err := svc.DescribeUserPoolClient(ctx.Context, &cognitoidentityprovider.DescribeUserPoolClientInput{
 						ClientId:   client.ClientId,
 						UserPoolId: client.UserPoolId,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to get client %s for pool %s: %w", *client.ClientId, *v.Id, err)
+						return nil, fmt.Errorf("failed to get client %s for pool %s: %w", *client.ClientId, *v.Id, err)
 					}
 					c := clientResponse.UserPoolClient
 					clientR := resource.New(ctx, resource.CognitoUserPoolClient, c.ClientId, c.ClientName, c)
@@ -74,72 +76,82 @@ func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error)
 					r.AddRelation(resource.CognitoUserPoolClient, c.ClientId, "")
 					rg.AddResource(clientR)
 				}
-			}
-			err = clientPaginator.Err()
+				return clients.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list clients for user pool %s: %w", *up.Id, err)
+				return nil, err
 			}
 
-			groupPaginator := cognitoidentityprovider.NewListGroupsPaginator(svc.ListGroupsRequest(&cognitoidentityprovider.ListGroupsInput{
-				Limit:      aws.Int64(60),
-				UserPoolId: v.Id,
-			}))
-			for groupPaginator.Next(ctx.Context) {
-				groupPage := groupPaginator.CurrentPage()
-				for _, group := range groupPage.Groups {
+			// Groups
+			err = Paginator(func(nt2 *string) (*string, error) {
+				groups, err := svc.ListGroups(ctx.Context, &cognitoidentityprovider.ListGroupsInput{
+					Limit:      aws.Int32(60),
+					UserPoolId: v.Id,
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list groups for user pool %s: %w", *up.Id, err)
+				}
+				for _, group := range groups.Groups {
 					groupR := resource.New(ctx, resource.CognitoUserPoolGroup, group.GroupName, group.GroupName, group)
 					groupR.AddRelation(resource.CognitoUserPool, group.UserPoolId, "")
-					if group.RoleArn != nil {
-						roleArn := arn.ParseP(group.RoleArn)
-						groupR.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
-					}
+					groupR.AddARNRelation(resource.IamRole, group.RoleArn)
 					rg.AddResource(groupR)
 				}
-			}
-			err = groupPaginator.Err()
+				return groups.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list groups for user pool %s: %w", *up.Id, err)
+				return nil, err
 			}
 
-			identifyProviderPaginator := cognitoidentityprovider.NewListIdentityProvidersPaginator(svc.ListIdentityProvidersRequest(&cognitoidentityprovider.ListIdentityProvidersInput{
-				MaxResults: aws.Int64(60),
-				UserPoolId: up.Id,
-			}))
-			for identifyProviderPaginator.Next(ctx.Context) {
-				ipPage := identifyProviderPaginator.CurrentPage()
-				for _, ip := range ipPage.Providers {
+			// Identity Providers
+			err = Paginator(func(nt2 *string) (*string, error) {
+				identityProviders, err := svc.ListIdentityProviders(ctx.Context, &cognitoidentityprovider.ListIdentityProvidersInput{
+					MaxResults: aws.Int32(60),
+					UserPoolId: up.Id,
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list identity providers for user pool %s: %w", *up.Id, err)
+				}
+				for _, ip := range identityProviders.Providers {
 					ipR := resource.New(ctx, resource.CognitoUserPoolGroup, ip.ProviderName, ip.ProviderName, ip)
 					ipR.AddRelation(resource.CognitoUserPool, up.Id, "")
 					rg.AddResource(ipR)
 					r.AddRelation(resource.CognitoUserPoolIdentityProvider, ip.ProviderName, "")
 				}
-			}
-			err = identifyProviderPaginator.Err()
+
+				return identityProviders.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list identity providers for user pool %s: %w", *up.Id, err)
+				return nil, err
 			}
 
-			rsPaginator := cognitoidentityprovider.NewListResourceServersPaginator(svc.ListResourceServersRequest(&cognitoidentityprovider.ListResourceServersInput{
-				MaxResults: aws.Int64(50),
-				UserPoolId: up.Id,
-			}))
-			for rsPaginator.Next(ctx.Context) {
-				rsPage := rsPaginator.CurrentPage()
-				for _, rs := range rsPage.ResourceServers {
+			// Resource Servers
+			err = Paginator(func(nt2 *string) (*string, error) {
+				resourceProviders, err := svc.ListResourceServers(ctx.Context, &cognitoidentityprovider.ListResourceServersInput{
+					MaxResults: aws.Int32(50),
+					UserPoolId: up.Id,
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list resource servers for user pool %s: %w", *up.Id, err)
+				}
+				for _, rs := range resourceProviders.ResourceServers {
 					rsR := resource.New(ctx, resource.CognitoUserPoolResourceServer, rs.Identifier, rs.Name, rs)
 					rsR.AddRelation(resource.CognitoUserPool, up.Id, "")
 					rg.AddResource(rsR)
 					r.AddRelation(resource.CognitoUserPoolResourceServer, rs.Identifier, "")
 				}
-			}
-			err = rsPaginator.Err()
+				return resourceProviders.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list resource servers for user pool %s: %w", *up.Id, err)
+				return nil, err
 			}
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

@@ -22,30 +22,31 @@ func (l AWSCloud9Environment) Types() []resource.ResourceType {
 }
 
 func (l AWSCloud9Environment) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cloud9.New(ctx.AWSCfg)
-
-	req := svc.ListEnvironmentsRequest(&cloud9.ListEnvironmentsInput{
-		MaxResults: aws.Int64(25),
-	})
-
+	svc := cloud9.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	paginator := cloud9.NewListEnvironmentsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		if len(page.EnvironmentIds) == 0 {
-			continue
-		}
-		environments, err := svc.DescribeEnvironmentsRequest(&cloud9.DescribeEnvironmentsInput{
-			EnvironmentIds: page.EnvironmentIds,
-		}).Send(ctx.Context)
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListEnvironments(ctx.Context, &cloud9.ListEnvironmentsInput{
+			MaxResults: aws.Int32(25),
+			NextToken:  nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to describe environments: %w", err)
+			return nil, err
+		}
+		if len(res.EnvironmentIds) == 0 {
+			return nil, nil
+		}
+		environments, err := svc.DescribeEnvironments(ctx.Context, &cloud9.DescribeEnvironmentsInput{
+			EnvironmentIds: res.EnvironmentIds,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe environments: %w", err)
 		}
 		for _, v := range environments.Environments {
 			r := resource.New(ctx, resource.Cloud9Environment, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

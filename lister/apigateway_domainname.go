@@ -2,13 +2,11 @@ package lister
 
 import (
 	"fmt"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
-	"github.com/trek10inc/awsets/context"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,17 +23,23 @@ func (l AWSApiGatewayDomainName) Types() []resource.ResourceType {
 }
 
 func (l AWSApiGatewayDomainName) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := apigateway.New(ctx.AWSCfg)
-
-	req := svc.GetDomainNamesRequest(&apigateway.GetDomainNamesInput{
-		Limit: aws.Int64(500),
-	})
+	svc := apigateway.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := apigateway.NewGetDomainNamesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, domainname := range page.Items {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		req, err := svc.GetDomainNames(ctx.Context, &apigateway.GetDomainNamesInput{
+			Limit:    aws.Int32(500),
+			Position: nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "AccessDeniedException") {
+				// If api gateway is not supported in a region, returns access denied
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get domain names: %w", err)
+		}
+		for _, domainname := range req.Items {
 			r := resource.New(ctx, resource.ApiGatewayDomainName, domainname.DomainName, domainname.DomainName, domainname)
 
 			r.AddARNRelation(resource.AcmCertificate, domainname.CertificateArn)
@@ -44,33 +48,26 @@ func (l AWSApiGatewayDomainName) List(ctx context.AWSetsCtx) (*resource.Group, e
 
 			rg.AddResource(r)
 
-			pathPaginor := apigateway.NewGetBasePathMappingsPaginator(svc.GetBasePathMappingsRequest(&apigateway.GetBasePathMappingsInput{
-				DomainName: domainname.DomainName,
-				Limit:      aws.Int64(500),
-			}))
-			for pathPaginor.Next(ctx.Context) {
-				pathPage := pathPaginor.CurrentPage()
-				for _, pathMapping := range pathPage.Items {
+			err = Paginator(func(nt2 *string) (*string, error) {
+				pathRes, err := svc.GetBasePathMappings(ctx.Context, &apigateway.GetBasePathMappingsInput{
+					DomainName: domainname.DomainName,
+					Limit:      aws.Int32(500),
+					Position:   nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get base path mappings for %s: %w", *domainname.DomainName, err)
+				}
+				for _, pathMapping := range pathRes.Items {
 					pathRes := resource.New(ctx, resource.ApiGatewayBasePathMapping, pathMapping.BasePath, pathMapping.BasePath, pathMapping)
 					pathRes.AddRelation(resource.ApiGatewayDomainName, domainname.DomainName, "")
 					pathRes.AddRelation(resource.ApiGatewayStage, pathMapping.Stage, "")
 					pathRes.AddRelation(resource.ApiGatewayRestApi, pathMapping.RestApiId, "")
 					rg.AddResource(pathRes)
 				}
-			}
-			if err := pathPaginor.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get base path mappings for %s: %w", aws.StringValue(domainname.DomainName), err)
-			}
+				return pathRes.Position, nil
+			})
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "AccessDeniedException" {
-				// If api gateway is not supported in a region, returns access denied
-				err = nil
-			}
-		}
-	}
+		return req.Position, nil
+	})
 	return rg, err
 }

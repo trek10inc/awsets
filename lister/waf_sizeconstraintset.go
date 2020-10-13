@@ -26,7 +26,7 @@ func (l AWSWafSizeConstraintSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafSizeConstraintSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -34,18 +34,18 @@ func (l AWSWafSizeConstraintSet) List(ctx context.AWSetsCtx) (*resource.Group, e
 	listWafSizeConstraintSetsOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListSizeConstraintSetsRequest(&waf.ListSizeConstraintSetsInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListSizeConstraintSets(ctx.Context, &waf.ListSizeConstraintSetsInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = fmt.Errorf("failed to list size constraint sets: %w", err)
 				return
 			}
 			for _, id := range res.SizeConstraintSets {
-				sizeConstraintSet, err := svc.GetSizeConstraintSetRequest(&waf.GetSizeConstraintSetInput{
+				sizeConstraintSet, err := svc.GetSizeConstraintSet(ctx.Context, &waf.GetSizeConstraintSetInput{
 					SizeConstraintSetId: id.SizeConstraintSetId,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get size constraint stringset %s: %w", aws.StringValue(id.SizeConstraintSetId), err)
 					return

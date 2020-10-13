@@ -1,9 +1,8 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/batch"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/batch"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -21,17 +20,18 @@ func (l AWSBatchComputeEnvironment) Types() []resource.ResourceType {
 }
 
 func (l AWSBatchComputeEnvironment) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := batch.New(ctx.AWSCfg)
-
-	req := svc.DescribeComputeEnvironmentsRequest(&batch.DescribeComputeEnvironmentsInput{
-		MaxResults: aws.Int64(100),
-	})
-
+	svc := batch.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	paginator := batch.NewDescribeComputeEnvironmentsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.ComputeEnvironments {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeComputeEnvironments(ctx.Context, &batch.DescribeComputeEnvironmentsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.ComputeEnvironments {
 			r := resource.New(ctx, resource.BatchComputeEnvironment, v.ComputeEnvironmentName, v.ComputeEnvironmentName, v)
 			if c := v.ComputeResources; c != nil {
 				r.AddRelation(resource.Ec2Image, c.ImageId, "")
@@ -47,7 +47,8 @@ func (l AWSBatchComputeEnvironment) List(ctx context.AWSetsCtx) (*resource.Group
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

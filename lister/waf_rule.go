@@ -26,7 +26,7 @@ func (l AWSWafRule) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -34,16 +34,16 @@ func (l AWSWafRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	listWafRulesOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListRulesRequest(&waf.ListRulesInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListRules(ctx.Context, &waf.ListRulesInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = fmt.Errorf("failed to list webacls: %w", err)
 				return
 			}
 			for _, ruleId := range res.Rules {
-				rule, err := svc.GetRuleRequest(&waf.GetRuleInput{RuleId: ruleId.RuleId}).Send(ctx.Context)
+				rule, err := svc.GetRule(ctx.Context, &waf.GetRuleInput{RuleId: ruleId.RuleId})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get rule %s: %w", aws.StringValue(ruleId.RuleId), err)
 					return

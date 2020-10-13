@@ -21,9 +21,9 @@ func (l AWSSsmParameter) Types() []resource.ResourceType {
 }
 
 func (l AWSSsmParameter) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ssm.New(ctx.AWSCfg)
-	req := svc.DescribeParametersRequest(&ssm.DescribeParametersInput{
-		MaxResults: aws.Int64(50),
+	svc := ssm.NewFromConfig(ctx.AWSCfg)
+	res, err := svc.DescribeParameters(ctx.Context, &ssm.DescribeParametersInput{
+		MaxResults: aws.Int32(50),
 	})
 
 	rg := resource.NewGroup()

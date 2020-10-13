@@ -27,16 +27,16 @@ func (l AWSIoTTopicRule) Types() []resource.ResourceType {
 
 func (l AWSIoTTopicRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.New(ctx.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextToken *string
 	for {
-		topicRules, err := svc.ListTopicRulesRequest(&iot.ListTopicRulesInput{
-			MaxResults: aws.Int64(100),
+		topicRules, err := svc.ListTopicRules(ctx.Context, &iot.ListTopicRulesInput{
+			MaxResults: aws.Int32(100),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list iot topic rules: %w", err)
+			return nil, fmt.Errorf("failed to list iot topic rules: %w", err)
 		}
 		for _, rule := range topicRules.Rules {
 			ruleArn := arn.ParseP(rule.RuleArn)

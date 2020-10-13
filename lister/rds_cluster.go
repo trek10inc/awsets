@@ -22,10 +22,10 @@ func (l AWSRdsDbCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBClustersRequest(&rds.DescribeDBClustersInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBClusters(ctx.Context, &rds.DescribeDBClustersInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

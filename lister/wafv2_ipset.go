@@ -32,7 +32,7 @@ func (l AWSWafv2IpSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 	rg, err := wafv2IpsetQuery(ctx, wafv2.ScopeRegional)
 	if err != nil {
-		return rg, fmt.Errorf("failed to list ipsets: %w", err)
+		return nil, fmt.Errorf("failed to list ipsets: %w", err)
 	}
 
 	// Do global
@@ -50,26 +50,26 @@ func (l AWSWafv2IpSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 }
 
 func wafv2IpsetQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Group, error) {
-	svc := wafv2.New(ctx.AWSCfg)
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextMarker *string
 	for {
-		res, err := svc.ListIPSetsRequest(&wafv2.ListIPSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListIPSets(ctx.Context, &wafv2.ListIPSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
 			Scope:      scope,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			return rg, err
 		}
 		for _, ipsetId := range res.IPSets {
-			ipset, err := svc.GetIPSetRequest(&wafv2.GetIPSetInput{
+			ipset, err := svc.GetIPSet(ctx.Context, &wafv2.GetIPSetInput{
 				Id:    ipsetId.Id,
 				Name:  ipsetId.Name,
 				Scope: scope,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get ipset %s for scope %v: %w", *ipsetId.Id, scope, err)
+				return nil, fmt.Errorf("failed to get ipset %s for scope %v: %w", *ipsetId.Id, scope, err)
 			}
 			if v := ipset.IPSet; v != nil {
 				var r resource.Resource

@@ -22,17 +22,22 @@ func (l AWSDMSReplicationInstance) Types() []resource.ResourceType {
 }
 
 func (l AWSDMSReplicationInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := databasemigrationservice.New(ctx.AWSCfg)
-
-	req := svc.DescribeReplicationInstancesRequest(&databasemigrationservice.DescribeReplicationInstancesInput{
-		MaxRecords: aws.Int64(100),
-	})
-
+	svc := databasemigrationservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	paginator := databasemigrationservice.NewDescribeReplicationInstancesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.ReplicationInstances {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeReplicationInstances(ctx.Context, &databasemigrationservice.DescribeReplicationInstancesInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
+				// If DMS is not supported in a region, it triggers this error
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, v := range res.ReplicationInstances {
 			r := resource.New(ctx, resource.DMSReplicationInstance, v.ReplicationInstanceIdentifier, v.ReplicationInstanceIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.DMSReplicationSubnetGroup, v.ReplicationSubnetGroup, "")
@@ -41,14 +46,7 @@ func (l AWSDMSReplicationInstance) List(ctx context.AWSetsCtx) (*resource.Group,
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-
-	if err != nil {
-		if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
-			// If DMS is not supported in a region, it triggers this error
-			err = nil
-		}
-	}
+		return res.Marker, nil
+	})
 	return rg, err
 }

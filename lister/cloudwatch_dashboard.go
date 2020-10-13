@@ -4,9 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,34 +22,28 @@ func (l AWSCloudwatchDashboard) Types() []resource.ResourceType {
 
 func (l AWSCloudwatchDashboard) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := cloudwatch.New(ctx.AWSCfg)
+	svc := cloudwatch.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	var nextToken *string
-
-	for {
-		dashboards, err := svc.ListDashboardsRequest(&cloudwatch.ListDashboardsInput{
-			NextToken: nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListDashboards(ctx.Context, &cloudwatch.ListDashboardsInput{
+			NextToken: nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list cloudwatch dashbards: %w", err)
+			return nil, fmt.Errorf("failed to list cloudwatch dashbards: %w", err)
 		}
-		for _, v := range dashboards.DashboardEntries {
-			dashboard, err := svc.GetDashboardRequest(&cloudwatch.GetDashboardInput{
+		for _, v := range res.DashboardEntries {
+			dashboard, err := svc.GetDashboard(ctx.Context, &cloudwatch.GetDashboardInput{
 				DashboardName: v.DashboardName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get dashboard %s: %w", *v.DashboardName, err)
+				return nil, fmt.Errorf("failed to get dashboard %s: %w", *v.DashboardName, err)
 			}
 			r := resource.New(ctx, resource.CloudwatchDashboard, dashboard.DashboardName, dashboard.DashboardName, dashboard)
 			rg.AddResource(r)
 		}
-		if dashboards.NextToken == nil {
-			break
-		}
-		nextToken = dashboards.NextToken
-	}
-
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

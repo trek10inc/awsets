@@ -25,13 +25,13 @@ func (l AWSRoute53HealthCheck) Types() []resource.ResourceType {
 }
 
 func (l AWSRoute53HealthCheck) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := route53.New(ctx.AWSCfg)
+	svc := route53.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listRoute53HealthChecksOnce.Do(func() {
-		req := svc.ListHealthChecksRequest(&route53.ListHealthChecksInput{})
+		res, err := svc.ListHealthChecks(ctx.Context, &route53.ListHealthChecksInput{})
 		paginator := route53.NewListHealthChecksPaginator(req)
 		for paginator.Next(ctx.Context) {
 			page := paginator.CurrentPage()

@@ -23,24 +23,24 @@ func (l AWSWafRegionalByteMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListByteMatchSetsRequest(&wafregional.ListByteMatchSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListByteMatchSets(ctx.Context, &wafregional.ListByteMatchSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional byte match sets: %w", err)
+			return nil, fmt.Errorf("failed to list regional byte match sets: %w", err)
 		}
 		for _, id := range res.ByteMatchSets {
-			matchSet, err := svc.GetByteMatchSetRequest(&wafregional.GetByteMatchSetInput{
+			matchSet, err := svc.GetByteMatchSet(ctx.Context, &wafregional.GetByteMatchSetInput{
 				ByteMatchSetId: id.ByteMatchSetId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get byte match set %s: %w", aws.StringValue(id.ByteMatchSetId), err)
+				return nil, fmt.Errorf("failed to get byte match set %s: %w", aws.StringValue(id.ByteMatchSetId), err)
 			}
 			if v := matchSet.ByteMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalByteMatchSet, v.ByteMatchSetId, v.Name, v)

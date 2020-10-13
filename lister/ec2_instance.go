@@ -1,11 +1,10 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSEc2Instance struct {
@@ -21,17 +20,18 @@ func (l AWSEc2Instance) Types() []resource.ResourceType {
 }
 
 func (l AWSEc2Instance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.New(ctx.AWSCfg)
-
-	req := svc.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
-		MaxResults: aws.Int64(1000),
-	})
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := ec2.NewDescribeInstancesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, reservation := range page.Reservations {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeInstances(ctx.Context, &ec2.DescribeInstancesInput{
+			MaxResults: aws.Int32(1000),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, reservation := range res.Reservations {
 			for _, v := range reservation.Instances {
 				r := resource.New(ctx, resource.Ec2Instance, v.InstanceId, v.InstanceId, v)
 				r.AddRelation(resource.Ec2Subnet, v.SubnetId, "")
@@ -51,7 +51,7 @@ func (l AWSEc2Instance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				rg.AddResource(r)
 			}
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

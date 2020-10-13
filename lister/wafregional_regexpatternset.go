@@ -23,24 +23,24 @@ func (l AWSWafRegionalRegexPatternSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalRegexPatternSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListRegexPatternSetsRequest(&wafregional.ListRegexPatternSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListRegexPatternSets(ctx.Context, &wafregional.ListRegexPatternSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional regex pattern sets: %w", err)
+			return nil, fmt.Errorf("failed to list regional regex pattern sets: %w", err)
 		}
 		for _, id := range res.RegexPatternSets {
-			matchSet, err := svc.GetRegexPatternSetRequest(&wafregional.GetRegexPatternSetInput{
+			matchSet, err := svc.GetRegexPatternSet(ctx.Context, &wafregional.GetRegexPatternSetInput{
 				RegexPatternSetId: id.RegexPatternSetId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get regex pattern set %s: %w", aws.StringValue(id.RegexPatternSetId), err)
+				return nil, fmt.Errorf("failed to get regex pattern set %s: %w", aws.StringValue(id.RegexPatternSetId), err)
 			}
 			if v := matchSet.RegexPatternSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalRegexPatternSet, v.RegexPatternSetId, v.Name, v)

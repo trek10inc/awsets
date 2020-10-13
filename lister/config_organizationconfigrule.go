@@ -3,12 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,18 +23,16 @@ func (l AWSConfigOrganizationConfigRule) Types() []resource.ResourceType {
 
 func (l AWSConfigOrganizationConfigRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.New(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextToken *string
-	for {
-		rules, err := svc.DescribeOrganizationConfigRulesRequest(&configservice.DescribeOrganizationConfigRulesInput{
-			NextToken: nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeOrganizationConfigRules(ctx.Context, &configservice.DescribeOrganizationConfigRulesInput{
+			NextToken: nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list config organization config rules: %w", err)
+			return nil, fmt.Errorf("failed to list config organization config rules: %w", err)
 		}
-		for _, v := range rules.OrganizationConfigRules {
+		for _, v := range res.OrganizationConfigRules {
 			ruleArn := arn.ParseP(v.OrganizationConfigRuleArn)
 			r := resource.New(ctx, resource.ConfigOrganizationConfigRule, ruleArn.ResourceId, v.OrganizationConfigRuleName, v)
 			if v.OrganizationCustomRuleMetadata != nil {
@@ -45,10 +40,7 @@ func (l AWSConfigOrganizationConfigRule) List(ctx context.AWSetsCtx) (*resource.
 			}
 			rg.AddResource(r)
 		}
-		if rules.NextToken == nil {
-			break
-		}
-		nextToken = rules.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

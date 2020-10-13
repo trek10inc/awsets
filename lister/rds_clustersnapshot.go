@@ -26,17 +26,17 @@ func (l AWSRdsDbClusterSnapshot) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var marker *string
 	for {
-		snapshots, err := svc.DescribeDBClusterSnapshotsRequest(&rds.DescribeDBClusterSnapshotsInput{
+		snapshots, err := svc.DescribeDBClusterSnapshots(ctx.Context, &rds.DescribeDBClusterSnapshotsInput{
 			Marker:     marker,
-			MaxRecords: aws.Int64(100),
-		}).Send(ctx.Context)
+			MaxRecords: aws.Int32(100),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list rds db cluster snapshots: %w", err)
+			return nil, fmt.Errorf("failed to list rds db cluster snapshots: %w", err)
 		}
 
 		for _, v := range snapshots.DBClusterSnapshots {

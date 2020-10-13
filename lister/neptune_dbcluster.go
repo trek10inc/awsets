@@ -24,19 +24,19 @@ func (l AWSNeptuneDbCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := neptune.New(ctx.AWSCfg)
+	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var marker *string
 
 	for {
-		res, err := svc.DescribeDBClustersRequest(&neptune.DescribeDBClustersInput{
+		res, err := svc.DescribeDBClusters(ctx.Context, &neptune.DescribeDBClustersInput{
 			Marker:     marker,
-			MaxRecords: aws.Int64(100),
-		}).Send(ctx.Context)
+			MaxRecords: aws.Int32(100),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list neptune clusters: %w", err)
+			return nil, fmt.Errorf("failed to list neptune clusters: %w", err)
 		}
 		for _, cluster := range res.DBClusters {
 			clusterArn := arn.ParseP(cluster.DBClusterArn)

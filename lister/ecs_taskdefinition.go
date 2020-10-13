@@ -1,12 +1,14 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSEcsTaskDefinition struct {
@@ -22,29 +24,34 @@ func (l AWSEcsTaskDefinition) Types() []resource.ResourceType {
 }
 
 func (l AWSEcsTaskDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ecs.New(ctx.AWSCfg)
-	req := svc.ListTaskDefinitionsRequest(&ecs.ListTaskDefinitionsInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := ecs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	taskDefinitionsPaginator := ecs.NewListTaskDefinitionsPaginator(req)
-	for taskDefinitionsPaginator.Next(ctx.Context) {
-		page := taskDefinitionsPaginator.CurrentPage()
-		for _, taskDefArn := range page.TaskDefinitionArns {
-			describeTaskDefReq := svc.DescribeTaskDefinitionRequest(&ecs.DescribeTaskDefinitionInput{
-				Include:        []ecs.TaskDefinitionField{ecs.TaskDefinitionFieldTags},
-				TaskDefinition: &taskDefArn,
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListTaskDefinitions(ctx.Context, &ecs.ListTaskDefinitionsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		for _, taskDefArn := range res.TaskDefinitionArns {
+			task, err := svc.DescribeTaskDefinition(ctx.Context, &ecs.DescribeTaskDefinitionInput{
+				Include:        []types.TaskDefinitionField{types.TaskDefinitionFieldTags},
+				TaskDefinition: taskDefArn,
 			})
-			describeTaskDefRes, err := describeTaskDefReq.Send(ctx.Context)
 			if err != nil {
-				return rg, err
+				return nil, fmt.Errorf("failed to describe task def %s: %w", *taskDefArn, err)
 			}
-			parsedArn := arn.Parse(taskDefArn)
-			taskDefResource := resource.New(ctx, resource.EcsTaskDefinition, parsedArn.ResourceId, "", describeTaskDefRes)
+			parsedArn := arn.ParseP(task.TaskDefinition.TaskDefinitionArn)
+			taskDefResource := resource.New(ctx, resource.EcsTaskDefinition, parsedArn.ResourceId, "", task.TaskDefinition)
+			for _, v := range task.Tags {
+				taskDefResource.Tags[aws.ToString(v.Key)] = aws.ToString(v.Value)
+			}
 			rg.AddResource(taskDefResource)
 		}
-	}
-	err := taskDefinitionsPaginator.Err()
+		if err != nil {
+			return nil, err
+		}
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

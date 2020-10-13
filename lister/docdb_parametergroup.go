@@ -3,10 +3,11 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
+	"github.com/aws/aws-sdk-go-v2/service/docdb/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/docdb"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,32 +24,30 @@ func (l AWSDocDBParameterGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := docdb.New(ctx.AWSCfg)
+	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	var marker *string
-
-	for {
-		groups, err := svc.DescribeDBClusterParameterGroupsRequest(&docdb.DescribeDBClusterParameterGroupsInput{
-			Marker:     marker,
-			MaxRecords: aws.Int64(100),
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &docdb.DescribeDBClusterParameterGroupsInput{
+			Marker:     nt,
+			MaxRecords: aws.Int32(100),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to get parameter groups: %w", err)
+			return nil, fmt.Errorf("failed to get parameter groups: %w", err)
 		}
-		for _, group := range groups.DBClusterParameterGroups {
+		for _, group := range res.DBClusterParameterGroups {
 			r := resource.New(ctx, resource.DocDBParameterGroup, group.DBClusterParameterGroupName, group.DBClusterParameterGroupName, group)
 
 			var paramMarker *string
-			parameterList := make([]docdb.Parameter, 0)
+			parameterList := make([]*types.Parameter, 0)
 			for {
-				params, err := svc.DescribeDBClusterParametersRequest(&docdb.DescribeDBClusterParametersInput{
+				params, err := svc.DescribeDBClusterParameters(ctx.Context, &docdb.DescribeDBClusterParametersInput{
 					DBClusterParameterGroupName: group.DBClusterParameterGroupName,
 					Marker:                      paramMarker,
-					MaxRecords:                  aws.Int64(100),
-				}).Send(ctx.Context)
+					MaxRecords:                  aws.Int32(100),
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to get parameters for %s: %w", *group.DBClusterParameterGroupName, err)
+					return nil, fmt.Errorf("failed to get parameters for %s: %w", *group.DBClusterParameterGroupName, err)
 				}
 				for _, param := range params.Parameters {
 					parameterList = append(parameterList, param)
@@ -61,10 +60,7 @@ func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 			r.AddAttribute("Parameters", parameterList)
 			rg.AddResource(r)
 		}
-		if groups.Marker == nil {
-			break
-		}
-		marker = groups.Marker
-	}
-	return rg, nil
+		return res.Marker, nil
+	})
+	return rg, err
 }

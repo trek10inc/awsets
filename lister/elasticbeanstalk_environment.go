@@ -4,11 +4,8 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-
 	"github.com/aws/aws-sdk-go-v2/service/elasticbeanstalk"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,50 +23,45 @@ func (l AWSElasticBeanstalkEnvironment) Types() []resource.ResourceType {
 
 func (l AWSElasticBeanstalkEnvironment) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := elasticbeanstalk.New(ctx.AWSCfg)
+	svc := elasticbeanstalk.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-
-	var nextToken *string
-
-	for {
-		envs, err := svc.DescribeEnvironmentsRequest(&elasticbeanstalk.DescribeEnvironmentsInput{
-			MaxRecords: aws.Int64(100),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeEnvironments(ctx.Context, &elasticbeanstalk.DescribeEnvironmentsInput{
+			MaxRecords: aws.Int32(100),
+			NextToken:  nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list elastic beanstalk environments: %w", err)
+			return nil, fmt.Errorf("failed to list elastic beanstalk environments: %w", err)
 		}
-		for _, v := range envs.Environments {
+		for _, v := range res.Environments {
 			r := resource.New(ctx, resource.ElasticBeanstalkEnvironment, v.EnvironmentId, v.EnvironmentName, v)
 			r.AddRelation(resource.ElasticBeanstalkApplication, v.ApplicationName, "")
 			// TODO: relationship to load balancer?
 
-			opts, err := svc.DescribeConfigurationOptionsRequest(&elasticbeanstalk.DescribeConfigurationOptionsInput{
+			// Configuration Options
+			opts, err := svc.DescribeConfigurationOptions(ctx.Context, &elasticbeanstalk.DescribeConfigurationOptionsInput{
 				ApplicationName: v.ApplicationName,
 				EnvironmentName: v.EnvironmentName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get configuration options for environment %s: %w", *v.EnvironmentName, err)
+				return nil, fmt.Errorf("failed to get configuration options for environment %s: %w", *v.EnvironmentName, err)
 			}
 			r.AddAttribute("ConfigurationOptions", opts.Options)
-			settings, err := svc.DescribeConfigurationSettingsRequest(&elasticbeanstalk.DescribeConfigurationSettingsInput{
+
+			// Configuration Settings
+			settings, err := svc.DescribeConfigurationSettings(ctx.Context, &elasticbeanstalk.DescribeConfigurationSettingsInput{
 				ApplicationName: v.ApplicationName,
 				EnvironmentName: v.EnvironmentName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get configuration settings for environment %s: %w", *v.EnvironmentName, err)
+				return nil, fmt.Errorf("failed to get configuration settings for environment %s: %w", *v.EnvironmentName, err)
 			}
 			r.AddAttribute("ConfigurationSettings", settings.ConfigurationSettings)
 
 			rg.AddResource(r)
 		}
-
-		if envs.NextToken == nil {
-			break
-		}
-		nextToken = envs.NextToken
-	}
-
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

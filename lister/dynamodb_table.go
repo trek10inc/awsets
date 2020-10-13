@@ -3,11 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,29 +22,27 @@ func (l AWSDynamoDBTable) Types() []resource.ResourceType {
 }
 
 func (l AWSDynamoDBTable) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := dynamodb.New(ctx.AWSCfg)
-
-	req := svc.ListTablesRequest(&dynamodb.ListTablesInput{
-		Limit: aws.Int64(100),
-	})
-	paginator := dynamodb.NewListTablesPaginator(req)
+	svc := dynamodb.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, table := range page.TableNames {
-
-			tableReq := svc.DescribeTableRequest(&dynamodb.DescribeTableInput{
-				TableName: aws.String(table),
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListTables(ctx.Context, &dynamodb.ListTablesInput{
+			Limit:                   aws.Int32(100),
+			ExclusiveStartTableName: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, table := range res.TableNames {
+			tableRes, err := svc.DescribeTable(ctx.Context, &dynamodb.DescribeTableInput{
+				TableName: table,
 			})
-			res, err := tableReq.Send(ctx.Context)
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe table %s: %w", table, err)
+				return nil, fmt.Errorf("failed to describe table %s: %w", table, err)
 			}
-			tableArn := arn.ParseP(res.Table.TableArn)
-			r := resource.New(ctx, resource.DynamoDbTable, tableArn.ResourceId, res.Table.TableName, res.Table)
+			r := resource.New(ctx, resource.DynamoDbTable, tableRes.Table.TableId, tableRes.Table.TableName, tableRes.Table)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.LastEvaluatedTableName, nil
+	})
 	return rg, err
 }

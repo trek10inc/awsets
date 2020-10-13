@@ -4,15 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-
 	"github.com/aws/aws-sdk-go-v2/service/dax"
-
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,30 +20,26 @@ func init() {
 }
 
 func (l AWSDAXCluster) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.CodeBuildProject}
+	return []resource.ResourceType{resource.DAXCluster}
 }
 
 func (l AWSDAXCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := dax.New(ctx.AWSCfg)
+	svc := dax.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		clusters, err := svc.DescribeClustersRequest(&dax.DescribeClustersInput{
-			MaxResults: aws.Int64(100),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeClusters(ctx.Context, &dax.DescribeClustersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == dax.ErrCodeInvalidParameterValueException &&
-					strings.Contains(aerr.Message(), "Access Denied to API Version: DAX_V3") {
-					// Regions that don't support DAX return access denied
-					return rg, nil
-				}
+			if strings.Contains(err.Error(), "Access Denied to API Version: DAX_V3") {
+				// Regions that don't support DAX return access denied
+				return nil, nil
 			}
-			return rg, fmt.Errorf("failed to list dax clusters: %w", err)
+			return nil, fmt.Errorf("failed to list dax clusters: %w", err)
 		}
-		for _, v := range clusters.Clusters {
+		for _, v := range res.Clusters {
 			clusterArn := arn.ParseP(v.ClusterArn)
 			r := resource.New(ctx, resource.DAXCluster, clusterArn.ResourceId, v.ClusterName, v)
 			r.AddRelation(resource.DAXParameterGroup, v.ParameterGroup.ParameterGroupName, "")
@@ -59,11 +50,7 @@ func (l AWSDAXCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r.AddARNRelation(resource.IamRole, v.IamRoleArn)
 			rg.AddResource(r)
 		}
-
-		if clusters.NextToken == nil {
-			break
-		}
-		nextToken = clusters.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

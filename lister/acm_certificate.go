@@ -3,11 +3,10 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,37 +23,39 @@ func (l AWSAcmCertificate) Types() []resource.ResourceType {
 }
 
 func (l AWSAcmCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := acm.New(ctx.AWSCfg)
-
-	req := svc.ListCertificatesRequest(&acm.ListCertificatesInput{
-		MaxItems: aws.Int64(100),
-	})
+	svc := acm.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := acm.NewListCertificatesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, cert := range page.CertificateSummaryList {
-			res, err := svc.DescribeCertificateRequest(&acm.DescribeCertificateInput{CertificateArn: cert.CertificateArn}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		req, err := svc.ListCertificates(ctx.Context, &acm.ListCertificatesInput{
+			MaxItems:  aws.Int32(100),
+			NextToken: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, cert := range req.CertificateSummaryList {
+
+			res, err := svc.DescribeCertificate(ctx.Context, &acm.DescribeCertificateInput{CertificateArn: cert.CertificateArn})
 			if err != nil {
-				return rg, fmt.Errorf("unable to describe certificate %s: %w", *cert.CertificateArn, err)
+				return nil, fmt.Errorf("unable to describe certificate %s: %w", *cert.CertificateArn, err)
 			}
 			//if arn.IsArnP(res.Certificate.CertificateArn) {
 			certArn := arn.ParseP(res.Certificate.CertificateArn)
 			r := resource.New(ctx, resource.AcmCertificate, certArn.ResourceId, certArn.ResourceId, res.Certificate)
 			//}
-			tagRes, err := svc.ListTagsForCertificateRequest(&acm.ListTagsForCertificateInput{
+			tagRes, err := svc.ListTagsForCertificate(ctx.Context, &acm.ListTagsForCertificateInput{
 				CertificateArn: cert.CertificateArn,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list tags for cert %s: %w", *cert.CertificateArn, err)
+				return nil, fmt.Errorf("failed to list tags for cert %s: %w", *cert.CertificateArn, err)
 			}
 			for _, tag := range tagRes.Tags {
 				r.Tags[*tag.Key] = *tag.Value
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return req.NextToken, nil
+	})
 	return rg, err
 }

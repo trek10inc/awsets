@@ -4,10 +4,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,23 +25,24 @@ func (l AWSCloudfrontDistribution) Types() []resource.ResourceType {
 }
 
 func (l AWSCloudfrontDistribution) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cloudfront.New(ctx.AWSCfg)
+	svc := cloudfront.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listCloudfrontDistributionsOnce.Do(func() {
-		req := svc.ListDistributionsRequest(&cloudfront.ListDistributionsInput{
-			MaxItems: aws.Int64(100),
-		})
-
-		paginator := cloudfront.NewListDistributionsPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			if page.DistributionList == nil {
-				continue
+		err := Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListDistributions(ctx.Context, &cloudfront.ListDistributionsInput{
+				MaxItems: aws.String("100"),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
 			}
-			for _, item := range page.DistributionList.Items {
+			if res.DistributionList == nil {
+				return nil, nil
+			}
+			for _, item := range res.DistributionList.Items {
 				r := resource.NewGlobal(ctx, resource.CloudFrontDistribution, item.Id, item.Id, item)
 				if item.Origins != nil {
 					for _, origin := range item.Origins.Items {
@@ -54,8 +54,11 @@ func (l AWSCloudfrontDistribution) List(ctx context.AWSetsCtx) (*resource.Group,
 				}
 				rg.AddResource(r)
 			}
+			return res.DistributionList.NextMarker, nil
+		})
+		if err != nil {
+			outerErr = err
 		}
-		outerErr = paginator.Err()
 	})
 
 	return rg, outerErr

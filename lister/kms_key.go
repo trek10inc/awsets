@@ -21,10 +21,10 @@ func (l AWSKmsKey) Types() []resource.ResourceType {
 }
 
 func (l AWSKmsKey) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := kms.New(ctx.AWSCfg)
+	svc := kms.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListKeysRequest(&kms.ListKeysInput{
-		Limit: aws.Int64(100),
+	res, err := svc.ListKeys(ctx.Context, &kms.ListKeysInput{
+		Limit: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -32,11 +32,11 @@ func (l AWSKmsKey) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, key := range page.Keys {
-			kreq := svc.DescribeKeyRequest(&kms.DescribeKeyInput{
+			kres, err := svc.DescribeKey(ctx.Context, &kms.DescribeKeyInput{
 				GrantTokens: nil,
 				KeyId:       key.KeyId,
 			})
-			kres, err := kreq.Send(ctx.Context)
+			kres, err := kreq
 			if err != nil {
 				return rg, err
 			}

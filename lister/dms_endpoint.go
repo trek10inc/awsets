@@ -22,17 +22,22 @@ func (l AWSDMSEndpoint) Types() []resource.ResourceType {
 }
 
 func (l AWSDMSEndpoint) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := databasemigrationservice.New(ctx.AWSCfg)
-
-	req := svc.DescribeEndpointsRequest(&databasemigrationservice.DescribeEndpointsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := databasemigrationservice.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := databasemigrationservice.NewDescribeEndpointsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Endpoints {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeEndpoints(ctx.Context, &databasemigrationservice.DescribeEndpointsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
+				// If DMS is not supported in a region, it triggers this error
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, v := range res.Endpoints {
 			r := resource.New(ctx, resource.DMSEndpoint, v.EndpointIdentifier, v.EndpointIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddARNRelation(resource.AcmCertificate, v.CertificateArn)
@@ -43,13 +48,7 @@ func (l AWSDMSEndpoint) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r.AddARNRelation(resource.IamRole, v.ServiceAccessRoleArn)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
-			// If DMS is not supported in a region, it triggers this error
-			err = nil
-		}
-	}
+		return res.Marker, nil
+	})
 	return rg, err
 }

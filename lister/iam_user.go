@@ -28,21 +28,21 @@ func (l AWSIamUser) Types() []resource.ResourceType {
 }
 
 func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.New(ctx.AWSCfg)
+	svc := iam.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 	listUsersOnce.Do(func() {
-		paginator := iam.NewListUsersPaginator(svc.ListUsersRequest(&iam.ListUsersInput{
-			MaxItems: aws.Int64(100),
+		paginator := iam.NewListUsersPaginator(svc.ListUsers(ctx.Context, &iam.ListUsersInput{
+			MaxItems: aws.Int32(100),
 		}))
 		for paginator.Next(ctx.Context) {
 			page := paginator.CurrentPage()
 			for _, user := range page.Users {
 				r := resource.NewGlobal(ctx, resource.IamUser, user.UserId, user.UserName, user)
 
-				akPaginator := iam.NewListAccessKeysPaginator(svc.ListAccessKeysRequest(&iam.ListAccessKeysInput{
-					MaxItems: aws.Int64(100),
+				akPaginator := iam.NewListAccessKeysPaginator(svc.ListAccessKeys(ctx.Context, &iam.ListAccessKeysInput{
+					MaxItems: aws.Int32(100),
 					UserName: user.UserName,
 				}))
 				for akPaginator.Next(ctx.Context) {
@@ -51,9 +51,9 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						akR := resource.NewGlobal(ctx, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
 						akR.AddRelation(resource.IamUser, user.UserId, "")
 
-						lastUsed, err := svc.GetAccessKeyLastUsedRequest(&iam.GetAccessKeyLastUsedInput{
+						lastUsed, err := svc.GetAccessKeyLastUsed(ctx.Context, &iam.GetAccessKeyLastUsedInput{
 							AccessKeyId: ak.AccessKeyId,
-						}).Send(ctx.Context)
+						})
 						if err != nil {
 							outerErr = fmt.Errorf("failed to get lasted used time for access key %s: %w", *ak.AccessKeyId, err)
 							return

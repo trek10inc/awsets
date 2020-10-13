@@ -4,9 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +22,12 @@ func (l AWSConfigDeliveryChannel) Types() []resource.ResourceType {
 
 func (l AWSConfigDeliveryChannel) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.New(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
-	channels, err := svc.DescribeDeliveryChannelsRequest(&configservice.DescribeDeliveryChannelsInput{}).Send(ctx.Context)
+	channels, err := svc.DescribeDeliveryChannels(ctx.Context, &configservice.DescribeDeliveryChannelsInput{})
 	if err != nil {
-		return rg, fmt.Errorf("failed to list config delivery channels: %w", err)
+		return nil, fmt.Errorf("failed to list config delivery channels: %w", err)
 	}
 	for _, v := range channels.DeliveryChannels {
 		r := resource.New(ctx, resource.ConfigDeliveryChannel, v.Name, v.Name, v)

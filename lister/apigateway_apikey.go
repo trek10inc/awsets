@@ -2,13 +2,11 @@ package lister
 
 import (
 	"fmt"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
-	"github.com/trek10inc/awsets/context"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,30 +19,42 @@ func init() {
 }
 
 func (l AWSApiGatewayApiKey) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.ApiGatewayApiKey, resource.ApiGatewayUsagePlan, resource.ApiGatewayUsagePlanKey}
+	return []resource.ResourceType{
+		resource.ApiGatewayApiKey,
+		resource.ApiGatewayUsagePlan,
+		resource.ApiGatewayUsagePlanKey,
+	}
 }
 
 func (l AWSApiGatewayApiKey) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := apigateway.New(ctx.AWSCfg)
-
-	req := svc.GetApiKeysRequest(&apigateway.GetApiKeysInput{
-		Limit: aws.Int64(500),
-	})
+	svc := apigateway.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := apigateway.NewGetApiKeysPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, apikey := range page.Items {
+	err := Paginator(func(nt *string) (*string, error) {
+		req, err := svc.GetApiKeys(ctx.Context, &apigateway.GetApiKeysInput{
+			Position: nt,
+			Limit:    aws.Int32(500),
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "AccessDeniedException") {
+				err = nil
+			}
+			return nil, err
+		}
+		for _, apikey := range req.Items {
 			r := resource.New(ctx, resource.ApiGatewayRestApi, apikey.Id, apikey.Name, apikey)
 			rg.AddResource(r)
-			usagePaginator := apigateway.NewGetUsagePlansPaginator(svc.GetUsagePlansRequest(&apigateway.GetUsagePlansInput{
-				KeyId: apikey.Id,
-				Limit: aws.Int64(500),
-			}))
-			for usagePaginator.Next(ctx.Context) {
-				usagePlanPage := usagePaginator.CurrentPage()
-				for _, usagePlan := range usagePlanPage.Items {
+
+			// Usage Plans
+			err = Paginator(func(nt2 *string) (*string, error) {
+				usagePlanReq, err := svc.GetUsagePlans(ctx.Context, &apigateway.GetUsagePlansInput{
+					KeyId: apikey.Id,
+					Limit: aws.Int32(500),
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get usage plans for %s: %w", *apikey.Id, err)
+				}
+				for _, usagePlan := range usagePlanReq.Items {
 					usagePlanRes := resource.New(ctx, resource.ApiGatewayUsagePlan, usagePlan.Id, usagePlan.Name, usagePlan)
 					usagePlanRes.AddRelation(resource.ApiGatewayApiKey, apikey.Id, "")
 					for _, stage := range usagePlan.ApiStages {
@@ -52,36 +62,31 @@ func (l AWSApiGatewayApiKey) List(ctx context.AWSetsCtx) (*resource.Group, error
 					}
 					rg.AddResource(usagePlanRes)
 
-					usageKeyPaginator := apigateway.NewGetUsagePlanKeysPaginator(svc.GetUsagePlanKeysRequest(&apigateway.GetUsagePlanKeysInput{
-						Limit:       aws.Int64(10),
-						UsagePlanId: usagePlan.Id,
-					}))
-					for usageKeyPaginator.Next(ctx.Context) {
-						usagePlanKeyPage := usageKeyPaginator.CurrentPage()
-						for _, usagePlanKey := range usagePlanKeyPage.Items {
+					// Usage Plan Keys
+					err = Paginator(func(nt3 *string) (*string, error) {
+						planKeysRes, err := svc.GetUsagePlanKeys(ctx.Context, &apigateway.GetUsagePlanKeysInput{
+							Limit:       aws.Int32(10),
+							Position:    nt3,
+							UsagePlanId: usagePlan.Id,
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to get usage plan keys for plan %s: %w", usagePlan.Id, err)
+						}
+						for _, usagePlanKey := range planKeysRes.Items {
 							planKeyRes := resource.New(ctx, resource.ApiGatewayUsagePlanKey, usagePlanKey.Id, usagePlanKey.Name, usagePlanKey)
 							planKeyRes.AddRelation(resource.ApiGatewayUsagePlan, usagePlan.Id, "")
 							rg.AddResource(planKeyRes)
 						}
-					}
-					if err := usageKeyPaginator.Err(); err != nil {
-						return rg, fmt.Errorf("failed to get usage plan keys for %s: %w", aws.StringValue(usagePlan.Id), err)
-					}
+						return planKeysRes.Position, nil
+					})
 				}
-			}
-			if err := usagePaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get usage plans for %s: %w", aws.StringValue(apikey.Id), err)
-			}
-		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "AccessDeniedException" {
-				// If api gateway is not supported in a region, returns access denied
-				err = nil
+				return usagePlanReq.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 		}
-	}
+		return req.Position, nil
+	})
 	return rg, err
 }

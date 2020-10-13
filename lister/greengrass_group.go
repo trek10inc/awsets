@@ -27,41 +27,41 @@ func (l AWSGreengrassGroup) Types() []resource.ResourceType {
 
 func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := greengrass.New(ctx.AWSCfg)
+	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextToken *string
 	for {
-		groups, err := svc.ListGroupsRequest(&greengrass.ListGroupsInput{
+		groups, err := svc.ListGroups(ctx.Context, &greengrass.ListGroupsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
 				return rg, nil
 			}
-			return rg, fmt.Errorf("failed to list greengrass groups: %w", err)
+			return nil, fmt.Errorf("failed to list greengrass groups: %w", err)
 		}
 		for _, v := range groups.Groups {
 			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
 			var gvNextToken *string
 			for {
-				groupVersions, err := svc.ListGroupVersionsRequest(&greengrass.ListGroupVersionsInput{
+				groupVersions, err := svc.ListGroupVersions(ctx.Context, &greengrass.ListGroupVersionsInput{
 					GroupId:    v.Id,
 					MaxResults: aws.String("100"),
 					NextToken:  gvNextToken,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list greengrass group versions for %s: %w", *v.Id, err)
+					return nil, fmt.Errorf("failed to list greengrass group versions for %s: %w", *v.Id, err)
 				}
 				for _, gvId := range groupVersions.Versions {
-					gv, err := svc.GetGroupVersionRequest(&greengrass.GetGroupVersionInput{
+					gv, err := svc.GetGroupVersion(ctx.Context, &greengrass.GetGroupVersionInput{
 						GroupId:        gvId.Id,
 						GroupVersionId: gvId.Version,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to list greengrass group version for %s, %s: %w", *gvId.Id, *gvId.Version, err)
+						return nil, fmt.Errorf("failed to list greengrass group version for %s, %s: %w", *gvId.Id, *gvId.Version, err)
 					}
 					gvRes := resource.NewVersion(ctx, resource.GreengrassGroupVersion, gv.Id, gv.Id, gv.Version, gv)
 					if def := gv.Definition; def != nil {

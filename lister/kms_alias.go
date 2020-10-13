@@ -22,10 +22,10 @@ func (l AWSKmsAlias) Types() []resource.ResourceType {
 }
 
 func (l AWSKmsAlias) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := kms.New(ctx.AWSCfg)
+	svc := kms.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListAliasesRequest(&kms.ListAliasesInput{
-		Limit: aws.Int64(100),
+	res, err := svc.ListAliases(ctx.Context, &kms.ListAliasesInput{
+		Limit: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

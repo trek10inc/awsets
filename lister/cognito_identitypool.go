@@ -3,11 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/service/cognitoidentity"
-
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentity"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,45 +19,33 @@ func init() {
 
 func (l AWSCognitoIdentityPool) Types() []resource.ResourceType {
 	return []resource.ResourceType{
-		resource.CognitoUserPool,
-		resource.CognitoUserPoolClient,
-		resource.CognitoUserPoolGroup,
-		resource.CognitoUserPoolIdentityProvider,
-		resource.CognitoUserPoolResourceServer,
+		resource.CognitoIdentityPool,
 	}
 }
 
 func (l AWSCognitoIdentityPool) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := cognitoidentity.New(ctx.AWSCfg)
+	svc := cognitoidentity.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-
-	for {
-		identityPools, err := svc.ListIdentityPoolsRequest(&cognitoidentity.ListIdentityPoolsInput{
-			MaxResults: aws.Int64(60),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListIdentityPools(ctx.Context, &cognitoidentity.ListIdentityPoolsInput{
+			MaxResults: aws.Int32(60),
+			NextToken:  nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list identity pools: %w", err)
+			return nil, fmt.Errorf("failed to list identity pools: %w", err)
 		}
-
-		for _, identityPool := range identityPools.IdentityPools {
-			pool, err := svc.DescribeIdentityPoolRequest(&cognitoidentity.DescribeIdentityPoolInput{
+		for _, identityPool := range res.IdentityPools {
+			pool, err := svc.DescribeIdentityPool(ctx.Context, &cognitoidentity.DescribeIdentityPoolInput{
 				IdentityPoolId: identityPool.IdentityPoolId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe identity pool %s: %w", *identityPool.IdentityPoolName, err)
+				return nil, fmt.Errorf("failed to describe identity pool %s: %w", *identityPool.IdentityPoolName, err)
 			}
 			r := resource.New(ctx, resource.CognitoIdentityPool, pool.IdentityPoolId, pool.IdentityPoolName, pool)
 			rg.AddResource(r)
 		}
-
-		if identityPools.NextToken == nil {
-			break
-		}
-		nextToken = identityPools.NextToken
-	}
-
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

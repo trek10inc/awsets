@@ -1,9 +1,8 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/batch"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/batch"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -21,24 +20,26 @@ func (l AWSBatchJobQueue) Types() []resource.ResourceType {
 }
 
 func (l AWSBatchJobQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := batch.New(ctx.AWSCfg)
-
-	req := svc.DescribeJobQueuesRequest(&batch.DescribeJobQueuesInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := batch.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := batch.NewDescribeJobQueuesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.JobQueues {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeJobQueues(ctx.Context, &batch.DescribeJobQueuesInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.JobQueues {
 			r := resource.New(ctx, resource.BatchJobQueue, v.JobQueueName, v.JobQueueName, v)
 			for _, ce := range v.ComputeEnvironmentOrder {
 				r.AddARNRelation(resource.BatchComputeEnvironment, ce.ComputeEnvironment)
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

@@ -3,14 +3,10 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/service/amplify"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-
+	"github.com/aws/aws-sdk-go-v2/service/amplify"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -32,30 +28,29 @@ func (l AWSAmplifyApp) Types() []resource.ResourceType {
 
 func (l AWSAmplifyApp) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := amplify.New(ctx.AWSCfg)
+	svc := amplify.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		apps, err := svc.ListAppsRequest(&amplify.ListAppsInput{
-			MaxResults: aws.Int64(100),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+
+	err := Paginator(func(nt *string) (*string, error) {
+		apps, err := svc.ListApps(ctx.Context, &amplify.ListAppsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list amplify apps: %w", err)
+			return nil, fmt.Errorf("failed to list amplify apps: %w", err)
 		}
 		for _, v := range apps.Apps {
 			r := resource.New(ctx, resource.AmplifyApp, v.AppId, v.Name, v)
 
 			// add Amplify Branches
-			var branchNextToken *string
-			for {
-				branches, err := svc.ListBranchesRequest(&amplify.ListBranchesInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				branches, err := svc.ListBranches(ctx.Context, &amplify.ListBranchesInput{
 					AppId:      v.AppId,
-					MaxResults: aws.Int64(50),
-					NextToken:  branchNextToken,
-				}).Send(ctx.Context)
+					MaxResults: aws.Int32(50),
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list branches for app %s: %w", *v.AppId, err)
+					return nil, fmt.Errorf("failed to list branches for app %s: %w", *v.AppId, err)
 				}
 				for _, branch := range branches.Branches {
 					branchArn := arn.ParseP(branch.BranchArn)
@@ -63,41 +58,36 @@ func (l AWSAmplifyApp) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					branchR.AddRelation(resource.AmplifyApp, v.AppId, "")
 					rg.AddResource(branchR)
 				}
-				if branches.NextToken == nil {
-					break
-				}
-				branchNextToken = branches.NextToken
+				return branches.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			// add Amplify Domains
-			var domainNextToken *string
-			for {
-				domains, err := svc.ListDomainAssociationsRequest(&amplify.ListDomainAssociationsInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				domains, err := svc.ListDomainAssociations(ctx.Context, &amplify.ListDomainAssociationsInput{
 					AppId:      v.AppId,
-					MaxResults: aws.Int64(50),
-					NextToken:  domainNextToken,
-				}).Send(ctx.Context)
+					MaxResults: aws.Int32(50),
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list domains for app %s: %w", *v.AppId, err)
+					return nil, fmt.Errorf("failed to list domains for app %s: %w", *v.AppId, err)
 				}
 				for _, domain := range domains.DomainAssociations {
 					domainR := resource.New(ctx, resource.AmplifyDomain, domain.DomainName, domain.DomainName, domain)
 					domainR.AddRelation(resource.AmplifyApp, v.AppId, "")
 					rg.AddResource(domainR)
 				}
-				if domains.NextToken == nil {
-					break
-				}
-				domainNextToken = domains.NextToken
+				return domains.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			rg.AddResource(r)
 		}
-
-		if apps.NextToken == nil {
-			break
-		}
-		nextToken = apps.NextToken
-	}
-	return rg, nil
+		return apps.NextToken, nil
+	})
+	return rg, err
 }

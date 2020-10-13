@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
 	"github.com/aws/aws-sdk-go-v2/service/emr"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -28,19 +26,19 @@ func (l AWSEMRCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := emr.New(ctx.AWSCfg)
+	svc := emr.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListClustersRequest(&emr.ListClustersInput{})
+	res, err := svc.ListClusters(ctx.Context, &emr.ListClustersInput{})
 	rg := resource.NewGroup()
 	paginator := emr.NewListClustersPaginator(req)
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, id := range page.Clusters {
-			cluster, err := svc.DescribeClusterRequest(&emr.DescribeClusterInput{
+			cluster, err := svc.DescribeCluster(ctx.Context, &emr.DescribeClusterInput{
 				ClusterId: id.Id,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe cluster %s: %w", *id.Id, err)
+				return nil, fmt.Errorf("failed to describe cluster %s: %w", *id.Id, err)
 			}
 			v := cluster.Cluster
 			if v == nil {
@@ -49,7 +47,7 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r := resource.New(ctx, resource.EmrCluster, v.Id, v.Name, v)
 			r.AddRelation(resource.EmrSecurityConfiguration, v.SecurityConfiguration, "")
 
-			igPaginator := emr.NewListInstanceGroupsPaginator(svc.ListInstanceGroupsRequest(&emr.ListInstanceGroupsInput{
+			igPaginator := emr.NewListInstanceGroupsPaginator(svc.ListInstanceGroups(ctx.Context, &emr.ListInstanceGroupsInput{
 				ClusterId: id.Id,
 			}))
 			for igPaginator.Next(ctx.Context) {
@@ -61,18 +59,15 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 			}
 			if err = igPaginator.Err(); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == emr.ErrCodeInvalidRequestException &&
-						strings.Contains(aerr.Message(), "Instance fleets and instance groups are mutually exclusive") {
-						err = nil
-					}
+				if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
+					err = nil
 				}
 				if err != nil {
-					return rg, fmt.Errorf("failed to list instance groups for %s: %w", *v.Id, err)
+					return nil, fmt.Errorf("failed to list instance groups for %s: %w", *v.Id, err)
 				}
 			}
 
-			ifPaginator := emr.NewListInstanceFleetsPaginator(svc.ListInstanceFleetsRequest(&emr.ListInstanceFleetsInput{
+			ifPaginator := emr.NewListInstanceFleetsPaginator(svc.ListInstanceFleets(ctx.Context, &emr.ListInstanceFleetsInput{
 				ClusterId: id.Id,
 			}))
 			for ifPaginator.Next(ctx.Context) {
@@ -91,18 +86,15 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 			}
 			if err = ifPaginator.Err(); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == emr.ErrCodeInvalidRequestException &&
-						strings.Contains(aerr.Message(), "Instance fleets and instance groups are mutually exclusive") {
-						err = nil
-					}
+				if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
+					err = nil
 				}
 				if err != nil {
-					return rg, fmt.Errorf("failed to list instance fleets for %s: %w", *v.Id, err)
+					return nil, fmt.Errorf("failed to list instance fleets for %s: %w", *v.Id, err)
 				}
 			}
 
-			stepsPaginator := emr.NewListStepsPaginator(svc.ListStepsRequest(&emr.ListStepsInput{
+			stepsPaginator := emr.NewListStepsPaginator(svc.ListSteps(ctx.Context, &emr.ListStepsInput{
 				ClusterId: id.Id,
 			}))
 			for stepsPaginator.Next(ctx.Context) {
@@ -114,7 +106,7 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 			}
 			if err = stepsPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list steps for %s: %w", *v.Id, err)
+				return nil, fmt.Errorf("failed to list steps for %s: %w", *v.Id, err)
 			}
 
 			rg.AddResource(r)

@@ -3,12 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -29,31 +26,29 @@ func (l AWSConfigRule) Types() []resource.ResourceType {
 
 func (l AWSConfigRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.New(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextToken *string
-
-	for {
-		rules, err := svc.DescribeConfigRulesRequest(&configservice.DescribeConfigRulesInput{
-			NextToken: nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeConfigRules(ctx.Context, &configservice.DescribeConfigRulesInput{
+			NextToken: nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list config rules: %w", err)
+			return nil, fmt.Errorf("failed to list config rules: %w", err)
 		}
-		ruleNames := make([]string, 0)
-		for _, rule := range rules.ConfigRules {
+
+		ruleNames := make([]*string, 0)
+		for _, rule := range res.ConfigRules {
 			r := resource.New(ctx, resource.ConfigRule, rule.ConfigRuleId, rule.ConfigRuleName, rule)
 			rg.AddResource(r)
-			ruleNames = append(ruleNames, *rule.ConfigRuleName)
+			ruleNames = append(ruleNames, rule.ConfigRuleName)
 		}
 
 		// Remediation Configs for the rules
-		remediationConfigs, err := svc.DescribeRemediationConfigurationsRequest(&configservice.DescribeRemediationConfigurationsInput{
+		remediationConfigs, err := svc.DescribeRemediationConfigurations(ctx.Context, &configservice.DescribeRemediationConfigurationsInput{
 			ConfigRuleNames: ruleNames,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list remediation configurations: %w", err)
+			return nil, fmt.Errorf("failed to list remediation configurations: %w", err)
 		}
 		for _, v := range remediationConfigs.RemediationConfigurations {
 			configArn := arn.ParseP(v.Arn)
@@ -61,12 +56,7 @@ func (l AWSConfigRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r.AddRelation(resource.ConfigRule, v.ConfigRuleName, "")
 			rg.AddResource(r)
 		}
-
-		if rules.NextToken == nil {
-			break
-		}
-		nextToken = rules.NextToken
-	}
-
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

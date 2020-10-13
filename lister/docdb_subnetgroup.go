@@ -20,17 +20,18 @@ func (l AWSDocDBSubnetGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSDocDBSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := docdb.New(ctx.AWSCfg)
-
-	req := svc.DescribeDBSubnetGroupsRequest(&docdb.DescribeDBSubnetGroupsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := docdb.NewDescribeDBSubnetGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, sg := range page.DBSubnetGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBSubnetGroups(ctx.Context, &docdb.DescribeDBSubnetGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, sg := range res.DBSubnetGroups {
 			r := resource.New(ctx, resource.DocDBSubnetGroup, sg.DBSubnetGroupName, sg.DBSubnetGroupName, sg)
 			r.AddRelation(resource.Ec2Vpc, sg.VpcId, "")
 			for _, sn := range sg.Subnets {
@@ -38,7 +39,7 @@ func (l AWSDocDBSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

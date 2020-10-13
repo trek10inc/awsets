@@ -26,7 +26,7 @@ func (l AWSWafSqlInjectionMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -34,18 +34,18 @@ func (l AWSWafSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resource.Group
 	listWafSqlInjectionMatchSetsOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListSqlInjectionMatchSetsRequest(&waf.ListSqlInjectionMatchSetsInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListSqlInjectionMatchSets(ctx.Context, &waf.ListSqlInjectionMatchSetsInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = fmt.Errorf("failed to list sql injection match sets: %w", err)
 				return
 			}
 			for _, id := range res.SqlInjectionMatchSets {
-				matchSet, err := svc.GetSqlInjectionMatchSetRequest(&waf.GetSqlInjectionMatchSetInput{
+				matchSet, err := svc.GetSqlInjectionMatchSet(ctx.Context, &waf.GetSqlInjectionMatchSetInput{
 					SqlInjectionMatchSetId: id.SqlInjectionMatchSetId,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get sql injection match stringset %s: %w", aws.StringValue(id.SqlInjectionMatchSetId), err)
 					return

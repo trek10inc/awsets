@@ -24,10 +24,10 @@ func (l AWSNeptuneDbInstance) Types() []resource.ResourceType {
 }
 
 func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := neptune.New(ctx.AWSCfg)
+	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBInstancesRequest(&neptune.DescribeDBInstancesInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBInstances(ctx.Context, &neptune.DescribeDBInstancesInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
-	"github.com/trek10inc/awsets/arn"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/backup"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -29,56 +26,52 @@ func (l AWSBackupVault) Types() []resource.ResourceType {
 }
 
 func (l AWSBackupVault) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := backup.New(ctx.AWSCfg)
-
-	req := svc.ListBackupVaultsRequest(&backup.ListBackupVaultsInput{
-		MaxResults: aws.Int64(100),
-	})
-
+	svc := backup.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	paginator := backup.NewListBackupVaultsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.BackupVaultList {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListBackupVaults(ctx.Context, &backup.ListBackupVaultsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.BackupVaultList {
 
 			vaultArn := arn.ParseP(v.BackupVaultArn)
 			r := resource.New(ctx, resource.BackupVault, vaultArn.ResourceId, v.BackupVaultName, v)
 
-			accessPolicy, err := svc.GetBackupVaultAccessPolicyRequest(&backup.GetBackupVaultAccessPolicyInput{
+			accessPolicy, err := svc.GetBackupVaultAccessPolicy(ctx.Context, &backup.GetBackupVaultAccessPolicyInput{
 				BackupVaultName: v.BackupVaultName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == backup.ErrCodeResourceNotFoundException &&
-						strings.Contains(aerr.Message(), "has no associated policy") {
-						// vaults may not have policy
-						continue
-					}
+				if strings.Contains(err.Error(), "has no associated policy") {
+					// vaults may not have policy
+					continue
 				}
-				return rg, fmt.Errorf("failed to get access policy for vault %s: %w", *v.BackupVaultName, err)
+				return nil, fmt.Errorf("failed to get access policy for vault %s: %w", *v.BackupVaultName, err)
 			}
-			r.AddAttribute("AccessPolicy", accessPolicy.GetBackupVaultAccessPolicyOutput)
+			r.AddAttribute("AccessPolicy", accessPolicy)
 
-			notifications, err := svc.GetBackupVaultNotificationsRequest(&backup.GetBackupVaultNotificationsInput{
+			notifications, err := svc.GetBackupVaultNotifications(ctx.Context, &backup.GetBackupVaultNotificationsInput{
 				BackupVaultName: v.BackupVaultName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == backup.ErrCodeResourceNotFoundException &&
-						strings.Contains(aerr.Message(), "Failed reading notifications from database for Backup vault") {
-						// vaults may not have notifications
-						continue
-					}
+				if strings.Contains(err.Error(), "Failed reading notifications from database for Backup vault") {
+					// vaults may not have notifications
+					continue
 				}
-				return rg, fmt.Errorf("failed to get notifications for vault %s: %w", *v.BackupVaultName, err)
+				return nil, fmt.Errorf("failed to get notifications for vault %s: %w", *v.BackupVaultName, err)
 			}
 
-			r.AddAttribute("Notifications", notifications.GetBackupVaultNotificationsOutput)
+			r.AddAttribute("Notifications", notifications)
 			r.AddARNRelation(resource.SnsTopic, notifications.SNSTopicArn)
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

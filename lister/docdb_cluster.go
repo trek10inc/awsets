@@ -21,18 +21,18 @@ func (l AWSDocDBCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSDocDBCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := docdb.New(ctx.AWSCfg)
-
-	req := svc.DescribeDBClustersRequest(&docdb.DescribeDBClustersInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := docdb.NewDescribeDBClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, cluster := range page.DBClusters {
-
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBClusters(ctx.Context, &docdb.DescribeDBClustersInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, cluster := range res.DBClusters {
 			r := resource.New(ctx, resource.DocDBCluster, cluster.DBClusterIdentifier, cluster.DBClusterIdentifier, cluster)
 			r.AddRelation(resource.DocDBSubnetGroup, cluster.DBSubnetGroup, "")
 			r.AddRelation(resource.DocDBParameterGroup, cluster.DBClusterParameterGroup, "")
@@ -54,7 +54,7 @@ func (l AWSDocDBCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

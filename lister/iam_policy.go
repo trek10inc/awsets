@@ -26,14 +26,14 @@ func (l AWSIamPolicy) Types() []resource.ResourceType {
 }
 
 func (l AWSIamPolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.New(ctx.AWSCfg)
+	svc := iam.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listPoliciesOnce.Do(func() {
-		req := svc.ListPoliciesRequest(&iam.ListPoliciesInput{
-			MaxItems: aws.Int64(100),
+		res, err := svc.ListPolicies(ctx.Context, &iam.ListPoliciesInput{
+			MaxItems: aws.Int32(100),
 		})
 
 		paginator := iam.NewListPoliciesPaginator(req)

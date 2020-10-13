@@ -22,10 +22,10 @@ func (l AWSLambdaLayerVersion) Types() []resource.ResourceType {
 }
 
 func (l AWSLambdaLayerVersion) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := lambda.New(ctx.AWSCfg)
+	svc := lambda.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListLayersRequest(&lambda.ListLayersInput{
-		MaxItems: aws.Int64(50),
+	res, err := svc.ListLayers(ctx.Context, &lambda.ListLayersInput{
+		MaxItems: aws.Int32(50),
 	})
 
 	rg := resource.NewGroup()
@@ -38,11 +38,11 @@ func (l AWSLambdaLayerVersion) List(ctx context.AWSetsCtx) (*resource.Group, err
 			r := resource.New(ctx, resource.LambdaLayer, layerArn.ResourceId, layer.LayerName, layer)
 			rg.AddResource(r)
 
-			layerReq := svc.ListLayerVersionsRequest(&lambda.ListLayerVersionsInput{
+			layerres, err := svc.ListLayerVersions(ctx.Context, &lambda.ListLayerVersionsInput{
 				LayerName: layer.LayerArn,
-				MaxItems:  aws.Int64(50),
+				MaxItems:  aws.Int32(50),
 			})
-			layerRes, err := layerReq.Send(ctx.Context)
+			layerRes, err := layerReq
 			if err != nil {
 				return rg, err
 			}

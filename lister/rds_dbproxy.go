@@ -29,10 +29,10 @@ func (l AWSRdsDbProxy) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBProxiesRequest(&rds.DescribeDBProxiesInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBProxies(ctx.Context, &rds.DescribeDBProxiesInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -51,9 +51,9 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 
 			// DB Proxy Target Groups
-			tgPaginator := rds.NewDescribeDBProxyTargetGroupsPaginator(svc.DescribeDBProxyTargetGroupsRequest(&rds.DescribeDBProxyTargetGroupsInput{
+			tgPaginator := rds.NewDescribeDBProxyTargetGroupsPaginator(svc.DescribeDBProxyTargetGroups(ctx.Context, &rds.DescribeDBProxyTargetGroupsInput{
 				DBProxyName: v.DBProxyName,
-				MaxRecords:  aws.Int64(100),
+				MaxRecords:  aws.Int32(100),
 			}))
 			for tgPaginator.Next(ctx.Context) {
 				tgPage := tgPaginator.CurrentPage()
@@ -66,14 +66,14 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			err := tgPaginator.Err()
 			if err != nil {
-				return rg, fmt.Errorf("failed to get target groups for %s: %w", *v.DBProxyName, err)
+				return nil, fmt.Errorf("failed to get target groups for %s: %w", *v.DBProxyName, err)
 			}
 
 			// DB Proxy Targets
 			targets := make([]rds.DBProxyTarget, 0)
-			tPaginator := rds.NewDescribeDBProxyTargetsPaginator(svc.DescribeDBProxyTargetsRequest(&rds.DescribeDBProxyTargetsInput{
+			tPaginator := rds.NewDescribeDBProxyTargetsPaginator(svc.DescribeDBProxyTargets(ctx.Context, &rds.DescribeDBProxyTargetsInput{
 				DBProxyName: v.DBProxyName,
-				MaxRecords:  aws.Int64(100),
+				MaxRecords:  aws.Int32(100),
 			}))
 			for tPaginator.Next(ctx.Context) {
 				tPage := tPaginator.CurrentPage()

@@ -3,10 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/service/codebuild"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,24 +23,23 @@ func (l AWSCodebuildProject) Types() []resource.ResourceType {
 
 func (l AWSCodebuildProject) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := codebuild.New(ctx.AWSCfg)
+	svc := codebuild.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		projectNames, err := svc.ListProjectsRequest(&codebuild.ListProjectsInput{
-			NextToken: nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListProjects(ctx.Context, &codebuild.ListProjectsInput{
+			NextToken: nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list codebuild projects: %w", err)
+			return nil, fmt.Errorf("failed to list codebuild projects: %w", err)
 		}
-		if len(projectNames.Projects) == 0 {
-			break
+		if len(res.Projects) == 0 {
+			return nil, nil
 		}
-		projects, err := svc.BatchGetProjectsRequest(&codebuild.BatchGetProjectsInput{
-			Names: projectNames.Projects,
-		}).Send(ctx.Context)
+		projects, err := svc.BatchGetProjects(ctx.Context, &codebuild.BatchGetProjectsInput{
+			Names: res.Projects,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to batch get projects: %w", err)
+			return nil, fmt.Errorf("failed to batch get projects: %w", err)
 		}
 		for _, p := range projects.Projects {
 			projectArn := arn.ParseP(p.Arn)
@@ -57,11 +55,7 @@ func (l AWSCodebuildProject) List(ctx context.AWSetsCtx) (*resource.Group, error
 			}
 			rg.AddResource(r)
 		}
-
-		if projectNames.NextToken == nil {
-			break
-		}
-		nextToken = projectNames.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

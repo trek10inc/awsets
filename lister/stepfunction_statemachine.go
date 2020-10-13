@@ -25,10 +25,10 @@ func (l AWSStepFunctionStateMachine) Types() []resource.ResourceType {
 
 func (l AWSStepFunctionStateMachine) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := sfn.New(ctx.AWSCfg)
+	svc := sfn.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListStateMachinesRequest(&sfn.ListStateMachinesInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.ListStateMachines(ctx.Context, &sfn.ListStateMachinesInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -37,11 +37,11 @@ func (l AWSStepFunctionStateMachine) List(ctx context.AWSetsCtx) (*resource.Grou
 		page := paginator.CurrentPage()
 		for _, sm := range page.StateMachines {
 
-			res, err := svc.DescribeStateMachineRequest(&sfn.DescribeStateMachineInput{
+			res, err := svc.DescribeStateMachine(ctx.Context, &sfn.DescribeStateMachineInput{
 				StateMachineArn: sm.StateMachineArn,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get state machine %s: %w", *sm.Name, err)
+				return nil, fmt.Errorf("failed to get state machine %s: %w", *sm.Name, err)
 			}
 			smArn := arn.ParseP(res.StateMachineArn)
 			r := resource.New(ctx, resource.StepFunctionStateMachine, smArn.ResourceId, sm.Name, res.DescribeStateMachineOutput)

@@ -23,10 +23,10 @@ func (l AWSRdsDbSnapshot) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBSnapshotsRequest(&rds.DescribeDBSnapshotsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBSnapshots(ctx.Context, &rds.DescribeDBSnapshotsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

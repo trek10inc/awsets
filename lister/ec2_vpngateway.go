@@ -3,10 +3,9 @@ package lister
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 type AWSEc2VpnGateway struct {
@@ -22,13 +21,13 @@ func (l AWSEc2VpnGateway) Types() []resource.ResourceType {
 }
 
 func (l AWSEc2VpnGateway) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.New(ctx.AWSCfg)
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	gateways, err := svc.DescribeVpnGatewaysRequest(&ec2.DescribeVpnGatewaysInput{}).Send(ctx.Context)
+	gateways, err := svc.DescribeVpnGateways(ctx.Context, &ec2.DescribeVpnGatewaysInput{})
 	if err != nil {
-		return rg, fmt.Errorf("failed to list vpn gateways: %w", err)
+		return nil, fmt.Errorf("failed to list vpn gateways: %w", err)
 	}
 
 	for _, v := range gateways.VpnGateways {

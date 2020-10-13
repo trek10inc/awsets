@@ -26,16 +26,16 @@ func (l AWSIoTPolicy) Types() []resource.ResourceType {
 
 func (l AWSIoTPolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.New(ctx.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var marker *string
 	for {
-		policies, err := svc.ListPoliciesRequest(&iot.ListPoliciesInput{
-			PageSize: aws.Int64(100),
+		policies, err := svc.ListPolicies(ctx.Context, &iot.ListPoliciesInput{
+			PageSize: aws.Int32(100),
 			Marker:   marker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list iot policies: %w", err)
+			return nil, fmt.Errorf("failed to list iot policies: %w", err)
 		}
 		for _, policy := range policies.Policies {
 			// TODO policy principals

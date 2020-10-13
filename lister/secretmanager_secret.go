@@ -23,10 +23,10 @@ func (l AWSSecretManagerSecret) Types() []resource.ResourceType {
 }
 
 func (l AWSSecretManagerSecret) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := secretsmanager.New(ctx.AWSCfg)
+	svc := secretsmanager.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListSecretsRequest(&secretsmanager.ListSecretsInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.ListSecrets(ctx.Context, &secretsmanager.ListSecretsInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -36,11 +36,11 @@ func (l AWSSecretManagerSecret) List(ctx context.AWSetsCtx) (*resource.Group, er
 		for _, v := range page.SecretList {
 			r := resource.New(ctx, resource.SecretManagerSecret, v.Name, v.Name, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
-			policy, err := svc.GetResourcePolicyRequest(&secretsmanager.GetResourcePolicyInput{
+			policy, err := svc.GetResourcePolicy(ctx.Context, &secretsmanager.GetResourcePolicyInput{
 				SecretId: v.Name,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get secret policy for %s: %w", *v.Name, err)
+				return nil, fmt.Errorf("failed to get secret policy for %s: %w", *v.Name, err)
 			}
 			r.AddAttribute("ResourcePolicy", policy.ResourcePolicy)
 			rg.AddResource(r)

@@ -23,22 +23,22 @@ func (l AWSWafRegionalWebAcl) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListWebACLsRequest(&wafregional.ListWebACLsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListWebACLs(ctx.Context, &wafregional.ListWebACLsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list webacls: %w", err)
+			return nil, fmt.Errorf("failed to list webacls: %w", err)
 		}
 		for _, webaclId := range res.WebACLs {
-			webacl, err := svc.GetWebACLRequest(&wafregional.GetWebACLInput{WebACLId: webaclId.WebACLId}).Send(ctx.Context)
+			webacl, err := svc.GetWebACL(ctx.Context, &wafregional.GetWebACLInput{WebACLId: webaclId.WebACLId})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get webacl %s: %w", aws.StringValue(webaclId.WebACLId), err)
+				return nil, fmt.Errorf("failed to get webacl %s: %w", aws.StringValue(webaclId.WebACLId), err)
 			}
 			if v := webacl.WebACL; v != nil {
 				//webaclArn := arn.ParseP(webacl.WebACL.WebACLArn)

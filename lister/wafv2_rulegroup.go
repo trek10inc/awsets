@@ -32,7 +32,7 @@ func (l AWSWafv2RuleGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 	rg, err := wafv2RuleGroupQuery(ctx, wafv2.ScopeRegional)
 	if err != nil {
-		return rg, fmt.Errorf("failed to list rule groups: %w", err)
+		return nil, fmt.Errorf("failed to list rule groups: %w", err)
 	}
 
 	// Do global
@@ -50,26 +50,26 @@ func (l AWSWafv2RuleGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 }
 
 func wafv2RuleGroupQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Group, error) {
-	svc := wafv2.New(ctx.AWSCfg)
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextMarker *string
 	for {
-		res, err := svc.ListRuleGroupsRequest(&wafv2.ListRuleGroupsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListRuleGroups(ctx.Context, &wafv2.ListRuleGroupsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
 			Scope:      scope,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			return rg, err
 		}
 		for _, rgId := range res.RuleGroups {
-			rulegroup, err := svc.GetRuleGroupRequest(&wafv2.GetRuleGroupInput{
+			rulegroup, err := svc.GetRuleGroup(ctx.Context, &wafv2.GetRuleGroupInput{
 				Id:    rgId.Id,
 				Name:  rgId.Name,
 				Scope: scope,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get rule group %s for scope %v: %w", *rgId.Id, scope, err)
+				return nil, fmt.Errorf("failed to get rule group %s for scope %v: %w", *rgId.Id, scope, err)
 			}
 			if v := rulegroup.RuleGroup; v != nil {
 				var r resource.Resource

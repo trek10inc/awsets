@@ -25,21 +25,21 @@ func (l AWSKinesisStream) Types() []resource.ResourceType {
 }
 
 func (l AWSKinesisStream) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := kinesis.New(ctx.AWSCfg)
-	req := svc.ListStreamsRequest(&kinesis.ListStreamsInput{
-		Limit: aws.Int64(100),
+	svc := kinesis.NewFromConfig(ctx.AWSCfg)
+	res, err := svc.ListStreams(ctx.Context, &kinesis.ListStreamsInput{
+		Limit: aws.Int32(100),
 	})
 	paginator := kinesis.NewListStreamsPaginator(req)
 	rg := resource.NewGroup()
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, stream := range page.StreamNames {
-			res, err := svc.DescribeStreamRequest(&kinesis.DescribeStreamInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.DescribeStream(ctx.Context, &kinesis.DescribeStreamInput{
+				Limit:      aws.Int32(100),
 				StreamName: aws.String(stream),
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe kinesis streams %s: %w", stream, err)
+				return nil, fmt.Errorf("failed to describe kinesis streams %s: %w", stream, err)
 			}
 			streamArn := arn.ParseP(res.StreamDescription.StreamARN)
 			r := resource.New(ctx, resource.KinesisStream, streamArn.ResourceId, res.StreamDescription.StreamName, res.StreamDescription)

@@ -1,12 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSElasticacheParameterGroup struct {
@@ -22,22 +20,23 @@ func (l AWSElasticacheParameterGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSElasticacheParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.New(ctx.AWSCfg)
-
-	req := svc.DescribeCacheParameterGroupsRequest(&elasticache.DescribeCacheParameterGroupsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := elasticache.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := elasticache.NewDescribeCacheParameterGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, group := range page.CacheParameterGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeCacheParameterGroups(ctx.Context, &elasticache.DescribeCacheParameterGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, group := range res.CacheParameterGroups {
 
 			r := resource.New(ctx, resource.ElasticacheParameterGroup, group.CacheParameterGroupName, group.CacheParameterGroupName, group)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

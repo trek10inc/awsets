@@ -1,12 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSElasticacheCluster struct {
@@ -22,17 +20,18 @@ func (l AWSElasticacheCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSElasticacheCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.New(ctx.AWSCfg)
-
-	req := svc.DescribeCacheClustersRequest(&elasticache.DescribeCacheClustersInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := elasticache.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := elasticache.NewDescribeCacheClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, cluster := range page.CacheClusters {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeCacheClusters(ctx.Context, &elasticache.DescribeCacheClustersInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, cluster := range res.CacheClusters {
 			r := resource.New(ctx, resource.ElasticacheCluster, cluster.CacheClusterId, cluster.CacheClusterId, cluster)
 
 			if cluster.CacheParameterGroup != nil {
@@ -51,7 +50,7 @@ func (l AWSElasticacheCluster) List(ctx context.AWSetsCtx) (*resource.Group, err
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

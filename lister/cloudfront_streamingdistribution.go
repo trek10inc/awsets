@@ -25,31 +25,32 @@ func (l AWSCloudfrontStreamingDistribution) Types() []resource.ResourceType {
 }
 
 func (l AWSCloudfrontStreamingDistribution) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cloudfront.New(ctx.AWSCfg)
+	svc := cloudfront.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listCloudfrontStreamingDistributionsOnce.Do(func() {
-		req := svc.ListStreamingDistributionsRequest(&cloudfront.ListStreamingDistributionsInput{
-			MaxItems: aws.Int64(100),
-		})
-
-		paginator := cloudfront.NewListStreamingDistributionsPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			if page.StreamingDistributionList == nil {
-				continue
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListStreamingDistributions(ctx.Context, &cloudfront.ListStreamingDistributionsInput{
+				MaxItems: aws.String("100"),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
 			}
-			for _, item := range page.StreamingDistributionList.Items {
+			if res.StreamingDistributionList != nil {
+				return nil, nil
+			}
+			for _, item := range res.StreamingDistributionList.Items {
 				r := resource.NewGlobal(ctx, resource.CloudFrontStreamingDistribution, item.Id, item.Id, item)
 				if item.S3Origin != nil {
 					r.AddRelation(resource.CloudFrontOriginAccessIdentity, item.S3Origin.OriginAccessIdentity, "")
 				}
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.StreamingDistributionList.NextMarker, nil
+		})
 	})
 
 	return rg, outerErr

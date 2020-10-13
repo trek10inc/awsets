@@ -22,27 +22,29 @@ func (l AWSCodeCommitRepository) Types() []resource.ResourceType {
 
 func (l AWSCodeCommitRepository) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := codecommit.New(ctx.AWSCfg)
+	svc := codecommit.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
-	req := svc.ListRepositoriesRequest(&codecommit.ListRepositoriesInput{})
-
-	paginator := codecommit.NewListRepositoriesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, id := range page.Repositories {
-			repo, err := svc.GetRepositoryRequest(&codecommit.GetRepositoryInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListRepositories(ctx.Context, &codecommit.ListRepositoriesInput{
+			NextToken: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range res.Repositories {
+			repo, err := svc.GetRepository(ctx.Context, &codecommit.GetRepositoryInput{
 				RepositoryName: id.RepositoryName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get repository %s: %w", *id.RepositoryId, err)
+				return nil, fmt.Errorf("failed to get repository %s: %w", *id.RepositoryId, err)
 			}
 			if v := repo.RepositoryMetadata; v != nil {
 				r := resource.New(ctx, resource.CodeCommitRepository, v.RepositoryId, v.RepositoryName, v)
 				rg.AddResource(r)
 			}
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

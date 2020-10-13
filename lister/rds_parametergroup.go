@@ -22,10 +22,10 @@ func (l AWSRdsDbParameterGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBParameterGroupsRequest(&rds.DescribeDBParameterGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBParameterGroups(ctx.Context, &rds.DescribeDBParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

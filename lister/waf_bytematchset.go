@@ -26,7 +26,7 @@ func (l AWSWafByteMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -34,18 +34,18 @@ func (l AWSWafByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error)
 	listWafByteMatchSetsOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListByteMatchSetsRequest(&waf.ListByteMatchSetsInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListByteMatchSets(ctx.Context, &waf.ListByteMatchSetsInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = fmt.Errorf("failed to list byte match sets: %w", err)
 				return
 			}
 			for _, id := range res.ByteMatchSets {
-				byteMatchSet, err := svc.GetByteMatchSetRequest(&waf.GetByteMatchSetInput{
+				byteMatchSet, err := svc.GetByteMatchSet(ctx.Context, &waf.GetByteMatchSetInput{
 					ByteMatchSetId: id.ByteMatchSetId,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get byte match stringset %s: %w", aws.StringValue(id.ByteMatchSetId), err)
 					return

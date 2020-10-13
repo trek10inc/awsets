@@ -1,12 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSElasticacheSubnetGroup struct {
@@ -22,17 +20,18 @@ func (l AWSElasticacheSubnetGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSElasticacheSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.New(ctx.AWSCfg)
-
-	req := svc.DescribeCacheSubnetGroupsRequest(&elasticache.DescribeCacheSubnetGroupsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := elasticache.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := elasticache.NewDescribeCacheSubnetGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, sg := range page.CacheSubnetGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeCacheSubnetGroups(ctx.Context, &elasticache.DescribeCacheSubnetGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, sg := range res.CacheSubnetGroups {
 			r := resource.New(ctx, resource.ElasticacheSubnetGroup, sg.CacheSubnetGroupName, sg.CacheSubnetGroupName, sg)
 			if sg.VpcId != nil && *sg.VpcId != "" {
 				r.AddRelation(resource.Ec2Vpc, sg.VpcId, "")
@@ -42,7 +41,7 @@ func (l AWSElasticacheSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group,
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

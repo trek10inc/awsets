@@ -30,23 +30,24 @@ func (l AWSS3Bucket) Types() []resource.ResourceType {
 }
 
 func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := s3.New(ctx.AWSCfg)
+
+	svc := s3.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var outerErr error
 	listBucketsOnce.Do(func() {
 
-		req := svc.ListBucketsRequest(&s3.ListBucketsInput{})
+		res, err := svc.ListBuckets(ctx.Context, &s3.ListBucketsInput{})
 
-		res, err := req.Send(ctx.Context)
+		res, err := req
 
 		if err != nil {
 			outerErr = fmt.Errorf("failed to query buckets from %s: %w", ctx.Region(), err)
 			return
 		}
 		for i, bucket := range res.Buckets {
-			bucketLocation, err := svc.GetBucketLocationRequest(&s3.GetBucketLocationInput{Bucket: bucket.Name}).Send(ctx.Context)
+			bucketLocation, err := svc.GetBucketLocation(ctx.Context, &s3.GetBucketLocationInput{Bucket: bucket.Name})
 			if err != nil {
 				ctx.Logger.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
 				continue
@@ -70,40 +71,40 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	for _, bucket := range bucketsByRegion[ctx.Region()] {
 		//fmt.Printf("processing bucket %s in region %s\n", *bucket.Name, ctx.Region())
 		buck := structs.Map(bucket)
-		lifecycleRes, err := svc.GetBucketLifecycleConfigurationRequest(&s3.GetBucketLifecycleConfigurationInput{
+		lifecycleRes, err := svc.GetBucketLifecycleConfiguration(ctx.Context, &s3.GetBucketLifecycleConfigurationInput{
 			Bucket: bucket.Name,
-		}).Send(ctx.Context)
+		})
 		if err == nil {
 			buck["Lifecycle"] = structs.Map(lifecycleRes.GetBucketLifecycleConfigurationOutput)
 		} else {
 			buck["Lifecycle"] = nil
 		}
 
-		//websiteRes, err := svc.GetBucketWebsiteRequest(&s3.GetBucketWebsiteInput{
+		//websiteRes, err := svc.GetBucketWebsite(ctx.Context, &s3.GetBucketWebsiteInput{
 		//	Bucket: bucket.Name,
-		//}).Send(ctx.Context)
+		//})
 
-		policyRes, err := svc.GetBucketPolicyRequest(&s3.GetBucketPolicyInput{
+		policyRes, err := svc.GetBucketPolicy(ctx.Context, &s3.GetBucketPolicyInput{
 			Bucket: bucket.Name,
-		}).Send(ctx.Context)
+		})
 		if err == nil {
 			buck["Policy"] = aws.StringValue(policyRes.Policy)
 		} else {
 			buck["Policy"] = nil
 		}
 
-		encrRes, err := svc.GetBucketEncryptionRequest(&s3.GetBucketEncryptionInput{
+		encrRes, err := svc.GetBucketEncryption(ctx.Context, &s3.GetBucketEncryptionInput{
 			Bucket: bucket.Name,
-		}).Send(ctx.Context)
+		})
 		if err == nil {
 			buck["Encryption"] = structs.Map(encrRes.GetBucketEncryptionOutput)
 		} else {
 			buck["Encryption"] = nil
 		}
 
-		tagRes, err := svc.GetBucketTaggingRequest(&s3.GetBucketTaggingInput{
+		tagRes, err := svc.GetBucketTagging(ctx.Context, &s3.GetBucketTaggingInput{
 			Bucket: bucket.Name,
-		}).Send(ctx.Context)
+		})
 		if err == nil {
 			ts := structs.Map(tagRes.GetBucketTaggingOutput)
 			buck["Tags"] = ts["TagSet"]

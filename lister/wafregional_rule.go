@@ -23,22 +23,22 @@ func (l AWSWafRegionalRule) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListRulesRequest(&wafregional.ListRulesInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListRules(ctx.Context, &wafregional.ListRulesInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list webacls: %w", err)
+			return nil, fmt.Errorf("failed to list webacls: %w", err)
 		}
 		for _, ruleId := range res.Rules {
-			rule, err := svc.GetRuleRequest(&wafregional.GetRuleInput{RuleId: ruleId.RuleId}).Send(ctx.Context)
+			rule, err := svc.GetRule(ctx.Context, &wafregional.GetRuleInput{RuleId: ruleId.RuleId})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get rule %s: %w", aws.StringValue(ruleId.RuleId), err)
+				return nil, fmt.Errorf("failed to get rule %s: %w", aws.StringValue(ruleId.RuleId), err)
 			}
 			if rule.Rule == nil {
 				continue

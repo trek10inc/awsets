@@ -5,12 +5,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
 	"github.com/aws/aws-sdk-go-v2/service/dax"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -28,33 +24,25 @@ func (l AWSDAXParameterGroup) Types() []resource.ResourceType {
 
 func (l AWSDAXParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := dax.New(ctx.AWSCfg)
+	svc := dax.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		groups, err := svc.DescribeParameterGroupsRequest(&dax.DescribeParameterGroupsInput{
-			MaxResults: aws.Int64(100),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeParameterGroups(ctx.Context, &dax.DescribeParameterGroupsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == dax.ErrCodeInvalidParameterValueException &&
-					strings.Contains(aerr.Message(), "Access Denied to API Version: DAX_V3") {
-					// Regions that don't support DAX return access denied
-					return rg, nil
-				}
+			if strings.Contains(err.Error(), "Access Denied to API Version: DAX_V3") {
+				// Regions that don't support DAX return access denied
+				return nil, nil
 			}
-			return rg, fmt.Errorf("failed to list dax parameter groups: %w", err)
+			return nil, fmt.Errorf("failed to list dax parameter groups: %w", err)
 		}
-		for _, v := range groups.ParameterGroups {
+		for _, v := range res.ParameterGroups {
 			r := resource.New(ctx, resource.DAXParameterGroup, v.ParameterGroupName, v.ParameterGroupName, v)
 			rg.AddResource(r)
 		}
-
-		if groups.NextToken == nil {
-			break
-		}
-		nextToken = groups.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

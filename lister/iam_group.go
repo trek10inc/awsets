@@ -26,14 +26,14 @@ func (l AWSIamGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSIamGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.New(ctx.AWSCfg)
+	svc := iam.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listGroupsOnce.Do(func() {
-		req := svc.ListGroupsRequest(&iam.ListGroupsInput{
-			MaxItems: aws.Int64(100),
+		res, err := svc.ListGroups(ctx.Context, &iam.ListGroupsInput{
+			MaxItems: aws.Int32(100),
 		})
 
 		paginator := iam.NewListGroupsPaginator(req)

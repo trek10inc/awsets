@@ -26,16 +26,16 @@ func (l AWSIoTCertificate) Types() []resource.ResourceType {
 
 func (l AWSIoTCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.New(ctx.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var marker *string
 	for {
-		certs, err := svc.ListCertificatesRequest(&iot.ListCertificatesInput{
-			PageSize: aws.Int64(100),
+		certs, err := svc.ListCertificates(ctx.Context, &iot.ListCertificatesInput{
+			PageSize: aws.Int32(100),
 			Marker:   marker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list iot certificates: %w", err)
+			return nil, fmt.Errorf("failed to list iot certificates: %w", err)
 		}
 		for _, cert := range certs.Certificates {
 			r := resource.New(ctx, resource.IoTCertificate, cert.CertificateId, cert.CertificateId, cert)

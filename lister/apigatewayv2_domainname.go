@@ -2,13 +2,10 @@ package lister
 
 import (
 	"fmt"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-
-	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-
+	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -29,24 +26,21 @@ func (l AWSApiGatewayV2DomainName) Types() []resource.ResourceType {
 }
 
 func (l AWSApiGatewayV2DomainName) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := apigatewayv2.New(ctx.AWSCfg)
+	svc := apigatewayv2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	var nextToken *string
-	for {
-		res, err := svc.GetDomainNamesRequest(&apigatewayv2.GetDomainNamesInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.GetDomainNames(ctx.Context, &apigatewayv2.GetDomainNamesInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
-		}).Send(ctx.Context)
+			NextToken:  nt,
+		})
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == "AccessDeniedException" {
-					// If api gateway is not supported in a region, returns access denied
-					return rg, nil
-				}
+			if strings.Contains(err.Error(), "AccessDeniedException") {
+				// If api gateway is not supported in a region, returns access denied
+				return nil, nil
 			}
-			return rg, fmt.Errorf("failed to list apigatewayv2 domain names: %w", err)
+			return nil, fmt.Errorf("failed to list apigatewayv2 domain names: %w", err)
 		}
 		for _, v := range res.Items {
 			r := resource.New(ctx, resource.ApiGatewayV2DomainName, v.DomainName, v.DomainName, v)
@@ -55,15 +49,15 @@ func (l AWSApiGatewayV2DomainName) List(ctx context.AWSetsCtx) (*resource.Group,
 				r.AddARNRelation(resource.AcmCertificate, dnc.CertificateArn)
 			}
 
-			var mappingToken *string
-			for {
-				mappingRes, err := svc.GetApiMappingsRequest(&apigatewayv2.GetApiMappingsInput{
+			// Mappings
+			err = Paginator(func(nt2 *string) (*string, error) {
+				mappingRes, err := svc.GetApiMappings(ctx.Context, &apigatewayv2.GetApiMappingsInput{
 					DomainName: v.DomainName,
 					MaxResults: aws.String("100"),
-					NextToken:  mappingToken,
-				}).Send(ctx.Context)
+					NextToken:  nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list apigatewayv2 api mappings: %w", err)
+					return nil, fmt.Errorf("failed to list apigatewayv2 api mappings: %w", err)
 				}
 				for _, mapping := range mappingRes.Items {
 					mappingR := resource.New(ctx, resource.ApiGatewayV2ApiMapping, mapping.ApiMappingId, mapping.ApiMappingId, mapping)
@@ -71,18 +65,15 @@ func (l AWSApiGatewayV2DomainName) List(ctx context.AWSetsCtx) (*resource.Group,
 					mappingR.AddRelation(resource.ApiGatewayV2Api, mapping.ApiId, "")
 					rg.AddResource(mappingR)
 				}
-				if mappingRes.NextToken == nil {
-					break
-				}
-				mappingToken = mappingRes.NextToken
+				return mappingRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			rg.AddResource(r)
 		}
-		if res.NextToken == nil {
-			break
-		}
-		nextToken = res.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

@@ -22,10 +22,10 @@ func (l AWSNeptuneDbSubnetGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSNeptuneDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := neptune.New(ctx.AWSCfg)
+	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBSubnetGroupsRequest(&neptune.DescribeDBSubnetGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBSubnetGroups(ctx.Context, &neptune.DescribeDBSubnetGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

@@ -20,23 +20,24 @@ func (l AWSAthenaDataCatalog) Types() []resource.ResourceType {
 }
 
 func (l AWSAthenaDataCatalog) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := athena.New(ctx.AWSCfg)
+	svc := athena.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	req := svc.ListDataCatalogsRequest(&athena.ListDataCatalogsInput{
-		MaxResults: aws.Int64(50),
-	})
-
-	paginator := athena.NewListDataCatalogsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, dcSummary := range page.DataCatalogsSummary {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListDataCatalogs(ctx.Context, &athena.ListDataCatalogsInput{
+			MaxResults: aws.Int32(50),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, dcSummary := range res.DataCatalogsSummary {
 			r := resource.New(ctx, resource.AthenaDataCatalog, dcSummary.CatalogName, dcSummary.CatalogName, dcSummary)
 
-			dc, err := svc.GetDataCatalogRequest(&athena.GetDataCatalogInput{
+			dc, err := svc.GetDataCatalog(ctx.Context, &athena.GetDataCatalogInput{
 				Name: dcSummary.CatalogName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				//ctx.Logger.Errorf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err)
 			} else if v := dc.DataCatalog; v != nil {
@@ -45,7 +46,8 @@ func (l AWSAthenaDataCatalog) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
+
 	return rg, err
 }

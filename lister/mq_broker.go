@@ -22,25 +22,25 @@ func (l AWSAmazonMQBroker) Types() []resource.ResourceType {
 }
 
 func (l AWSAmazonMQBroker) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := mq.New(ctx.AWSCfg)
+	svc := mq.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextToken *string
 	for {
-		brokers, err := svc.ListBrokersRequest(&mq.ListBrokersInput{
-			MaxResults: aws.Int64(100),
+		brokers, err := svc.ListBrokers(ctx.Context, &mq.ListBrokersInput{
+			MaxResults: aws.Int32(100),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list mq brokers: %w", err)
+			return nil, fmt.Errorf("failed to list mq brokers: %w", err)
 		}
 		for _, broker := range brokers.BrokerSummaries {
 
-			v, err := svc.DescribeBrokerRequest(&mq.DescribeBrokerInput{
+			v, err := svc.DescribeBroker(ctx.Context, &mq.DescribeBrokerInput{
 				BrokerId: broker.BrokerId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe broker %s: %w", *broker.BrokerId, err)
+				return nil, fmt.Errorf("failed to describe broker %s: %w", *broker.BrokerId, err)
 			}
 			r := resource.New(ctx, resource.AmazonMQBroker, v.BrokerId, v.BrokerName, v)
 

@@ -4,11 +4,8 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,28 +23,22 @@ func (l AWSConfigConfigurationAggregator) Types() []resource.ResourceType {
 
 func (l AWSConfigConfigurationAggregator) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.New(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
-	var nextToken *string
-
-	for {
-		aggregators, err := svc.DescribeConfigurationAggregatorsRequest(&configservice.DescribeConfigurationAggregatorsInput{
-			Limit:     aws.Int64(100),
-			NextToken: nextToken,
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeConfigurationAggregators(ctx.Context, &configservice.DescribeConfigurationAggregatorsInput{
+			Limit:     aws.Int32(100),
+			NextToken: nt,
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list config aggregators: %w", err)
+			return nil, fmt.Errorf("failed to list config aggregators: %w", err)
 		}
-		for _, v := range aggregators.ConfigurationAggregators {
+		for _, v := range res.ConfigurationAggregators {
 			r := resource.New(ctx, resource.ConfigConfigurationAggregator, v.ConfigurationAggregatorName, v.ConfigurationAggregatorName, v)
 			rg.AddResource(r)
 		}
-		if aggregators.NextToken == nil {
-			break
-		}
-		nextToken = aggregators.NextToken
-	}
-
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

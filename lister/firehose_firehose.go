@@ -25,28 +25,28 @@ func (l AWSFirehoseStream) Types() []resource.ResourceType {
 }
 
 func (l AWSFirehoseStream) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := firehose.New(ctx.AWSCfg)
+	svc := firehose.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var nextName *string
 	for {
-		deliveryStreams, err := svc.ListDeliveryStreamsRequest(&firehose.ListDeliveryStreamsInput{
+		deliveryStreams, err := svc.ListDeliveryStreams(ctx.Context, &firehose.ListDeliveryStreamsInput{
 			ExclusiveStartDeliveryStreamName: nextName,
-			Limit:                            aws.Int64(10),
-		}).Send(ctx.Context)
+			Limit:                            aws.Int32(10),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list delivery streams: %w", err)
+			return nil, fmt.Errorf("failed to list delivery streams: %w", err)
 		}
 		for _, ds := range deliveryStreams.DeliveryStreamNames {
 			nextName = &ds
-			describeRes, err := svc.DescribeDeliveryStreamRequest(&firehose.DescribeDeliveryStreamInput{
+			describeRes, err := svc.DescribeDeliveryStream(ctx.Context, &firehose.DescribeDeliveryStreamInput{
 				DeliveryStreamName:          &ds,
 				ExclusiveStartDestinationId: nil, // TODO actually page through these?
-				Limit:                       aws.Int64(20),
-			}).Send(ctx.Context)
+				Limit:                       aws.Int32(20),
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe delivery stream %s: %w", ds, err)
+				return nil, fmt.Errorf("failed to describe delivery stream %s: %w", ds, err)
 			}
 			if *describeRes.DeliveryStreamDescription.HasMoreDestinations {
 				ctx.Logger.Errorf("need to page through destinations for %s", ds)

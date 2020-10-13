@@ -20,10 +20,10 @@ func (l AWSFSxFileSystem) Types() []resource.ResourceType {
 }
 
 func (l AWSFSxFileSystem) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := fsx.New(ctx.AWSCfg)
+	svc := fsx.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeFileSystemsRequest(&fsx.DescribeFileSystemsInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.DescribeFileSystems(ctx.Context, &fsx.DescribeFileSystemsInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

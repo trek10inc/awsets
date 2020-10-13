@@ -21,9 +21,9 @@ func (l AWSSsmDocument) Types() []resource.ResourceType {
 }
 
 func (l AWSSsmDocument) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ssm.New(ctx.AWSCfg)
-	req := svc.ListDocumentsRequest(&ssm.ListDocumentsInput{
-		MaxResults: aws.Int64(50),
+	svc := ssm.NewFromConfig(ctx.AWSCfg)
+	res, err := svc.ListDocuments(ctx.Context, &ssm.ListDocumentsInput{
+		MaxResults: aws.Int32(50),
 	})
 
 	rg := resource.NewGroup()

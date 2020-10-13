@@ -27,41 +27,41 @@ func (l AWSGreengrassCoreDefinition) Types() []resource.ResourceType {
 
 func (l AWSGreengrassCoreDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := greengrass.New(ctx.AWSCfg)
+	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextToken *string
 	for {
-		coredefs, err := svc.ListCoreDefinitionsRequest(&greengrass.ListCoreDefinitionsInput{
+		coredefs, err := svc.ListCoreDefinitions(ctx.Context, &greengrass.ListCoreDefinitionsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
 				return rg, nil
 			}
-			return rg, fmt.Errorf("failed to list greengrass core definitions: %w", err)
+			return nil, fmt.Errorf("failed to list greengrass core definitions: %w", err)
 		}
 		for _, v := range coredefs.Definitions {
 			r := resource.New(ctx, resource.GreengrassCoreDefinition, v.Id, v.Name, v)
 			var cdNextToken *string
 			for {
-				coreDefVersions, err := svc.ListCoreDefinitionVersionsRequest(&greengrass.ListCoreDefinitionVersionsInput{
+				coreDefVersions, err := svc.ListCoreDefinitionVersions(ctx.Context, &greengrass.ListCoreDefinitionVersionsInput{
 					CoreDefinitionId: v.Id,
 					MaxResults:       aws.String("100"),
 					NextToken:        cdNextToken,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list greengrass core definition versions for %s: %w", *v.Id, err)
+					return nil, fmt.Errorf("failed to list greengrass core definition versions for %s: %w", *v.Id, err)
 				}
 				for _, cdId := range coreDefVersions.Versions {
-					cd, err := svc.GetCoreDefinitionVersionRequest(&greengrass.GetCoreDefinitionVersionInput{
+					cd, err := svc.GetCoreDefinitionVersion(ctx.Context, &greengrass.GetCoreDefinitionVersionInput{
 						CoreDefinitionId:        cdId.Id,
 						CoreDefinitionVersionId: cdId.Version,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to list greengrass core definition version for %s, %s: %w", *cdId.Id, *cdId.Version, err)
+						return nil, fmt.Errorf("failed to list greengrass core definition version for %s, %s: %w", *cdId.Id, *cdId.Version, err)
 					}
 					cdRes := resource.NewVersion(ctx, resource.GreengrassCoreDefinitionVersion, cd.Id, cd.Id, cd.Version, cd)
 					cdRes.AddRelation(resource.GreengrassCoreDefinition, v.Id, "")

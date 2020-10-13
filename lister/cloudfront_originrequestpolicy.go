@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,34 +25,31 @@ func (l AWSCloudfrontOriginRequestPolicy) Types() []resource.ResourceType {
 }
 
 func (l AWSCloudfrontOriginRequestPolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := cloudfront.New(ctx.AWSCfg)
+	svc := cloudfront.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 	listCloudfrontOriginRequestPolicyOnce.Do(func() {
-
-		var marker *string
-		for {
-			res, err := svc.ListOriginRequestPoliciesRequest(&cloudfront.ListOriginRequestPoliciesInput{
-				Marker:   marker,
-				MaxItems: aws.Int64(100),
-			}).Send(ctx.Context)
+		err := Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListOriginRequestPolicies(ctx.Context, &cloudfront.ListOriginRequestPoliciesInput{
+				Marker:   nt,
+				MaxItems: aws.String("100"),
+			})
 			if err != nil {
-				outerErr = fmt.Errorf("failed to list origin request policies: %w", err)
-				return
+				return nil, err
 			}
 			if policies := res.OriginRequestPolicyList; policies != nil {
 				for _, v := range policies.Items {
 					r := resource.NewGlobal(ctx, resource.CloudFrontOriginRequestPolicy, v.OriginRequestPolicy.Id, v.OriginRequestPolicy.Id, v)
 					rg.AddResource(r)
 				}
-				if policies.NextMarker == nil {
-					break
-				}
-				marker = policies.NextMarker
+				return policies.NextMarker, nil
 			} else {
-				break
+				return nil, nil
 			}
+		})
+		if err != nil {
+			outerErr = fmt.Errorf("failed to list origin request policies: %w", err)
 		}
 	})
 

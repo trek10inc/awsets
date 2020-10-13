@@ -22,10 +22,10 @@ func (l AWSRedshiftSubnetGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRedshiftSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := redshift.New(ctx.AWSCfg)
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeClusterSubnetGroupsRequest(&redshift.DescribeClusterSubnetGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeClusterSubnetGroups(ctx.Context, &redshift.DescribeClusterSubnetGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

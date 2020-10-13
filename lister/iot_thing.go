@@ -26,16 +26,16 @@ func (l AWSIoTThing) Types() []resource.ResourceType {
 
 func (l AWSIoTThing) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.New(ctx.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextToken *string
 	for {
-		things, err := svc.ListThingsRequest(&iot.ListThingsInput{
-			MaxResults: aws.Int64(100),
+		things, err := svc.ListThings(ctx.Context, &iot.ListThingsInput{
+			MaxResults: aws.Int32(100),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list iot thing: %w", err)
+			return nil, fmt.Errorf("failed to list iot thing: %w", err)
 		}
 		for _, thing := range things.Things {
 			r := resource.New(ctx, resource.IoTThing, thing.ThingName, thing.ThingName, thing)

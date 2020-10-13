@@ -21,13 +21,16 @@ func init() {
 }
 
 func (l AWSGlueDatabase) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.GlueDatabase, resource.GlueTable}
+	return []resource.ResourceType{
+		resource.GlueDatabase,
+		resource.GlueTable,
+	}
 }
 
 func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := glue.New(ctx.AWSCfg)
-	req := svc.GetDatabasesRequest(&glue.GetDatabasesInput{
-		MaxResults: aws.Int64(100),
+	svc := glue.NewFromConfig(ctx.AWSCfg)
+	res, err := svc.GetDatabases(ctx.Context, &glue.GetDatabasesInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -37,9 +40,9 @@ func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		for _, v := range page.DatabaseList {
 			r := resource.New(ctx, resource.GlueDatabase, v.Name, v.Name, v)
 
-			tablesPaginator := glue.NewGetTablesPaginator(svc.GetTablesRequest(&glue.GetTablesInput{
+			tablesPaginator := glue.NewGetTablesPaginator(svc.GetTables(ctx.Context, &glue.GetTablesInput{
 				DatabaseName: v.Name,
-				MaxResults:   aws.Int64(100),
+				MaxResults:   aws.Int32(100),
 			}))
 			for tablesPaginator.Next(ctx.Context) {
 				tablesPage := tablesPaginator.CurrentPage()
@@ -51,7 +54,7 @@ func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			err := tablesPaginator.Err()
 			if err != nil {
-				return rg, fmt.Errorf("failed to list tables for database %s: %w", *v.Name, err)
+				return nil, fmt.Errorf("failed to list tables for database %s: %w", *v.Name, err)
 			}
 			rg.AddResource(r)
 		}

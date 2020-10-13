@@ -23,24 +23,24 @@ func (l AWSWafRegionalGeoMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalGeoMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListGeoMatchSetsRequest(&wafregional.ListGeoMatchSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListGeoMatchSets(ctx.Context, &wafregional.ListGeoMatchSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional geo match sets: %w", err)
+			return nil, fmt.Errorf("failed to list regional geo match sets: %w", err)
 		}
 		for _, id := range res.GeoMatchSets {
-			matchSet, err := svc.GetGeoMatchSetRequest(&wafregional.GetGeoMatchSetInput{
+			matchSet, err := svc.GetGeoMatchSet(ctx.Context, &wafregional.GetGeoMatchSetInput{
 				GeoMatchSetId: id.GeoMatchSetId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get geo match set %s: %w", aws.StringValue(id.GeoMatchSetId), err)
+				return nil, fmt.Errorf("failed to get geo match set %s: %w", aws.StringValue(id.GeoMatchSetId), err)
 			}
 			if v := matchSet.GeoMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalGeoMatchSet, v.GeoMatchSetId, v.Name, v)

@@ -21,21 +21,22 @@ func (l AWSEc2Vpc) Types() []resource.ResourceType {
 }
 
 func (l AWSEc2Vpc) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.New(ctx.AWSCfg)
-
-	req := svc.DescribeVpcsRequest(&ec2.DescribeVpcsInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := ec2.NewDescribeVpcsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Vpcs {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeVpcs(ctx.Context, &ec2.DescribeVpcsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Vpcs {
 			r := resource.New(ctx, resource.Ec2Vpc, v.VpcId, v.VpcId, v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

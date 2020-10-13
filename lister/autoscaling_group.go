@@ -27,17 +27,19 @@ func (l AWSAutoscalingGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSAutoscalingGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := autoscaling.New(ctx.AWSCfg)
-
-	req := svc.DescribeAutoScalingGroupsRequest(&autoscaling.DescribeAutoScalingGroupsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := autoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := autoscaling.NewDescribeAutoScalingGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.AutoScalingGroups {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeAutoScalingGroups(ctx.Context, &autoscaling.DescribeAutoScalingGroupsInput{
+			MaxRecords: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.AutoScalingGroups {
 			groupArn := arn.ParseP(v.AutoScalingGroupARN)
 			r := resource.New(ctx, resource.AutoscalingGroup, groupArn.ResourceId, v.AutoScalingGroupName, v)
 
@@ -45,11 +47,11 @@ func (l AWSAutoscalingGroup) List(ctx context.AWSetsCtx) (*resource.Group, error
 				r.AddRelation(resource.Ec2Instance, i.InstanceId, "")
 			}
 
-			hooks, err := svc.DescribeLifecycleHooksRequest(&autoscaling.DescribeLifecycleHooksInput{
+			hooks, err := svc.DescribeLifecycleHooks(ctx.Context, &autoscaling.DescribeLifecycleHooksInput{
 				AutoScalingGroupName: v.AutoScalingGroupName,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe lifecycle hooks for group %s: %w", *v.AutoScalingGroupName, err)
+				return nil, fmt.Errorf("failed to describe lifecycle hooks for group %s: %w", *v.AutoScalingGroupName, err)
 			}
 			for _, hook := range hooks.LifecycleHooks {
 				hookR := resource.New(ctx, resource.AutoscalingLifecycleHook, hook.LifecycleHookName, hook.LifecycleHookName, hook)
@@ -58,24 +60,28 @@ func (l AWSAutoscalingGroup) List(ctx context.AWSetsCtx) (*resource.Group, error
 			}
 			rg.AddResource(r)
 
-			scheduledActionsReq := svc.DescribeScheduledActionsRequest(&autoscaling.DescribeScheduledActionsInput{
-				AutoScalingGroupName: v.AutoScalingGroupName,
-				MaxRecords:           aws.Int64(100),
-			})
-			scheduledActionsPaginator := autoscaling.NewDescribeScheduledActionsPaginator(scheduledActionsReq)
-			for scheduledActionsPaginator.Next(ctx.Context) {
-				actionsPage := scheduledActionsPaginator.CurrentPage()
-				for _, action := range actionsPage.ScheduledUpdateGroupActions {
+			err = Paginator(func(nt2 *string) (*string, error) {
+				scheduledActionsRes, err := svc.DescribeScheduledActions(ctx.Context, &autoscaling.DescribeScheduledActionsInput{
+					AutoScalingGroupName: v.AutoScalingGroupName,
+					MaxRecords:           aws.Int32(100),
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get scheduled actions for group %s: %w", *v.AutoScalingGroupName, err)
+				}
+
+				for _, action := range scheduledActionsRes.ScheduledUpdateGroupActions {
 					actionR := resource.New(ctx, resource.AutoscalingScheduledAction, action.ScheduledActionName, action.ScheduledActionName, action)
 					actionR.AddRelation(resource.AutoscalingGroup, v.AutoScalingGroupName, "")
 					rg.AddResource(actionR)
 				}
-			}
-			if err := scheduledActionsPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get scheduled actions for group %s: %w", *v.AutoScalingGroupName, err)
+				return scheduledActionsRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

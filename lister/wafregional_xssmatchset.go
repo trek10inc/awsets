@@ -23,24 +23,24 @@ func (l AWSWafRegionalXssMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalXssMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListXssMatchSetsRequest(&wafregional.ListXssMatchSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListXssMatchSets(ctx.Context, &wafregional.ListXssMatchSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional xss match sets: %w", err)
+			return nil, fmt.Errorf("failed to list regional xss match sets: %w", err)
 		}
 		for _, id := range res.XssMatchSets {
-			matchSet, err := svc.GetXssMatchSetRequest(&wafregional.GetXssMatchSetInput{
+			matchSet, err := svc.GetXssMatchSet(ctx.Context, &wafregional.GetXssMatchSetInput{
 				XssMatchSetId: id.XssMatchSetId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get xss match set %s: %w", aws.StringValue(id.XssMatchSetId), err)
+				return nil, fmt.Errorf("failed to get xss match set %s: %w", aws.StringValue(id.XssMatchSetId), err)
 			}
 			if v := matchSet.XssMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalXssMatchSet, v.XssMatchSetId, v.Name, v)

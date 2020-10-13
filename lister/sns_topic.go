@@ -24,9 +24,9 @@ func (l AWSSnsTopic) Types() []resource.ResourceType {
 }
 
 func (l AWSSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := sns.New(ctx.AWSCfg)
+	svc := sns.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListTopicsRequest(&sns.ListTopicsInput{})
+	res, err := svc.ListTopics(ctx.Context, &sns.ListTopicsInput{})
 
 	rg := resource.NewGroup()
 	paginator := sns.NewListTopicsPaginator(req)
@@ -36,7 +36,7 @@ func (l AWSSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			topicArn := arn.ParseP(topic.TopicArn)
 			r := resource.New(ctx, resource.SnsTopic, topicArn.ResourceId, "", topic)
 
-			subPag := sns.NewListSubscriptionsByTopicPaginator(svc.ListSubscriptionsByTopicRequest(&sns.ListSubscriptionsByTopicInput{
+			subPag := sns.NewListSubscriptionsByTopicPaginator(svc.ListSubscriptionsByTopic(ctx.Context, &sns.ListSubscriptionsByTopicInput{
 				TopicArn: topic.TopicArn,
 			}))
 			for subPag.Next(ctx.Context) {
@@ -52,9 +52,9 @@ func (l AWSSnsTopic) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			// TODO: tags. policy?
 
-			res, err := svc.GetTopicAttributesRequest(&sns.GetTopicAttributesInput{TopicArn: topic.TopicArn}).Send(ctx.Context)
+			res, err := svc.GetTopicAttributes(ctx.Context, &sns.GetTopicAttributesInput{TopicArn: topic.TopicArn})
 			if err != nil {
-				return rg, fmt.Errorf("failed to query topic attributes for %s: %w\n", aws.StringValue(topic.TopicArn), err)
+				return nil, fmt.Errorf("failed to query topic attributes for %s: %w\n", aws.StringValue(topic.TopicArn), err)
 			}
 			for k, v := range res.Attributes {
 				r.AddAttribute(k, v)

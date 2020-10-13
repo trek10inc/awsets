@@ -30,41 +30,41 @@ func (l AWSGreengrassSubscriptionDefinition) Types() []resource.ResourceType {
 
 func (l AWSGreengrassSubscriptionDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := greengrass.New(ctx.AWSCfg)
+	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextToken *string
 	for {
-		subscriptiondefs, err := svc.ListSubscriptionDefinitionsRequest(&greengrass.ListSubscriptionDefinitionsInput{
+		subscriptiondefs, err := svc.ListSubscriptionDefinitions(ctx.Context, &greengrass.ListSubscriptionDefinitionsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nextToken,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
 				return rg, nil
 			}
-			return rg, fmt.Errorf("failed to list greengrass subscription definitions: %w", err)
+			return nil, fmt.Errorf("failed to list greengrass subscription definitions: %w", err)
 		}
 		for _, v := range subscriptiondefs.Definitions {
 			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
 			var sdNextToken *string
 			for {
-				subscriptionDefVersions, err := svc.ListSubscriptionDefinitionVersionsRequest(&greengrass.ListSubscriptionDefinitionVersionsInput{
+				subscriptionDefVersions, err := svc.ListSubscriptionDefinitionVersions(ctx.Context, &greengrass.ListSubscriptionDefinitionVersionsInput{
 					SubscriptionDefinitionId: v.Id,
 					MaxResults:               aws.String("100"),
 					NextToken:                sdNextToken,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list greengrass subscription definition versions for %s: %w", *v.Id, err)
+					return nil, fmt.Errorf("failed to list greengrass subscription definition versions for %s: %w", *v.Id, err)
 				}
 				for _, sdId := range subscriptionDefVersions.Versions {
-					sd, err := svc.GetSubscriptionDefinitionVersionRequest(&greengrass.GetSubscriptionDefinitionVersionInput{
+					sd, err := svc.GetSubscriptionDefinitionVersion(ctx.Context, &greengrass.GetSubscriptionDefinitionVersionInput{
 						SubscriptionDefinitionId:        sdId.Id,
 						SubscriptionDefinitionVersionId: sdId.Version,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to list greengrass subscription definition version for %s, %s: %w", *sdId.Id, *sdId.Version, err)
+						return nil, fmt.Errorf("failed to list greengrass subscription definition version for %s, %s: %w", *sdId.Id, *sdId.Version, err)
 					}
 					sdRes := resource.NewVersion(ctx, resource.GreengrassSubscriptionDefinitionVersion, sd.Id, sd.Id, sd.Version, sd)
 					sdRes.AddRelation(resource.GreengrassSubscriptionDefinition, v.Id, "")

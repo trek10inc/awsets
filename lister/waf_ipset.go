@@ -27,7 +27,7 @@ func (l AWSWafIpSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafIpSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -35,17 +35,17 @@ func (l AWSWafIpSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	listWafIpSetsOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListIPSetsRequest(&waf.ListIPSetsInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListIPSets(ctx.Context, &waf.ListIPSetsInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = err
 				return
 
 			}
 			for _, ipsetId := range res.IPSets {
-				ipset, err := svc.GetIPSetRequest(&waf.GetIPSetInput{IPSetId: ipsetId.IPSetId}).Send(ctx.Context)
+				ipset, err := svc.GetIPSet(ctx.Context, &waf.GetIPSetInput{IPSetId: ipsetId.IPSetId})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get ipset %s: %w", aws.StringValue(ipsetId.IPSetId), err)
 					return

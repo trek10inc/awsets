@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -23,10 +22,10 @@ func (l AWSRedshiftSecurityGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRedshiftSecurityGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := redshift.New(ctx.AWSCfg)
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeClusterSecurityGroupsRequest(&redshift.DescribeClusterSecurityGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeClusterSecurityGroups(ctx.Context, &redshift.DescribeClusterSecurityGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -42,12 +41,9 @@ func (l AWSRedshiftSecurityGroup) List(ctx context.AWSetsCtx) (*resource.Group, 
 		}
 	}
 	err := paginator.Err()
-	if aerr, ok := err.(awserr.Error); ok {
-		if aerr.Code() == "InvalidParameterValue" && //
-			strings.Contains(aerr.Message(), "VPC-by-Default customers cannot use cluster security groups") {
-			// EC2-Classic thing
-			err = nil
-		}
+	if strings.Contains(err.Error(), "VPC-by-Default customers cannot use cluster security groups") {
+		// EC2-Classic thing
+		err = nil
 	}
 	return rg, err
 }

@@ -21,16 +21,18 @@ func (l AWSAutoscalingLaunchConfiguration) Types() []resource.ResourceType {
 }
 
 func (l AWSAutoscalingLaunchConfiguration) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := autoscaling.New(ctx.AWSCfg)
-	req := svc.DescribeLaunchConfigurationsRequest(&autoscaling.DescribeLaunchConfigurationsInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := autoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := autoscaling.NewDescribeLaunchConfigurationsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.LaunchConfigurations {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeLaunchConfigurations(ctx.Context, &autoscaling.DescribeLaunchConfigurationsInput{
+			MaxRecords: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.LaunchConfigurations {
 
 			configArn := arn.ParseP(v.LaunchConfigurationARN)
 			r := resource.New(ctx, resource.AutoscalingLaunchConfig, configArn.ResourceId, v.LaunchConfigurationName, v)
@@ -40,7 +42,8 @@ func (l AWSAutoscalingLaunchConfiguration) List(ctx context.AWSetsCtx) (*resourc
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

@@ -20,10 +20,10 @@ func (l AWSQLDBLedger) Types() []resource.ResourceType {
 }
 
 func (l AWSQLDBLedger) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := qldb.New(ctx.AWSCfg)
+	svc := qldb.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListLedgersRequest(&qldb.ListLedgersInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.ListLedgers(ctx.Context, &qldb.ListLedgersInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

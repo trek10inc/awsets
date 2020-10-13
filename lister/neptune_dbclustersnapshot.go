@@ -23,19 +23,19 @@ func (l AWSNeptuneDbClusterSnapshot) Types() []resource.ResourceType {
 }
 
 func (l AWSNeptuneDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := neptune.New(ctx.AWSCfg)
+	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var marker *string
 
 	for {
-		res, err := svc.DescribeDBClusterSnapshotsRequest(&neptune.DescribeDBClusterSnapshotsInput{
+		res, err := svc.DescribeDBClusterSnapshots(ctx.Context, &neptune.DescribeDBClusterSnapshotsInput{
 			Marker:     marker,
-			MaxRecords: aws.Int64(100),
-		}).Send(ctx.Context)
+			MaxRecords: aws.Int32(100),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list neptune cluster snapshots: %w", err)
+			return nil, fmt.Errorf("failed to list neptune cluster snapshots: %w", err)
 		}
 		for _, v := range res.DBClusterSnapshots {
 			r := resource.New(ctx, resource.NeptuneDbClusterSnapshot, v.DBClusterSnapshotIdentifier, v.DBClusterSnapshotIdentifier, v)

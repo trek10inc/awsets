@@ -23,27 +23,27 @@ func (l AWSWafRegionalRateBasedRule) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalRateBasedRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListRateBasedRulesRequest(&wafregional.ListRateBasedRulesInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListRateBasedRules(ctx.Context, &wafregional.ListRateBasedRulesInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional rate based rule: %w", err)
+			return nil, fmt.Errorf("failed to list regional rate based rule: %w", err)
 		}
 		if res.ListRateBasedRulesOutput == nil {
 			continue
 		}
 		for _, id := range res.ListRateBasedRulesOutput.Rules {
-			rule, err := svc.GetRateBasedRuleRequest(&wafregional.GetRateBasedRuleInput{
+			rule, err := svc.GetRateBasedRule(ctx.Context, &wafregional.GetRateBasedRuleInput{
 				RuleId: id.RuleId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get rate based rule %s: %w", aws.StringValue(id.RuleId), err)
+				return nil, fmt.Errorf("failed to get rate based rule %s: %w", aws.StringValue(id.RuleId), err)
 			}
 			if v := rule.Rule; v != nil {
 				r := resource.New(ctx, resource.WafRegionalRateBasedRule, v.RuleId, v.Name, v)

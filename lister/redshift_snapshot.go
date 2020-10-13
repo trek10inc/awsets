@@ -22,10 +22,10 @@ func (l AWSRedshiftSnapshot) Types() []resource.ResourceType {
 }
 
 func (l AWSRedshiftSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := redshift.New(ctx.AWSCfg)
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeClusterSnapshotsRequest(&redshift.DescribeClusterSnapshotsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeClusterSnapshots(ctx.Context, &redshift.DescribeClusterSnapshotsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

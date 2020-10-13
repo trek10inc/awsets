@@ -23,24 +23,24 @@ func (l AWSWafRegionalSqlInjectionMatchSet) Types() []resource.ResourceType {
 }
 
 func (l AWSWafRegionalSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.New(ctx.AWSCfg)
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var nextMarker *string
 	for {
-		res, err := svc.ListSqlInjectionMatchSetsRequest(&wafregional.ListSqlInjectionMatchSetsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListSqlInjectionMatchSets(ctx.Context, &wafregional.ListSqlInjectionMatchSetsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list regional sql injection match sets: %w", err)
+			return nil, fmt.Errorf("failed to list regional sql injection match sets: %w", err)
 		}
 		for _, id := range res.SqlInjectionMatchSets {
-			matchSet, err := svc.GetSqlInjectionMatchSetRequest(&wafregional.GetSqlInjectionMatchSetInput{
+			matchSet, err := svc.GetSqlInjectionMatchSet(ctx.Context, &wafregional.GetSqlInjectionMatchSetInput{
 				SqlInjectionMatchSetId: id.SqlInjectionMatchSetId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get sql injection match set %s: %w", aws.StringValue(id.SqlInjectionMatchSetId), err)
+				return nil, fmt.Errorf("failed to get sql injection match set %s: %w", aws.StringValue(id.SqlInjectionMatchSetId), err)
 			}
 			if v := matchSet.SqlInjectionMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalSqlInjectionMatchSet, v.SqlInjectionMatchSetId, v.Name, v)

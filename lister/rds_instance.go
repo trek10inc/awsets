@@ -23,10 +23,10 @@ func (l AWSRdsDbInstance) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBInstancesRequest(&rds.DescribeDBInstancesInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBInstances(ctx.Context, &rds.DescribeDBInstancesInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

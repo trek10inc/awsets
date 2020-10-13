@@ -25,10 +25,10 @@ func (l AWSLambdaFunction) Types() []resource.ResourceType {
 }
 
 func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := lambda.New(ctx.AWSCfg)
+	svc := lambda.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListFunctionsRequest(&lambda.ListFunctionsInput{
-		MaxItems: aws.Int64(100),
+	res, err := svc.ListFunctions(ctx.Context, &lambda.ListFunctionsInput{
+		MaxItems: aws.Int32(100),
 		// MasterRegion: TODO: maybe stringset this?
 	})
 
@@ -59,9 +59,9 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				r.AddRelation(resource.LambdaLayerVersion, layerArn.ResourceId, layerArn.ResourceVersion)
 			}
 
-			esmPaginator := lambda.NewListEventSourceMappingsPaginator(svc.ListEventSourceMappingsRequest(&lambda.ListEventSourceMappingsInput{
+			esmPaginator := lambda.NewListEventSourceMappingsPaginator(svc.ListEventSourceMappings(ctx.Context, &lambda.ListEventSourceMappingsInput{
 				FunctionName: function.FunctionArn,
-				MaxItems:     aws.Int64(100),
+				MaxItems:     aws.Int32(100),
 			}))
 			for esmPaginator.Next(ctx.Context) {
 				esmPage := esmPaginator.CurrentPage()
@@ -73,14 +73,14 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				}
 			}
 			if err := esmPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list event source mappings for %s: %w", *function.FunctionName, err)
+				return nil, fmt.Errorf("failed to list event source mappings for %s: %w", *function.FunctionName, err)
 			}
 
 			eics := make([]lambda.FunctionEventInvokeConfig, 0)
 			eicPaginator := lambda.NewListFunctionEventInvokeConfigsPaginator(svc.ListFunctionEventInvokeConfigsRequest(
 				&lambda.ListFunctionEventInvokeConfigsInput{
 					FunctionName: function.FunctionArn,
-					MaxItems:     aws.Int64(50),
+					MaxItems:     aws.Int32(50),
 				},
 			))
 			for eicPaginator.Next(ctx.Context) {
@@ -90,17 +90,17 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				}
 			}
 			if err := eicPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list event invoke configs for %s: %w", *function.FunctionName, err)
+				return nil, fmt.Errorf("failed to list event invoke configs for %s: %w", *function.FunctionName, err)
 			}
 			if len(eics) > 0 {
 				r.AddAttribute("EventInvokeConfigs", eics) // TODO: different way?
 			}
 
-			fvReq := svc.ListVersionsByFunctionRequest(&lambda.ListVersionsByFunctionInput{
+			fvres, err := svc.ListVersionsByFunction(ctx.Context, &lambda.ListVersionsByFunctionInput{
 				FunctionName: function.FunctionArn,
-				MaxItems:     aws.Int64(100),
+				MaxItems:     aws.Int32(100),
 			})
-			fvRes, err := fvReq.Send(ctx.Context)
+			fvRes, err := fvReq
 			if err != nil {
 				return rg, err
 			}
@@ -110,10 +110,10 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				fvr.AddRelation(resource.LambdaFunction, fxnArn.ResourceId, "")
 				rg.AddResource(fvr)
 
-				aliasPaginator := lambda.NewListAliasesPaginator(svc.ListAliasesRequest(&lambda.ListAliasesInput{
+				aliasPaginator := lambda.NewListAliasesPaginator(svc.ListAliases(ctx.Context, &lambda.ListAliasesInput{
 					FunctionName:    fv.FunctionName,
 					FunctionVersion: fv.Version,
-					MaxItems:        aws.Int64(100),
+					MaxItems:        aws.Int32(100),
 				}))
 				for aliasPaginator.Next(ctx.Context) {
 					aliasPage := aliasPaginator.CurrentPage()
@@ -126,7 +126,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				}
 				err = aliasPaginator.Err()
 				if err != nil {
-					return rg, fmt.Errorf("failed to list function aliases for %s - %s: %w", *fv.FunctionName, *fv.Version, err)
+					return nil, fmt.Errorf("failed to list function aliases for %s - %s: %w", *fv.FunctionName, *fv.Version, err)
 				}
 			}
 			rg.AddResource(r)

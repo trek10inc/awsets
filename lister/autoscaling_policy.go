@@ -21,24 +21,28 @@ func (l AWSAutoscalingPolicies) Types() []resource.ResourceType {
 }
 
 func (l AWSAutoscalingPolicies) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := autoscaling.New(ctx.AWSCfg)
-
-	req := svc.DescribePoliciesRequest(&autoscaling.DescribePoliciesInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := autoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := autoscaling.NewDescribePoliciesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.ScalingPolicies {
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribePolicies(ctx.Context, &autoscaling.DescribePoliciesInput{
+			MaxRecords: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.ScalingPolicies {
 			policyArn := arn.ParseP(v.PolicyARN)
 			r := resource.New(ctx, resource.AutoscalingPolicy, policyArn.ResourceId, v.PolicyName, v)
 			r.AddRelation(resource.AutoscalingGroup, v.AutoScalingGroupName, "")
 			//TODO relation to autoscaling alarms?
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
+
 	return rg, err
 }

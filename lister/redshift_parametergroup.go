@@ -22,10 +22,10 @@ func (l AWSRedshiftParameterGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRedshiftParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := redshift.New(ctx.AWSCfg)
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeClusterParameterGroupsRequest(&redshift.DescribeClusterParameterGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeClusterParameterGroups(ctx.Context, &redshift.DescribeClusterParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

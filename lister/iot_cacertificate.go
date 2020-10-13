@@ -26,29 +26,29 @@ func (l AWSIoTCACertificate) Types() []resource.ResourceType {
 
 func (l AWSIoTCACertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.New(ctx.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var marker *string
 	for {
-		cacerts, err := svc.ListCACertificatesRequest(&iot.ListCACertificatesInput{
-			PageSize: aws.Int64(100),
+		cacerts, err := svc.ListCACertificates(ctx.Context, &iot.ListCACertificatesInput{
+			PageSize: aws.Int32(100),
 			Marker:   marker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list iot ca certificates: %w", err)
+			return nil, fmt.Errorf("failed to list iot ca certificates: %w", err)
 		}
 		for _, cacert := range cacerts.Certificates {
 			r := resource.New(ctx, resource.IoTCACertificate, cacert.CertificateId, cacert.CertificateId, cacert)
 
 			var certMarker *string
 			for {
-				certs, err := svc.ListCertificatesByCARequest(&iot.ListCertificatesByCAInput{
+				certs, err := svc.ListCertificatesByCA(ctx.Context, &iot.ListCertificatesByCAInput{
 					CaCertificateId: cacert.CertificateId,
 					Marker:          certMarker,
-					PageSize:        aws.Int64(100),
-				}).Send(ctx.Context)
+					PageSize:        aws.Int32(100),
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to list iot certificates for ca %s: %w", *cacert.CertificateId, err)
+					return nil, fmt.Errorf("failed to list iot certificates for ca %s: %w", *cacert.CertificateId, err)
 				}
 				for _, cert := range certs.Certificates {
 					r.AddRelation(resource.IoTCertificate, cert.CertificateId, "")

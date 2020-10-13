@@ -3,11 +3,11 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -29,50 +29,60 @@ func (l AWSEcsCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ecs.New(ctx.AWSCfg)
-	req := svc.ListClustersRequest(&ecs.ListClustersInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := ecs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := ecs.NewListClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		if len(page.ClusterArns) == 0 {
-			continue
-		}
-		clustersRequest := svc.DescribeClustersRequest(&ecs.DescribeClustersInput{
-			Clusters: page.ClusterArns,
-			Include:  []ecs.ClusterField{ecs.ClusterFieldAttachments, ecs.ClusterFieldSettings, ecs.ClusterFieldStatistics, ecs.ClusterFieldTags},
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListClusters(ctx.Context, &ecs.ListClustersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
 		})
-		res, err := clustersRequest.Send(ctx.Context)
 		if err != nil {
-			return rg, fmt.Errorf("failed to send cluster request: %w", err)
+			return nil, err
 		}
-		for _, v := range res.Clusters {
+		if len(res.ClusterArns) == 0 {
+			return nil, nil
+		}
+		clusters, err := svc.DescribeClusters(ctx.Context, &ecs.DescribeClustersInput{
+			Clusters: res.ClusterArns,
+			Include: []types.ClusterField{
+				types.ClusterFieldAttachments,
+				types.ClusterFieldSettings,
+				types.ClusterFieldStatistics,
+				types.ClusterFieldTags,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to send cluster request: %w", err)
+		}
+		for _, v := range clusters.Clusters {
 			clusterArn := arn.ParseP(v.ClusterArn)
 			clusterResource := resource.New(ctx, resource.EcsCluster, clusterArn.ResourceId, v.ClusterName, v)
+			rg.AddResource(clusterResource)
 
 			// ECS Services
-			servicesPaginator := ecs.NewListServicesPaginator(svc.ListServicesRequest(&ecs.ListServicesInput{
-				Cluster:    v.ClusterArn,
-				MaxResults: aws.Int64(10),
-			}))
-			for servicesPaginator.Next(ctx.Context) {
-				servicesPage := servicesPaginator.CurrentPage()
-				if len(servicesPage.ServiceArns) == 0 {
-					continue
-				}
-				describeServicesReq := svc.DescribeServicesRequest(&ecs.DescribeServicesInput{
-					Cluster:  v.ClusterArn,
-					Include:  []ecs.ServiceField{ecs.ServiceFieldTags},
-					Services: servicesPage.ServiceArns,
+			err = Paginator(func(nt2 *string) (*string, error) {
+				services, err := svc.ListServices(ctx.Context, &ecs.ListServicesInput{
+					Cluster:    v.ClusterArn,
+					MaxResults: aws.Int32(10),
+					NextToken:  nt2,
 				})
-				servicesResponse, err := describeServicesReq.Send(ctx.Context)
 				if err != nil {
-					return rg, fmt.Errorf("failed to send describe services request: %w", err)
+					return nil, fmt.Errorf("failed to send list services request: %w", err)
 				}
-				for _, service := range servicesResponse.Services {
+				if len(services.ServiceArns) == 0 {
+					return nil, nil
+				}
+				describeServices, err := svc.DescribeServices(ctx.Context, &ecs.DescribeServicesInput{
+					Cluster:  v.ClusterArn,
+					Include:  []types.ServiceField{types.ServiceFieldTags},
+					Services: services.ServiceArns,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to send describe services request: %w", err)
+				}
+				for _, service := range describeServices.Services {
 
 					serviceArn := arn.ParseP(service.ServiceArn)
 					serviceResource := resource.New(ctx, resource.EcsService, serviceArn.ResourceId, service.ServiceName, service)
@@ -86,29 +96,33 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						rg.AddResource(serviceResource)
 					}
 				}
+				return services.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			// ECS Tasks
-			tasksPaginator := ecs.NewListTasksPaginator(svc.ListTasksRequest(&ecs.ListTasksInput{
-				Cluster:    v.ClusterArn,
-				MaxResults: aws.Int64(100),
-			}))
-			for tasksPaginator.Next(ctx.Context) {
-				tasksPage := tasksPaginator.CurrentPage()
-				if len(tasksPage.TaskArns) == 0 {
-					continue
-				}
-				describeTasksReq := svc.DescribeTasksRequest(&ecs.DescribeTasksInput{
-					Cluster: v.ClusterArn,
-					Include: []ecs.TaskField{ecs.TaskFieldTags},
-					Tasks:   tasksPage.TaskArns,
+			err = Paginator(func(nt2 *string) (*string, error) {
+				tasks, err := svc.ListTasks(ctx.Context, &ecs.ListTasksInput{
+					Cluster:    v.ClusterArn,
+					MaxResults: aws.Int32(100),
 				})
-				tasksResponse, err := describeTasksReq.Send(ctx.Context)
 				if err != nil {
-					return rg, fmt.Errorf("failed to send describe services request: %w", err)
+					return nil, fmt.Errorf("failed to send list services request: %w", err)
 				}
-				for _, task := range tasksResponse.Tasks {
-
+				if len(tasks.TaskArns) == 0 {
+					return nil, nil
+				}
+				describeTasks, err := svc.DescribeTasks(ctx.Context, &ecs.DescribeTasksInput{
+					Cluster: v.ClusterArn,
+					Include: []types.TaskField{types.TaskFieldTags},
+					Tasks:   tasks.TaskArns,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to send describe tasks request: %w", err)
+				}
+				for _, task := range describeTasks.Tasks {
 					taskArn := arn.ParseP(task.TaskArn)
 					taskResource := resource.New(ctx, resource.EcsTask, taskArn.ResourceId, "", task)
 					taskResource.AddARNRelation(resource.EcsCluster, v.ClusterArn)
@@ -116,23 +130,21 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					taskResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
 					rg.AddResource(taskResource)
 				}
-			}
-			rg.AddResource(clusterResource)
-			err = servicesPaginator.Err()
+				return tasks.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to paginate services: %w", err)
+				return nil, err
 			}
 
 			// ECS Capacity Providers
-			var nextToken *string
-			for {
-				providers, err := svc.DescribeCapacityProvidersRequest(&ecs.DescribeCapacityProvidersInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				providers, err := svc.DescribeCapacityProviders(ctx.Context, &ecs.DescribeCapacityProvidersInput{
 					CapacityProviders: v.CapacityProviders,
-					Include:           []ecs.CapacityProviderField{ecs.CapacityProviderFieldTags},
-					NextToken:         nextToken,
-				}).Send(ctx.Context)
+					Include:           []types.CapacityProviderField{types.CapacityProviderFieldTags},
+					NextToken:         nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to describe ecs capacity providers for %s: %w", *v.ClusterName, err)
+					return nil, fmt.Errorf("failed to describe ecs capacity providers for %s: %w", *v.ClusterName, err)
 				}
 				for _, provider := range providers.CapacityProviders {
 					providerArn := arn.ParseP(provider.CapacityProviderArn)
@@ -140,14 +152,14 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					providerRes.AddARNRelation(resource.EcsCluster, v.ClusterArn)
 					rg.AddResource(providerRes)
 				}
-				if providers.NextToken == nil {
-					break
-				}
-				nextToken = providers.NextToken
+				return res.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			// TODO: task sets?
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

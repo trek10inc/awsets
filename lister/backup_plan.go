@@ -25,53 +25,60 @@ func (l AWSBackupPlan) Types() []resource.ResourceType {
 }
 
 func (l AWSBackupPlan) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := backup.New(ctx.AWSCfg)
-
-	req := svc.ListBackupPlansRequest(&backup.ListBackupPlansInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := backup.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := backup.NewListBackupPlansPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, plan := range page.BackupPlansList {
-			v, err := svc.GetBackupPlanRequest(&backup.GetBackupPlanInput{
+
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListBackupPlans(ctx.Context, &backup.ListBackupPlansInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, plan := range res.BackupPlansList {
+			v, err := svc.GetBackupPlan(ctx.Context, &backup.GetBackupPlanInput{
 				BackupPlanId: plan.BackupPlanId,
 				VersionId:    plan.VersionId,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get backup plan %s: %w", *plan.BackupPlanId, err)
+				return nil, fmt.Errorf("failed to get backup plan %s: %w", *plan.BackupPlanId, err)
 			}
 			r := resource.New(ctx, resource.BackupPlan, v.BackupPlanId, v.BackupPlanId, v)
 
-			selectionPaginator := backup.NewListBackupSelectionsPaginator(svc.ListBackupSelectionsRequest(&backup.ListBackupSelectionsInput{
-				BackupPlanId: plan.BackupPlanId,
-				MaxResults:   aws.Int64(25),
-			}))
-			for selectionPaginator.Next(ctx.Context) {
-				selectionPage := selectionPaginator.CurrentPage()
-				for _, selectionId := range selectionPage.BackupSelectionsList {
-					selection, err := svc.GetBackupSelectionRequest(&backup.GetBackupSelectionInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				selectionsRes, err := svc.ListBackupSelections(ctx.Context, &backup.ListBackupSelectionsInput{
+					BackupPlanId: plan.BackupPlanId,
+					MaxResults:   aws.Int32(25),
+					NextToken:    nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list selections for plan %s: %w", *v.BackupPlanId, err)
+				}
+				for _, selectionId := range selectionsRes.BackupSelectionsList {
+					selection, err := svc.GetBackupSelection(ctx.Context, &backup.GetBackupSelectionInput{
 						BackupPlanId: v.BackupPlanId,
 						SelectionId:  selectionId.SelectionId,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to get selection %s for plan %s: %w", *selectionId.SelectionId, *plan.BackupPlanId, err)
+						return nil, fmt.Errorf("failed to get selection %s for plan %s: %w", *selectionId.SelectionId, *plan.BackupPlanId, err)
 					}
-					selectionR := resource.New(ctx, resource.BackupSelection, selection.SelectionId, selection.SelectionId, selection.GetBackupSelectionOutput)
+					selectionR := resource.New(ctx, resource.BackupSelection, selection.SelectionId, selection.SelectionId, selection)
 					selectionR.AddRelation(resource.BackupPlan, v.BackupPlanId, v.VersionId)
 
 					rg.AddResource(selectionR)
 				}
-			}
-			if err = selectionPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list selections for plan %s: %w", *v.BackupPlanId, err)
+
+				return selectionsRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

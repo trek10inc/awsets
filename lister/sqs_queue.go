@@ -25,10 +25,10 @@ func (l AWSSqsQueue) Types() []resource.ResourceType {
 }
 
 func (l AWSSqsQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := sqs.New(ctx.AWSCfg)
+	svc := sqs.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListQueuesRequest(&sqs.ListQueuesInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.ListQueues(ctx.Context, &sqs.ListQueuesInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()
@@ -36,23 +36,23 @@ func (l AWSSqsQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, queue := range page.QueueUrls {
-			qRes, err := svc.GetQueueAttributesRequest(&sqs.GetQueueAttributesInput{
+			qRes, err := svc.GetQueueAttributes(ctx.Context, &sqs.GetQueueAttributesInput{
 				AttributeNames: []sqs.QueueAttributeName{sqs.QueueAttributeNameAll},
 				QueueUrl:       aws.String(queue),
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get queue attributes %s: %w", queue, err)
+				return nil, fmt.Errorf("failed to get queue attributes %s: %w", queue, err)
 			}
 			queueArn := arn.Parse(qRes.Attributes["QueueArn"])
 			asMap := make(map[string]interface{})
 			for k, v := range qRes.Attributes {
 				asMap[k] = v
 			}
-			tagRes, err := svc.ListQueueTagsRequest(&sqs.ListQueueTagsInput{
+			tagRes, err := svc.ListQueueTags(ctx.Context, &sqs.ListQueueTagsInput{
 				QueueUrl: aws.String(queue),
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get queue tags %s: %w", queue, err)
+				return nil, fmt.Errorf("failed to get queue tags %s: %w", queue, err)
 			}
 			asMap["Tags"] = tagRes.Tags
 			r := resource.New(ctx, resource.SqsQueue, queue, queueArn.ResourceId, asMap)

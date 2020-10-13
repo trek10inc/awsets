@@ -3,14 +3,10 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSEfsFileSystems struct {
@@ -26,38 +22,33 @@ func (l AWSEfsFileSystems) Types() []resource.ResourceType {
 }
 
 func (l AWSEfsFileSystems) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := efs.New(ctx.AWSCfg)
+	svc := efs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-
-	var fsMarker *string
-	for {
-		res, err := svc.DescribeFileSystemsRequest(&efs.DescribeFileSystemsInput{
-			Marker:   fsMarker,
-			MaxItems: aws.Int64(10),
-		}).Send(ctx.Context)
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeFileSystems(ctx.Context, &efs.DescribeFileSystemsInput{
+			Marker:   nt,
+			MaxItems: aws.Int32(10),
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to describe efs file systems: %w", err)
+			return nil, fmt.Errorf("failed to describe efs file systems: %w", err)
 		}
-
 		for _, fs := range res.FileSystems {
 			r := resource.New(ctx, resource.EfsFileSystem, fs.FileSystemId, fs.Name, fs)
-			if fs.KmsKeyId != nil {
-				kmsArn := arn.ParseP(fs.KmsKeyId)
-				r.AddRelation(resource.KmsKey, kmsArn.ResourceId, "")
-			}
+			r.AddARNRelation(resource.KmsKey, fs.KmsKeyId)
 			rg.AddResource(r)
-			var mtMarker *string
-			for {
-				mtRes, err := svc.DescribeMountTargetsRequest(&efs.DescribeMountTargetsInput{
+
+			// Mount Targets
+			err = Paginator(func(nt2 *string) (*string, error) {
+				mounts, err := svc.DescribeMountTargets(ctx.Context, &efs.DescribeMountTargetsInput{
 					FileSystemId: fs.FileSystemId,
-					Marker:       mtMarker,
-					MaxItems:     aws.Int64(10),
-				}).Send(ctx.Context)
+					Marker:       nt2,
+					MaxItems:     aws.Int32(10),
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to describe efs mount target for %s: %w", *fs.FileSystemId, err)
+					return nil, fmt.Errorf("failed to describe efs mount target for %s: %w", *fs.FileSystemId, err)
 				}
-				for _, mt := range mtRes.MountTargets {
+				for _, mt := range mounts.MountTargets {
 					mtR := resource.New(ctx, resource.EfsMountTarget, mt.MountTargetId, mt.MountTargetId, mt)
 					mtR.AddRelation(resource.EfsFileSystem, fs.FileSystemId, "")
 					if mt.SubnetId != nil {
@@ -65,38 +56,34 @@ func (l AWSEfsFileSystems) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 					}
 					rg.AddResource(mtR)
 				}
-				if mtRes.NextMarker == nil {
-					break
-				}
-				mtMarker = mtRes.NextMarker
+				return mounts.Marker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
-			var apNextToken *string
-			for {
-				apRes, err := svc.DescribeAccessPointsRequest(&efs.DescribeAccessPointsInput{
+
+			// Access Points
+			err = Paginator(func(nt2 *string) (*string, error) {
+				points, err := svc.DescribeAccessPoints(ctx.Context, &efs.DescribeAccessPointsInput{
 					FileSystemId: fs.FileSystemId,
-					MaxResults:   aws.Int64(100),
-					NextToken:    apNextToken,
-				}).Send(ctx.Context)
+					MaxResults:   aws.Int32(100),
+					NextToken:    nt2,
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to describe efs access points for %s: %w", *fs.FileSystemId, err)
+					return nil, fmt.Errorf("failed to describe efs access points for %s: %w", *fs.FileSystemId, err)
 				}
-				for _, ap := range apRes.AccessPoints {
+				for _, ap := range points.AccessPoints {
 					apR := resource.New(ctx, resource.EfsAccessPoint, ap.AccessPointId, ap.Name, ap)
 					apR.AddRelation(resource.EfsFileSystem, fs.FileSystemId, "")
 					rg.AddResource(apR)
 				}
-				if apRes.NextToken == nil {
-					break
-				}
-				apNextToken = apRes.NextToken
+				return points.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 		}
-
-		if res.NextMarker == nil {
-			break
-		}
-		fsMarker = res.NextMarker
-	}
-
-	return rg, nil
+		return res.Marker, nil
+	})
+	return rg, err
 }

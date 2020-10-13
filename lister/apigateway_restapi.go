@@ -2,10 +2,11 @@ package lister
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/aws/aws-sdk-go-v2/service/apigateway/types"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -31,53 +32,66 @@ func (l AWSApiGatewayRestApi) Types() []resource.ResourceType {
 }
 
 func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := apigateway.New(ctx.AWSCfg)
-
-	req := svc.GetRestApisRequest(&apigateway.GetRestApisInput{
-		Limit: aws.Int64(500),
-	})
+	svc := apigateway.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := apigateway.NewGetRestApisPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, restapi := range page.Items {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.GetRestApis(ctx.Context, &apigateway.GetRestApisInput{
+			Limit:    aws.Int32(500),
+			Position: nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "AccessDeniedException") {
+				// If api gateway is not supported in a region, returns access denied
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get rest apis: %w", err)
+		}
+		for _, restapi := range res.Items {
 			r := resource.New(ctx, resource.ApiGatewayRestApi, restapi.Id, restapi.Name, restapi)
 
-			modelPaginator := apigateway.NewGetModelsPaginator(svc.GetModelsRequest(&apigateway.GetModelsInput{
-				Limit:     aws.Int64(100),
-				RestApiId: restapi.Id,
-			}))
-			for modelPaginator.Next(ctx.Context) {
-				modelPage := modelPaginator.CurrentPage()
-				for _, model := range modelPage.Items {
+			// Models
+			err = Paginator(func(nt2 *string) (*string, error) {
+				modelRes, err := svc.GetModels(ctx.Context, &apigateway.GetModelsInput{
+					Limit:     aws.Int32(100),
+					RestApiId: restapi.Id,
+					Position:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get models for api %s: %w", *restapi.Id, err)
+				}
+				for _, model := range modelRes.Items {
 					modelR := resource.New(ctx, resource.ApiGatewayModel, model.Id, model.Name, model)
 					modelR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(modelR)
 				}
-			}
-			if err := modelPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get models for api %s: %w", *restapi.Id, err)
+				return modelRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			depReq := svc.GetDeploymentsRequest(&apigateway.GetDeploymentsInput{
-				Limit:     aws.Int64(500),
-				RestApiId: restapi.Id,
-			})
-			depPaginator := apigateway.NewGetDeploymentsPaginator(depReq)
-			for depPaginator.Next(ctx.Context) {
-				depPage := depPaginator.CurrentPage()
-				for _, deployment := range depPage.Items {
+			// Deployments
+			err = Paginator(func(nt2 *string) (*string, error) {
+				depRes, err := svc.GetDeployments(ctx.Context, &apigateway.GetDeploymentsInput{
+					Limit:     aws.Int32(500),
+					RestApiId: restapi.Id,
+					Position:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get deployments for restapi %s: %w", *restapi.Id, err)
+				}
+				for _, deployment := range depRes.Items {
 					depR := resource.New(ctx, resource.ApiGatewayDeployment, deployment.Id, "", restapi)
 					r.AddRelation(resource.ApiGatewayDeployment, deployment.Id, "")
 					rg.AddResource(depR)
 
-					stageRes, err := svc.GetStagesRequest(&apigateway.GetStagesInput{
+					stageRes, err := svc.GetStages(ctx.Context, &apigateway.GetStagesInput{
 						DeploymentId: deployment.Id,
 						RestApiId:    restapi.Id,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to get stages for api: %s, deployment: %s - %w", aws.StringValue(restapi.Id), aws.StringValue(deployment.Id), err)
+						return nil, fmt.Errorf("failed to get stages for api: %s, deployment: %s - %w", *restapi.Id, *deployment.Id, err)
 					}
 					for _, stage := range stageRes.Item {
 						stageR := resource.New(ctx, resource.ApiGatewayStage, stage.StageName, "", stage)
@@ -90,66 +104,72 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 						rg.AddResource(stageR)
 					}
 				}
-			}
-			if err := depPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get deployments for restapi %s: %w", *restapi.Id, err)
+				return depRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			var position *string
-			for {
-				authorizers, err := svc.GetAuthorizersRequest(&apigateway.GetAuthorizersInput{
-					Limit:     aws.Int64(100),
-					Position:  position,
+			// Authorizers
+			err = Paginator(func(nt2 *string) (*string, error) {
+				authorizers, err := svc.GetAuthorizers(ctx.Context, &apigateway.GetAuthorizersInput{
+					Limit:     aws.Int32(100),
+					Position:  nt2,
 					RestApiId: restapi.Id,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to get authorizers for rest api %s: %w", *restapi.Id, err)
+					return nil, fmt.Errorf("failed to get authorizers for rest api %s: %w", *restapi.Id, err)
 				}
 				for _, authorizer := range authorizers.Items {
 					authR := resource.New(ctx, resource.ApiGatewayAuthorizer, authorizer.Id, authorizer.Name, authorizer)
 					authR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(authR)
 				}
-				if authorizers.Position == nil {
-					break
-				}
-				position = authorizers.Position
+				return authorizers.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			resourcePaginator := apigateway.NewGetResourcesPaginator(svc.GetResourcesRequest(&apigateway.GetResourcesInput{
-				Limit:     aws.Int64(100),
-				RestApiId: restapi.Id,
-			}))
-			for resourcePaginator.Next(ctx.Context) {
-				resourcesPage := resourcePaginator.CurrentPage()
-				for _, res := range resourcesPage.Items {
+			// Resources
+			err = Paginator(func(nt2 *string) (*string, error) {
+				resourcesRes, err := svc.GetResources(ctx.Context, &apigateway.GetResourcesInput{
+					Limit:     aws.Int32(100),
+					RestApiId: restapi.Id,
+					Position:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get resources for restapi %s: %w", *restapi.Id, err)
+				}
+				for _, res := range resourcesRes.Items {
 					resR := resource.New(ctx, resource.ApiGatewayResource, res.Id, res.Id, res)
 					resR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(resR)
 				}
-			}
-			if err := resourcePaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to get resources for restapi %s: %w", *restapi.Id, err)
+				return resourcesRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			var gwPosition *string
-			gwResponses := make([]apigateway.GatewayResponse, 0)
-			for {
-				gwRes, err := svc.GetGatewayResponsesRequest(&apigateway.GetGatewayResponsesInput{
-					Limit:     aws.Int64(100),
-					Position:  gwPosition,
+			// Gateway Responses
+			gwResponses := make([]*types.GatewayResponse, 0)
+			err = Paginator(func(nt2 *string) (*string, error) {
+				gwRes, err := svc.GetGatewayResponses(ctx.Context, &apigateway.GetGatewayResponsesInput{
+					Limit:     aws.Int32(100),
+					Position:  nt2,
 					RestApiId: restapi.Id,
-				}).Send(ctx.Context)
+				})
 				if err != nil {
-					return rg, fmt.Errorf("failed to get gateway responses for rest api %s: %w", *restapi.Id, err)
+					return nil, fmt.Errorf("failed to get gateway responses for rest api %s: %w", *restapi.Id, err)
 				}
 				if len(gwRes.Items) > 0 {
 					gwResponses = append(gwResponses, gwRes.Items...)
 				}
-				if gwRes.Position == nil {
-					break
-				}
-				gwPosition = gwRes.Position
+				return gwRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			if len(gwResponses) > 0 {
 				r.AddAttribute("GatewayResponse", gwResponses)
@@ -157,15 +177,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			rg.AddResource(r)
 
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "AccessDeniedException" {
-				// If api gateway is not supported in a region, returns access denied
-				err = nil
-			}
-		}
-	}
+		return res.Position, nil
+	})
 	return rg, err
 }

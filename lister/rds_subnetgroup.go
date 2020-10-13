@@ -22,10 +22,10 @@ func (l AWSRdsDbSubnetGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeDBSubnetGroupsRequest(&rds.DescribeDBSubnetGroupsInput{
-		MaxRecords: aws.Int64(100),
+	res, err := svc.DescribeDBSubnetGroups(ctx.Context, &rds.DescribeDBSubnetGroupsInput{
+		MaxRecords: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

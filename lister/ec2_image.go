@@ -4,9 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-
 	"github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,15 +22,15 @@ func (l AWSEc2Image) Types() []resource.ResourceType {
 
 func (l AWSEc2Image) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := ec2.New(ctx.AWSCfg)
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	images, err := svc.DescribeImagesRequest(&ec2.DescribeImagesInput{
-		Owners: []string{ctx.AccountId},
-	}).Send(ctx.Context)
+	images, err := svc.DescribeImages(ctx.Context, &ec2.DescribeImagesInput{
+		Owners: []*string{&ctx.AccountId},
+	})
 	if err != nil {
-		return rg, fmt.Errorf("failed to list ec2 images: %w", err)
+		return nil, fmt.Errorf("failed to list ec2 images: %w", err)
 	}
 	for _, image := range images.Images {
 		r := resource.New(ctx, resource.Ec2Image, image.ImageId, image.Name, image)

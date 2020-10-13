@@ -26,14 +26,14 @@ func (l AWSIamRole) Types() []resource.ResourceType {
 }
 
 func (l AWSIamRole) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.New(ctx.AWSCfg)
+	svc := iam.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listIAMRolesOnce.Do(func() {
-		req := svc.ListRolesRequest(&iam.ListRolesInput{
-			MaxItems: aws.Int64(100),
+		res, err := svc.ListRoles(ctx.Context, &iam.ListRolesInput{
+			MaxItems: aws.Int32(100),
 		})
 
 		paginator := iam.NewListRolesPaginator(req)

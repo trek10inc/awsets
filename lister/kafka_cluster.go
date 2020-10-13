@@ -23,10 +23,10 @@ func (l AWSKafkaCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSKafkaCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := kafka.New(ctx.AWSCfg)
+	svc := kafka.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListClustersRequest(&kafka.ListClustersInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.ListClusters(ctx.Context, &kafka.ListClustersInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

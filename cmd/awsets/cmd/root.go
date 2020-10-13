@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/urfave/cli/v2"
 )
 
@@ -29,9 +29,9 @@ func Execute(buildInfo map[string]string) {
 
 func configureAWS(ctx *cli.Context) (aws.Config, error) {
 	if ctx.String("profile") != "" {
-		return external.LoadDefaultAWSConfig(external.WithSharedConfigProfile(ctx.String("profile")))
+		return config.LoadDefaultConfig(config.WithSharedConfigProfile(ctx.String("profile")))
 	}
-	return external.LoadDefaultAWSConfig()
+	return config.LoadDefaultConfig()
 }
 
 func validateNumArgs(nArgs int) cli.BeforeFunc {

@@ -25,18 +25,18 @@ func (l AWSRdsDbClusterParameterGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSRdsDbClusterParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.New(ctx.AWSCfg)
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var marker *string
 	for {
-		res, err := svc.DescribeDBClusterParameterGroupsRequest(&rds.DescribeDBClusterParameterGroupsInput{
-			MaxRecords: aws.Int64(100),
+		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &rds.DescribeDBClusterParameterGroupsInput{
+			MaxRecords: aws.Int32(100),
 			Marker:     marker,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
-			return rg, fmt.Errorf("failed to list cluster parameter groups: %w", err)
+			return nil, fmt.Errorf("failed to list cluster parameter groups: %w", err)
 		}
 		for _, pGroup := range res.DBClusterParameterGroups {
 			groupArn := arn.ParseP(pGroup.DBClusterParameterGroupArn)

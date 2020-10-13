@@ -1,12 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSElasticacheSnapshot struct {
@@ -22,17 +20,19 @@ func (l AWSElasticacheSnapshot) Types() []resource.ResourceType {
 }
 
 func (l AWSElasticacheSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.New(ctx.AWSCfg)
-
-	req := svc.DescribeSnapshotsRequest(&elasticache.DescribeSnapshotsInput{
-		MaxRecords: aws.Int64(50),
-	})
+	svc := elasticache.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := elasticache.NewDescribeSnapshotsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Snapshots {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeSnapshots(ctx.Context, &elasticache.DescribeSnapshotsInput{
+			MaxRecords: aws.Int32(50),
+			Marker:     nt,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Snapshots {
 			r := resource.New(ctx, resource.ElasticacheSnapshot, v.SnapshotName, v.SnapshotName, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddRelation(resource.KmsKey, v.KmsKeyId, "")
@@ -43,7 +43,7 @@ func (l AWSElasticacheSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, er
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

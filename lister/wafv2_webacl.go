@@ -32,7 +32,7 @@ func (l AWSWafv2WebACL) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 	rg, err := wafv2WebACLQuery(ctx, wafv2.ScopeRegional)
 	if err != nil {
-		return rg, fmt.Errorf("failed to list web ACLs: %w", err)
+		return nil, fmt.Errorf("failed to list web ACLs: %w", err)
 	}
 
 	// Do global
@@ -50,26 +50,26 @@ func (l AWSWafv2WebACL) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 }
 
 func wafv2WebACLQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Group, error) {
-	svc := wafv2.New(ctx.AWSCfg)
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	var nextMarker *string
 	for {
-		res, err := svc.ListWebACLsRequest(&wafv2.ListWebACLsInput{
-			Limit:      aws.Int64(100),
+		res, err := svc.ListWebACLs(ctx.Context, &wafv2.ListWebACLsInput{
+			Limit:      aws.Int32(100),
 			NextMarker: nextMarker,
 			Scope:      scope,
-		}).Send(ctx.Context)
+		})
 		if err != nil {
 			return rg, err
 		}
 		for _, waId := range res.WebACLs {
-			wa, err := svc.GetWebACLRequest(&wafv2.GetWebACLInput{
+			wa, err := svc.GetWebACL(ctx.Context, &wafv2.GetWebACLInput{
 				Id:    waId.Id,
 				Name:  waId.Name,
 				Scope: scope,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to get web ACL %s for scope %v: %w", *waId.Id, scope, err)
+				return nil, fmt.Errorf("failed to get web ACL %s for scope %v: %w", *waId.Id, scope, err)
 			}
 			if v := wa.WebACL; v != nil {
 				var r resource.Resource

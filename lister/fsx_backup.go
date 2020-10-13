@@ -20,10 +20,10 @@ func (l AWSFSxBackup) Types() []resource.ResourceType {
 }
 
 func (l AWSFSxBackup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := fsx.New(ctx.AWSCfg)
+	svc := fsx.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeBackupsRequest(&fsx.DescribeBackupsInput{
-		MaxResults: aws.Int64(100),
+	res, err := svc.DescribeBackups(ctx.Context, &fsx.DescribeBackupsInput{
+		MaxResults: aws.Int32(100),
 	})
 
 	rg := resource.NewGroup()

@@ -20,9 +20,9 @@ func (l AWSWorkspacesWorkspace) Types() []resource.ResourceType {
 }
 
 func (l AWSWorkspacesWorkspace) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := workspaces.New(ctx.AWSCfg)
+	svc := workspaces.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.DescribeWorkspacesRequest(&workspaces.DescribeWorkspacesInput{})
+	res, err := svc.DescribeWorkspaces(ctx.Context, &workspaces.DescribeWorkspacesInput{})
 
 	rg := resource.NewGroup()
 	paginator := workspaces.NewDescribeWorkspacesPaginator(req)

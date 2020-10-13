@@ -22,32 +22,35 @@ func (l AWSAthenaWorkGroup) Types() []resource.ResourceType {
 }
 
 func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := athena.New(ctx.AWSCfg)
+	svc := athena.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	req := svc.ListWorkGroupsRequest(&athena.ListWorkGroupsInput{
-		MaxResults: aws.Int64(50),
-	})
-
-	paginator := athena.NewListWorkGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, wg := range page.WorkGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListWorkGroups(ctx.Context, &athena.ListWorkGroupsInput{
+			MaxResults: aws.Int32(50),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, wg := range res.WorkGroups {
 			r := resource.New(ctx, resource.AthenaWorkGroup, wg.Name, wg.Name, wg)
-			nqReq := svc.ListNamedQueriesRequest(&athena.ListNamedQueriesInput{
-				MaxResults: aws.Int64(50),
-				WorkGroup:  wg.Name,
-			})
-			nqPaginator := athena.NewListNamedQueriesPaginator(nqReq)
-			for nqPaginator.Next(ctx.Context) {
-				nqPage := nqPaginator.CurrentPage()
-				for _, id := range nqPage.NamedQueryIds {
-					query, err := svc.GetNamedQueryRequest(&athena.GetNamedQueryInput{
-						NamedQueryId: &id,
-					}).Send(ctx.Context)
+
+			err = Paginator(func(nt2 *string) (*string, error) {
+				nqRes, err := svc.ListNamedQueries(ctx.Context, &athena.ListNamedQueriesInput{
+					MaxResults: aws.Int32(50),
+					WorkGroup:  wg.Name,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list named querys for workgroup %s: %w", *wg.Name, err)
+				}
+				for _, id := range nqRes.NamedQueryIds {
+					query, err := svc.GetNamedQuery(ctx.Context, &athena.GetNamedQueryInput{
+						NamedQueryId: id,
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to get named query %s: %w", id, err)
+						return nil, fmt.Errorf("failed to get named query %s: %w", id, err)
 					}
 					if v := query.NamedQuery; v != nil {
 						nqR := resource.New(ctx, resource.AthenaNamedQuery, v.NamedQueryId, v.Name, v)
@@ -55,14 +58,16 @@ func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 						rg.AddResource(nqR)
 					}
 				}
-			}
-			err := nqPaginator.Err()
+				return nqRes.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list named querys for workgroup %s: %w", *wg.Name, err)
+				return nil, err
 			}
+
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

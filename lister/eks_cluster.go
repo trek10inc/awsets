@@ -4,15 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSEksCluster struct {
@@ -32,43 +28,52 @@ func (l AWSEksCluster) Types() []resource.ResourceType {
 }
 
 func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := eks.New(ctx.AWSCfg)
-	req := svc.ListClustersRequest(&eks.ListClustersInput{
-		MaxResults: aws.Int64(100),
-	})
+	svc := eks.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := eks.NewListClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		if len(page.Clusters) == 0 {
-			continue
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListClusters(ctx.Context, &eks.ListClustersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), fmt.Sprintf("Account %s is not authorized to use this service", ctx.AccountId)) {
+				// If EKS is not supported in a region, returns access denied
+				return nil, nil
+			}
+			return nil, err
 		}
-		for _, clusterName := range page.Clusters {
-			clusterRes, err := svc.DescribeClusterRequest(&eks.DescribeClusterInput{
-				Name: &clusterName,
-			}).Send(ctx.Context)
+		if len(res.Clusters) == 0 {
+			return nil, nil
+		}
+		for _, clusterName := range res.Clusters {
+			clusterRes, err := svc.DescribeCluster(ctx.Context, &eks.DescribeClusterInput{
+				Name: clusterName,
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe cluster %s: %w", clusterName, err)
+				return nil, fmt.Errorf("failed to describe cluster %s: %w", clusterName, err)
 			}
 			cluster := clusterRes.Cluster
 			r := resource.New(ctx, resource.EksCluster, cluster.Name, cluster.Name, cluster)
 			r.AddARNRelation(resource.IamRole, cluster.RoleArn)
 
 			// Node groups
-			ngPaginator := eks.NewListNodegroupsPaginator(svc.ListNodegroupsRequest(&eks.ListNodegroupsInput{
-				ClusterName: &clusterName,
-				MaxResults:  aws.Int64(100),
-			}))
-			for ngPaginator.Next(ctx.Context) {
-				ngPage := ngPaginator.CurrentPage()
-				for _, ngName := range ngPage.Nodegroups {
-					ngRes, err := svc.DescribeNodegroupRequest(&eks.DescribeNodegroupInput{
-						ClusterName:   &clusterName,
-						NodegroupName: &ngName,
-					}).Send(ctx.Context)
+			err = Paginator(func(nt2 *string) (*string, error) {
+				nodeGroups, err := svc.ListNodegroups(ctx.Context, &eks.ListNodegroupsInput{
+					ClusterName: clusterName,
+					MaxResults:  aws.Int32(100),
+					NextToken:   nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list node groups for cluster %s: %w", clusterName, err)
+				}
+				for _, ngName := range nodeGroups.Nodegroups {
+					ngRes, err := svc.DescribeNodegroup(ctx.Context, &eks.DescribeNodegroupInput{
+						ClusterName:   clusterName,
+						NodegroupName: ngName,
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe node group %s for cluster %s: %w", ngName, clusterName, err)
+						return nil, fmt.Errorf("failed to describe node group %s for cluster %s: %w", ngName, clusterName, err)
 					}
 					ng := ngRes.Nodegroup
 					ngArn := arn.ParseP(ng.NodegroupArn)
@@ -79,25 +84,28 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					}
 					rg.AddResource(ngResource)
 				}
-			}
-			err = ngPaginator.Err()
+				return nodeGroups.NextToken, nil
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to list node groups for cluster %s: %w", clusterName, err)
+				return nil, err
 			}
 
 			// Fargate profiles
-			fpPaginator := eks.NewListFargateProfilesPaginator(svc.ListFargateProfilesRequest(&eks.ListFargateProfilesInput{
-				ClusterName: &clusterName,
-			}))
-			for fpPaginator.Next(ctx.Context) {
-				fpPage := fpPaginator.CurrentPage()
-				for _, fpName := range fpPage.FargateProfileNames {
-					fpRes, err := svc.DescribeFargateProfileRequest(&eks.DescribeFargateProfileInput{
-						ClusterName:        &clusterName,
-						FargateProfileName: &fpName,
-					}).Send(ctx.Context)
+			err = Paginator(func(nt2 *string) (*string, error) {
+				profiles, err := svc.ListFargateProfiles(ctx.Context, &eks.ListFargateProfilesInput{
+					ClusterName: clusterName,
+					NextToken:   nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list fargate profiles for cluster %s: %w", clusterName, err)
+				}
+				for _, fpName := range profiles.FargateProfileNames {
+					fpRes, err := svc.DescribeFargateProfile(ctx.Context, &eks.DescribeFargateProfileInput{
+						ClusterName:        clusterName,
+						FargateProfileName: fpName,
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe fargate profile %s for cluster %s: %w", fpName, clusterName, err)
+						return nil, fmt.Errorf("failed to describe fargate profile %s for cluster %s: %w", fpName, clusterName, err)
 					}
 					if fp := fpRes.FargateProfile; fp != nil {
 						fpResource := resource.New(ctx, resource.EksFargateProfile, fmt.Sprintf("%s-%s", clusterName, fpName), fp.FargateProfileName, fp)
@@ -109,20 +117,15 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						rg.AddResource(fpResource)
 					}
 				}
+				return profiles.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
-
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "AccessDeniedException" &&
-				strings.Contains(aerr.Message(), fmt.Sprintf("Account %s is not authorized to use this service", ctx.AccountId)) {
-				// If EKS is not supported in a region, returns access denied
-				err = nil
-			}
-		}
-	}
+
+		return res.NextToken, nil
+	})
 	return rg, err
 }

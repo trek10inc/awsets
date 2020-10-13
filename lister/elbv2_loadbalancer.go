@@ -4,12 +4,10 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 )
 
 type AWSElbv2Loadbalancer struct {
@@ -25,47 +23,58 @@ func (l AWSElbv2Loadbalancer) Types() []resource.ResourceType {
 }
 
 func (l AWSElbv2Loadbalancer) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticloadbalancingv2.New(ctx.AWSCfg)
-
-	req := svc.DescribeLoadBalancersRequest(&elasticloadbalancingv2.DescribeLoadBalancersInput{})
+	svc := elasticloadbalancingv2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := elasticloadbalancingv2.NewDescribeLoadBalancersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.LoadBalancers {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeLoadBalancers(ctx.Context, &elasticloadbalancingv2.DescribeLoadBalancersInput{
+			Marker: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.LoadBalancers {
 			lbArn := arn.ParseP(v.LoadBalancerArn)
 			r := resource.New(ctx, resource.ElbV2LoadBalancer, lbArn.ResourceId, v.LoadBalancerName, v)
+			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 
-			if v.VpcId != nil && *v.VpcId != "" {
-				r.AddRelation(resource.Ec2Vpc, *v.VpcId, "")
-			}
 			for _, sg := range v.SecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, sg, "")
 			}
 			rg.AddResource(r)
 
-			tgReq := svc.DescribeTargetGroupsRequest(&elasticloadbalancingv2.DescribeTargetGroupsInput{
-				LoadBalancerArn: v.LoadBalancerArn,
-			})
-			tgPaginator := elasticloadbalancingv2.NewDescribeTargetGroupsPaginator(tgReq)
-			for tgPaginator.Next(ctx.Context) {
-				tgPage := tgPaginator.CurrentPage()
-				for _, tg := range tgPage.TargetGroups {
+			// Target Groups
+			err = Paginator(func(nt2 *string) (*string, error) {
+				targetGroups, err := svc.DescribeTargetGroups(ctx.Context, &elasticloadbalancingv2.DescribeTargetGroupsInput{
+					LoadBalancerArn: v.LoadBalancerArn,
+					Marker:          nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to describe target groups for %s: %w", v.LoadBalancerName, err)
+				}
+				for _, tg := range targetGroups.TargetGroups {
 					tgArn := arn.ParseP(tg.TargetGroupArn)
 					tgr := resource.New(ctx, resource.ElbV2TargetGroup, tgArn.ResourceId, tg.TargetGroupName, tg)
 					tgr.AddRelation(resource.ElbV2LoadBalancer, v.LoadBalancerName, "")
 					tgr.AddRelation(resource.Ec2Vpc, tg.VpcId, "")
 					rg.AddResource(tgr)
 				}
-			}
-			lReq := svc.DescribeListenersRequest(&elasticloadbalancingv2.DescribeListenersInput{
-				LoadBalancerArn: v.LoadBalancerArn,
+				return targetGroups.NextMarker, nil
 			})
-			lPaginator := elasticloadbalancingv2.NewDescribeListenersPaginator(lReq)
-			for lPaginator.Next(ctx.Context) {
-				lPage := lPaginator.CurrentPage()
-				for _, l := range lPage.Listeners {
+			if err != nil {
+				return nil, err
+			}
+
+			// Listeners
+			err = Paginator(func(nt2 *string) (*string, error) {
+				listeners, err := svc.DescribeListeners(ctx.Context, &elasticloadbalancingv2.DescribeListenersInput{
+					LoadBalancerArn: v.LoadBalancerArn,
+					Marker:          nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to describe listeners for %s: %w", v.LoadBalancerName, err)
+				}
+				for _, l := range listeners.Listeners {
 					lArn := arn.ParseP(l.ListenerArn)
 					lr := resource.New(ctx, resource.ElbV2Listener, lArn.ResourceId, lArn.ResourceId, l)
 					lr.AddRelation(resource.ElbV2LoadBalancer, v.LoadBalancerName, "")
@@ -82,15 +91,14 @@ func (l AWSElbv2Loadbalancer) List(ctx context.AWSetsCtx) (*resource.Group, erro
 						}
 					}
 
-					var ruleMarker *string
-					for {
-						rules, err := svc.DescribeRulesRequest(&elasticloadbalancingv2.DescribeRulesInput{
+					err = Paginator(func(nt3 *string) (*string, error) {
+						rules, err := svc.DescribeRules(ctx.Context, &elasticloadbalancingv2.DescribeRulesInput{
 							ListenerArn: l.ListenerArn,
-							PageSize:    aws.Int64(100),
-							Marker:      ruleMarker,
-						}).Send(ctx.Context)
+							PageSize:    aws.Int32(100),
+							Marker:      nt3,
+						})
 						if err != nil {
-							return rg, fmt.Errorf("failed to list rules for listener %s: %w", *l.ListenerArn, err)
+							return nil, fmt.Errorf("failed to list rules for listener %s: %w", *l.ListenerArn, err)
 						}
 						for _, rule := range rules.Rules {
 							ruleArn := arn.ParseP(rule.RuleArn)
@@ -99,17 +107,20 @@ func (l AWSElbv2Loadbalancer) List(ctx context.AWSetsCtx) (*resource.Group, erro
 							rRes.AddARNRelation(resource.ElbV2LoadBalancer, l.LoadBalancerArn)
 							rg.AddResource(rRes)
 						}
-						if rules.NextMarker == nil {
-							break
-						}
-						ruleMarker = rules.NextMarker
+						return rules.NextMarker, nil
+					})
+					if err != nil {
+						return nil, err
 					}
-
 					rg.AddResource(lr)
 				}
+				return listeners.NextMarker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 		}
-	}
-	err := paginator.Err()
+		return res.NextMarker, nil
+	})
 	return rg, err
 }

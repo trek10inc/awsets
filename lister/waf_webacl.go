@@ -27,7 +27,7 @@ func (l AWSWafWebAcl) Types() []resource.ResourceType {
 }
 
 func (l AWSWafWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := waf.New(ctx.AWSCfg)
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
@@ -35,16 +35,16 @@ func (l AWSWafWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	listWafWebAclsOnce.Do(func() {
 		var nextMarker *string
 		for {
-			res, err := svc.ListWebACLsRequest(&waf.ListWebACLsInput{
-				Limit:      aws.Int64(100),
+			res, err := svc.ListWebACLs(ctx.Context, &waf.ListWebACLsInput{
+				Limit:      aws.Int32(100),
 				NextMarker: nextMarker,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
 				outerErr = fmt.Errorf("failed to list webacls: %w", err)
 				return
 			}
 			for _, webaclId := range res.WebACLs {
-				webacl, err := svc.GetWebACLRequest(&waf.GetWebACLInput{WebACLId: webaclId.WebACLId}).Send(ctx.Context)
+				webacl, err := svc.GetWebACL(ctx.Context, &waf.GetWebACLInput{WebACLId: webaclId.WebACLId})
 				if err != nil {
 					outerErr = fmt.Errorf("failed to get webacl %s: %w", aws.StringValue(webaclId.WebACLId), err)
 					return

@@ -21,19 +21,19 @@ func (l AWSEMRSecurityConfiguration) Types() []resource.ResourceType {
 }
 
 func (l AWSEMRSecurityConfiguration) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := emr.New(ctx.AWSCfg)
+	svc := emr.NewFromConfig(ctx.AWSCfg)
 
-	req := svc.ListSecurityConfigurationsRequest(&emr.ListSecurityConfigurationsInput{})
+	res, err := svc.ListSecurityConfigurations(ctx.Context, &emr.ListSecurityConfigurationsInput{})
 	rg := resource.NewGroup()
 	paginator := emr.NewListSecurityConfigurationsPaginator(req)
 	for paginator.Next(ctx.Context) {
 		page := paginator.CurrentPage()
 		for _, id := range page.SecurityConfigurations {
-			v, err := svc.DescribeSecurityConfigurationRequest(&emr.DescribeSecurityConfigurationInput{
+			v, err := svc.DescribeSecurityConfiguration(ctx.Context, &emr.DescribeSecurityConfigurationInput{
 				Name: id.Name,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe security config %s: %w", *id.Name, err)
+				return nil, fmt.Errorf("failed to describe security config %s: %w", *id.Name, err)
 			}
 			r := resource.New(ctx, resource.EmrSecurityConfiguration, v.Name, v.Name, v)
 			rg.AddResource(r)

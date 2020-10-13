@@ -26,13 +26,13 @@ func (l AWSRoute53HostedZone) Types() []resource.ResourceType {
 }
 
 func (l AWSRoute53HostedZone) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := route53.New(ctx.AWSCfg)
+	svc := route53.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listRoute53HostedZonesOnce.Do(func() {
-		req := svc.ListHostedZonesRequest(&route53.ListHostedZonesInput{})
+		res, err := svc.ListHostedZones(ctx.Context, &route53.ListHostedZonesInput{})
 		paginator := route53.NewListHostedZonesPaginator(req)
 		for paginator.Next(ctx.Context) {
 			page := paginator.CurrentPage()
@@ -40,7 +40,7 @@ func (l AWSRoute53HostedZone) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 				r := resource.NewGlobal(ctx, resource.Route53HostedZone, hostedZone.Id, hostedZone.Name, hostedZone)
 
-				rsPaginator := route53.NewListResourceRecordSetsPaginator(svc.ListResourceRecordSetsRequest(&route53.ListResourceRecordSetsInput{
+				rsPaginator := route53.NewListResourceRecordSetsPaginator(svc.ListResourceRecordSets(ctx.Context, &route53.ListResourceRecordSetsInput{
 					HostedZoneId: hostedZone.Id,
 				}))
 				for rsPaginator.Next(ctx.Context) {

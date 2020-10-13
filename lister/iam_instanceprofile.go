@@ -26,14 +26,14 @@ func (l AWSIamInstanceProfile) Types() []resource.ResourceType {
 }
 
 func (l AWSIamInstanceProfile) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.New(ctx.AWSCfg)
+	svc := iam.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listInstanceProfilesOnce.Do(func() {
-		req := svc.ListInstanceProfilesRequest(&iam.ListInstanceProfilesInput{
-			MaxItems: aws.Int64(100),
+		res, err := svc.ListInstanceProfiles(ctx.Context, &iam.ListInstanceProfilesInput{
+			MaxItems: aws.Int32(100),
 		})
 
 		paginator := iam.NewListInstanceProfilesPaginator(req)

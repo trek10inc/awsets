@@ -29,23 +29,24 @@ func (l AWSAppMeshMesh) Types() []resource.ResourceType {
 }
 
 func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := appmesh.New(ctx.AWSCfg)
-
-	req := svc.ListMeshesRequest(&appmesh.ListMeshesInput{
-		Limit: aws.Int64(100),
-	})
+	svc := appmesh.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := appmesh.NewListMeshesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, mesh := range page.Meshes {
-			res, err := svc.DescribeMeshRequest(&appmesh.DescribeMeshInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListMeshes(ctx.Context, &appmesh.ListMeshesInput{
+			Limit:     aws.Int32(100),
+			NextToken: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, mesh := range res.Meshes {
+			res, err := svc.DescribeMesh(ctx.Context, &appmesh.DescribeMeshInput{
 				MeshName:  mesh.MeshName,
 				MeshOwner: mesh.MeshOwner,
-			}).Send(ctx.Context)
+			})
 			if err != nil {
-				return rg, fmt.Errorf("failed to describe mesh %s: %w", *mesh.MeshName, err)
+				return nil, fmt.Errorf("failed to describe mesh %s: %w", *mesh.MeshName, err)
 			}
 			v := res.Mesh
 			if v == nil {
@@ -54,43 +55,48 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r := resource.New(ctx, resource.AppMeshMesh, v.MeshName, v.MeshName, v)
 
 			// Virtual Routers
-			vrPaginator := appmesh.NewListVirtualRoutersPaginator(svc.ListVirtualRoutersRequest(&appmesh.ListVirtualRoutersInput{
-				Limit:     aws.Int64(100),
-				MeshName:  mesh.MeshName,
-				MeshOwner: mesh.MeshOwner,
-			}))
-			for vrPaginator.Next(ctx.Context) {
-				vrPage := vrPaginator.CurrentPage()
-				for _, vrId := range vrPage.VirtualRouters {
-					vrRes, err := svc.DescribeVirtualRouterRequest(&appmesh.DescribeVirtualRouterInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				routerRes, err := svc.ListVirtualRouters(ctx.Context, &appmesh.ListVirtualRoutersInput{
+					Limit:     aws.Int32(100),
+					MeshName:  mesh.MeshName,
+					MeshOwner: mesh.MeshOwner,
+					NextToken: nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list virtual routers for mesh %s: %w", *mesh.MeshName, err)
+				}
+				for _, vrId := range routerRes.VirtualRouters {
+					vrRes, err := svc.DescribeVirtualRouter(ctx.Context, &appmesh.DescribeVirtualRouterInput{
 						MeshName:          mesh.MeshName,
 						MeshOwner:         mesh.MeshOwner,
 						VirtualRouterName: vrId.VirtualRouterName,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe virtual router %s for mesh %s: %w", *vrId.VirtualRouterName, *mesh.MeshName, err)
+						return nil, fmt.Errorf("failed to describe virtual router %s for mesh %s: %w", *vrId.VirtualRouterName, *mesh.MeshName, err)
 					}
 					if vr := vrRes.VirtualRouter; vr != nil {
 						vrR := resource.New(ctx, resource.AppMeshVirtualRouter, vr.VirtualRouterName, vr.VirtualRouterName, vr)
 						vrR.AddRelation(resource.AppMeshMesh, mesh.MeshName, "")
 
-						routePaginator := appmesh.NewListRoutesPaginator(svc.ListRoutesRequest(&appmesh.ListRoutesInput{
-							Limit:             aws.Int64(100),
-							MeshName:          mesh.MeshName,
-							MeshOwner:         mesh.MeshOwner,
-							VirtualRouterName: vr.VirtualRouterName,
-						}))
-						for routePaginator.Next(ctx.Context) {
-							routesPage := routePaginator.CurrentPage()
-							for _, routeId := range routesPage.Routes {
-								routeRes, err := svc.DescribeRouteRequest(&appmesh.DescribeRouteInput{
+						err = Paginator(func(nt3 *string) (*string, error) {
+							routesRes, err := svc.ListRoutes(ctx.Context, &appmesh.ListRoutesInput{
+								Limit:             aws.Int32(100),
+								MeshName:          mesh.MeshName,
+								MeshOwner:         mesh.MeshOwner,
+								VirtualRouterName: vr.VirtualRouterName,
+							})
+							if err != nil {
+								return nil, fmt.Errorf("failed to list routes for virtual router %s and mesh %s: %w", *vr.VirtualRouterName, *mesh.MeshName, err)
+							}
+							for _, routeId := range routesRes.Routes {
+								routeRes, err := svc.DescribeRoute(ctx.Context, &appmesh.DescribeRouteInput{
 									MeshName:          mesh.MeshName,
 									MeshOwner:         mesh.MeshOwner,
 									RouteName:         routeId.RouteName,
 									VirtualRouterName: vrId.VirtualRouterName,
-								}).Send(ctx.Context)
+								})
 								if err != nil {
-									return rg, fmt.Errorf("failed to describe route %s for mesh %s: %w", *routeId.RouteName, *mesh.MeshName, err)
+									return nil, fmt.Errorf("failed to describe route %s for mesh %s: %w", *routeId.RouteName, *mesh.MeshName, err)
 								}
 								if route := routeRes.Route; route != nil {
 									routeR := resource.New(ctx, resource.AppMeshRoute, route.RouteName, route.RouteName, route)
@@ -99,35 +105,37 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 									rg.AddResource(routeR)
 								}
 							}
-						}
-						if err = routePaginator.Err(); err != nil {
-							return rg, fmt.Errorf("failed to list routes for virtual router %s and mesh %s: %w", *vr.VirtualRouterName, *mesh.MeshName, err)
-						}
-
+							return routesRes.NextToken, nil
+						})
 						rg.AddResource(vrR)
 					}
 				}
-			}
-			if err = vrPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list virtual routers for mesh %s: %w", *mesh.MeshName, err)
+
+				return routerRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			// Virtual Nodes
-			vnPaginator := appmesh.NewListVirtualNodesPaginator(svc.ListVirtualNodesRequest(&appmesh.ListVirtualNodesInput{
-				Limit:     aws.Int64(100),
-				MeshName:  mesh.MeshName,
-				MeshOwner: mesh.MeshOwner,
-			}))
-			for vnPaginator.Next(ctx.Context) {
-				vnPage := vnPaginator.CurrentPage()
-				for _, vnId := range vnPage.VirtualNodes {
-					vnRes, err := svc.DescribeVirtualNodeRequest(&appmesh.DescribeVirtualNodeInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				nodesRes, err := svc.ListVirtualNodes(ctx.Context, &appmesh.ListVirtualNodesInput{
+					Limit:     aws.Int32(100),
+					MeshName:  mesh.MeshName,
+					MeshOwner: mesh.MeshOwner,
+					NextToken: nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list virtual nodes for mesh %s: %w", *mesh.MeshName, err)
+				}
+				for _, vnId := range nodesRes.VirtualNodes {
+					vnRes, err := svc.DescribeVirtualNode(ctx.Context, &appmesh.DescribeVirtualNodeInput{
 						MeshName:        mesh.MeshName,
 						MeshOwner:       mesh.MeshOwner,
 						VirtualNodeName: vnId.VirtualNodeName,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe virtual router %s for mesh %s: %w", *vnId.VirtualNodeName, *mesh.MeshName, err)
+						return nil, fmt.Errorf("failed to describe virtual router %s for mesh %s: %w", *vnId.VirtualNodeName, *mesh.MeshName, err)
 					}
 					if vn := vnRes.VirtualNode; vn != nil {
 						vnR := resource.New(ctx, resource.AppMeshVirtualNode, vn.VirtualNodeName, vn.VirtualNodeName, vn)
@@ -135,27 +143,31 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						rg.AddResource(vnR)
 					}
 				}
-			}
-			if err = vnPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list virtual nodes for mesh %s: %w", *mesh.MeshName, err)
+				return nodesRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			// Virtual Services
-			vsPaginator := appmesh.NewListVirtualServicesPaginator(svc.ListVirtualServicesRequest(&appmesh.ListVirtualServicesInput{
-				Limit:     aws.Int64(100),
-				MeshName:  mesh.MeshName,
-				MeshOwner: mesh.MeshOwner,
-			}))
-			for vsPaginator.Next(ctx.Context) {
-				vsPage := vsPaginator.CurrentPage()
-				for _, vsId := range vsPage.VirtualServices {
-					vsRes, err := svc.DescribeVirtualServiceRequest(&appmesh.DescribeVirtualServiceInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				servicesRes, err := svc.ListVirtualServices(ctx.Context, &appmesh.ListVirtualServicesInput{
+					Limit:     aws.Int32(100),
+					MeshName:  mesh.MeshName,
+					MeshOwner: mesh.MeshOwner,
+					NextToken: nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list virtual services for mesh %s: %w", *mesh.MeshName, err)
+				}
+				for _, vsId := range servicesRes.VirtualServices {
+					vsRes, err := svc.DescribeVirtualService(ctx.Context, &appmesh.DescribeVirtualServiceInput{
 						MeshName:           mesh.MeshName,
 						MeshOwner:          mesh.MeshOwner,
 						VirtualServiceName: vsId.VirtualServiceName,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe virtual service %s for mesh %s: %w", *vsId.VirtualServiceName, *mesh.MeshName, err)
+						return nil, fmt.Errorf("failed to describe virtual service %s for mesh %s: %w", *vsId.VirtualServiceName, *mesh.MeshName, err)
 					}
 					if vs := vsRes.VirtualService; vs != nil {
 						vsR := resource.New(ctx, resource.AppMeshVirtualService, vs.VirtualServiceName, vs.VirtualServiceName, vs)
@@ -163,27 +175,31 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						rg.AddResource(vsR)
 					}
 				}
-			}
-			if err = vsPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list virtual services for mesh %s: %w", *mesh.MeshName, err)
+				return servicesRes.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			// Virtual Gateways
-			vgPaginator := appmesh.NewListVirtualGatewaysPaginator(svc.ListVirtualGatewaysRequest(&appmesh.ListVirtualGatewaysInput{
-				Limit:     aws.Int64(100),
-				MeshName:  mesh.MeshName,
-				MeshOwner: mesh.MeshOwner,
-			}))
-			for vgPaginator.Next(ctx.Context) {
-				vgPage := vgPaginator.CurrentPage()
-				for _, vgId := range vgPage.VirtualGateways {
-					vgRes, err := svc.DescribeVirtualGatewayRequest(&appmesh.DescribeVirtualGatewayInput{
+			err = Paginator(func(nt2 *string) (*string, error) {
+				gwRes, err := svc.ListVirtualGateways(ctx.Context, &appmesh.ListVirtualGatewaysInput{
+					Limit:     aws.Int32(100),
+					MeshName:  mesh.MeshName,
+					MeshOwner: mesh.MeshOwner,
+					NextToken: nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list virtual gateways for mesh %s: %w", *mesh.MeshName, err)
+				}
+				for _, vgId := range gwRes.VirtualGateways {
+					vgRes, err := svc.DescribeVirtualGateway(ctx.Context, &appmesh.DescribeVirtualGatewayInput{
 						MeshName:           mesh.MeshName,
 						MeshOwner:          mesh.MeshOwner,
 						VirtualGatewayName: vgId.VirtualGatewayName,
-					}).Send(ctx.Context)
+					})
 					if err != nil {
-						return rg, fmt.Errorf("failed to describe virtual gateways %s for mesh %s: %w", *vgId.VirtualGatewayName, *mesh.MeshName, err)
+						return nil, fmt.Errorf("failed to describe virtual gateways %s for mesh %s: %w", *vgId.VirtualGatewayName, *mesh.MeshName, err)
 					}
 					if vg := vgRes.VirtualGateway; vg != nil {
 						vgR := resource.New(ctx, resource.AppMeshVirtualGateway, vg.VirtualGatewayName, vg.VirtualGatewayName, vg)
@@ -191,14 +207,13 @@ func (l AWSAppMeshMesh) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						rg.AddResource(vgR)
 					}
 				}
-			}
-			if err = vgPaginator.Err(); err != nil {
-				return rg, fmt.Errorf("failed to list virtual gateways for mesh %s: %w", *mesh.MeshName, err)
-			}
+
+				return gwRes.NextToken, nil
+			})
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

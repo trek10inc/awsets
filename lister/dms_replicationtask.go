@@ -22,29 +22,27 @@ func (l AWSDMSReplicationTask) Types() []resource.ResourceType {
 }
 
 func (l AWSDMSReplicationTask) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := databasemigrationservice.New(ctx.AWSCfg)
-
-	req := svc.DescribeReplicationTasksRequest(&databasemigrationservice.DescribeReplicationTasksInput{
-		MaxRecords: aws.Int64(100),
-	})
+	svc := databasemigrationservice.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	paginator := databasemigrationservice.NewDescribeReplicationTasksPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.ReplicationTasks {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeReplicationTasks(ctx.Context, &databasemigrationservice.DescribeReplicationTasksInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
+				// If DMS is not supported in a region, it triggers this error
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, v := range res.ReplicationTasks {
 			r := resource.New(ctx, resource.DMSReplicationTask, v.ReplicationTaskIdentifier, v.ReplicationTaskIdentifier, v)
 			r.AddARNRelation(resource.DMSReplicationInstance, v.ReplicationInstanceArn)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-
-	if err != nil {
-		if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
-			// If DMS is not supported in a region, it triggers this error
-			err = nil
-		}
-	}
+		return res.Marker, nil
+	})
 	return rg, err
 }
