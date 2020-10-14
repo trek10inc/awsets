@@ -37,7 +37,7 @@ func (l AWSDynamoDBTable) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				TableName: table,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe table %s: %w", table, err)
+				return nil, fmt.Errorf("failed to describe table %s: %w", *table, err)
 			}
 			r := resource.New(ctx, resource.DynamoDbTable, tableRes.Table.TableId, tableRes.Table.TableName, tableRes.Table)
 			rg.AddResource(r)

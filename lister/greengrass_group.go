@@ -29,33 +29,33 @@ func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		groups, err := svc.ListGroups(ctx.Context, &greengrass.ListGroupsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListGroups(ctx.Context, &greengrass.ListGroupsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass groups: %w", err)
 		}
-		for _, v := range groups.Groups {
+		for _, v := range res.Groups {
 			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
-			var gvNextToken *string
-			for {
-				groupVersions, err := svc.ListGroupVersions(ctx.Context, &greengrass.ListGroupVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListGroupVersions(ctx.Context, &greengrass.ListGroupVersionsInput{
 					GroupId:    v.Id,
 					MaxResults: aws.String("100"),
-					NextToken:  gvNextToken,
+					NextToken:  nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass group versions for %s: %w", *v.Id, err)
 				}
-				for _, gvId := range groupVersions.Versions {
+				for _, gvId := range versions.Versions {
 					gv, err := svc.GetGroupVersion(ctx.Context, &greengrass.GetGroupVersionInput{
 						GroupId:        gvId.Id,
 						GroupVersionId: gvId.Version,
@@ -71,17 +71,14 @@ func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 					r.AddRelation(resource.GreengrassGroupVersion, gv.Id, gv.Version)
 					rg.AddResource(gvRes)
 				}
-				if groupVersions.NextToken == nil {
-					break
-				}
-				gvNextToken = groupVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if groups.NextToken == nil {
-			break
-		}
-		nextToken = groups.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

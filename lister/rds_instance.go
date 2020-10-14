@@ -1,13 +1,11 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSRdsDbInstance struct {
@@ -25,15 +23,16 @@ func (l AWSRdsDbInstance) Types() []resource.ResourceType {
 func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBInstances(ctx.Context, &rds.DescribeDBInstancesInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := rds.NewDescribeDBInstancesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, dbInstance := range page.DBInstances {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBInstances(ctx.Context, &rds.DescribeDBInstancesInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, dbInstance := range res.DBInstances {
 			dbArn := arn.ParseP(dbInstance.DBInstanceArn)
 			r := resource.New(ctx, resource.RdsDbInstance, dbArn.ResourceId, "", dbInstance)
 			for _, pgroup := range dbInstance.DBParameterGroups {
@@ -72,7 +71,7 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

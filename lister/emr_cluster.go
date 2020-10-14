@@ -28,12 +28,15 @@ func (l AWSEMRCluster) Types() []resource.ResourceType {
 func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := emr.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListClusters(ctx.Context, &emr.ListClustersInput{})
 	rg := resource.NewGroup()
-	paginator := emr.NewListClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, id := range page.Clusters {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListClusters(ctx.Context, &emr.ListClustersInput{
+			Marker: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range res.Clusters {
 			cluster, err := svc.DescribeCluster(ctx.Context, &emr.DescribeClusterInput{
 				ClusterId: id.Id,
 			})
@@ -47,32 +50,42 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			r := resource.New(ctx, resource.EmrCluster, v.Id, v.Name, v)
 			r.AddRelation(resource.EmrSecurityConfiguration, v.SecurityConfiguration, "")
 
-			igPaginator := emr.NewListInstanceGroupsPaginator(svc.ListInstanceGroups(ctx.Context, &emr.ListInstanceGroupsInput{
-				ClusterId: id.Id,
-			}))
-			for igPaginator.Next(ctx.Context) {
-				igPage := igPaginator.CurrentPage()
-				for _, ig := range igPage.InstanceGroups {
+			// Instance Groups
+			err = Paginator(func(nt2 *string) (*string, error) {
+				groups, err := svc.ListInstanceGroups(ctx.Context, &emr.ListInstanceGroupsInput{
+					ClusterId: id.Id,
+					Marker:    nt2,
+				})
+				if err != nil {
+					if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
+						return nil, nil
+					}
+					return nil, fmt.Errorf("failed to list instance groups for %s: %w", *v.Id, err)
+				}
+				for _, ig := range groups.InstanceGroups {
 					igR := resource.New(ctx, resource.EmrInstanceGroupConfig, ig.Id, ig.Name, ig)
 					igR.AddRelation(resource.EmrCluster, v.Id, "")
 					rg.AddResource(igR)
 				}
-			}
-			if err = igPaginator.Err(); err != nil {
-				if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
-					err = nil
-				}
-				if err != nil {
-					return nil, fmt.Errorf("failed to list instance groups for %s: %w", *v.Id, err)
-				}
+				return groups.Marker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			ifPaginator := emr.NewListInstanceFleetsPaginator(svc.ListInstanceFleets(ctx.Context, &emr.ListInstanceFleetsInput{
-				ClusterId: id.Id,
-			}))
-			for ifPaginator.Next(ctx.Context) {
-				igPage := ifPaginator.CurrentPage()
-				for _, fleet := range igPage.InstanceFleets {
+			// Instance Fleets
+			err = Paginator(func(nt2 *string) (*string, error) {
+				fleets, err := svc.ListInstanceFleets(ctx.Context, &emr.ListInstanceFleetsInput{
+					ClusterId: id.Id,
+					Marker:    nt2,
+				})
+				if err != nil {
+					if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
+						return nil, nil
+					}
+					return nil, fmt.Errorf("failed to list instance fleets for %s: %w", *v.Id, err)
+				}
+				for _, fleet := range fleets.InstanceFleets {
 					fleetR := resource.New(ctx, resource.EmrInstanceFleetConfig, fleet.Id, fleet.Name, fleet)
 					fleetR.AddRelation(resource.EmrCluster, v.Id, "")
 
@@ -84,34 +97,35 @@ func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 					rg.AddResource(fleetR)
 				}
-			}
-			if err = ifPaginator.Err(); err != nil {
-				if strings.Contains(err.Error(), "Instance fleets and instance groups are mutually exclusive") {
-					err = nil
-				}
-				if err != nil {
-					return nil, fmt.Errorf("failed to list instance fleets for %s: %w", *v.Id, err)
-				}
+				return fleets.Marker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
-			stepsPaginator := emr.NewListStepsPaginator(svc.ListSteps(ctx.Context, &emr.ListStepsInput{
-				ClusterId: id.Id,
-			}))
-			for stepsPaginator.Next(ctx.Context) {
-				stepsPage := stepsPaginator.CurrentPage()
-				for _, ss := range stepsPage.Steps {
+			// Steps
+			err = Paginator(func(nt2 *string) (*string, error) {
+				steps, err := svc.ListSteps(ctx.Context, &emr.ListStepsInput{
+					ClusterId: id.Id,
+					Marker:    nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to list steps for %s: %w", *v.Id, err)
+				}
+				for _, ss := range steps.Steps {
 					stepR := resource.New(ctx, resource.EmrStep, ss.Id, ss.Name, ss)
 					stepR.AddRelation(resource.EmrCluster, v.Id, "")
 					rg.AddResource(stepR)
 				}
-			}
-			if err = stepsPaginator.Err(); err != nil {
-				return nil, fmt.Errorf("failed to list steps for %s: %w", *v.Id, err)
+				return steps.Marker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

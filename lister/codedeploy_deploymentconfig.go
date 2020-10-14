@@ -38,7 +38,7 @@ func (l AWSCodeDeployDeploymentConfig) List(ctx context.AWSetsCtx) (*resource.Gr
 				DeploymentConfigName: config,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get codedeploy deployment config %s: %w", config, err)
+				return nil, fmt.Errorf("failed to get codedeploy deployment config %s: %w", *config, err)
 			}
 			v := configRes.DeploymentConfigInfo
 			if v == nil {

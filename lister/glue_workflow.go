@@ -28,28 +28,28 @@ func (l AWSGlueWorkflow) Types() []resource.ResourceType {
 
 func (l AWSGlueWorkflow) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := glue.NewFromConfig(ctx.AWSCfg)
-	res, err := svc.ListWorkflows(ctx.Context, &glue.ListWorkflowsInput{
-		MaxResults: aws.Int32(100),
-	})
 
 	rg := resource.NewGroup()
-	paginator := glue.NewListWorkflowsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		wfRes, err := svc.BatchGetWorkflows(ctx.Context, &glue.BatchGetWorkflowsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListWorkflows(ctx.Context, &glue.ListWorkflowsInput{
+			MaxResults: aws.Int32(100),
+		})
+		if err != nil {
+			return nil, err
+		}
+		workflows, err := svc.BatchGetWorkflows(ctx.Context, &glue.BatchGetWorkflowsInput{
 			IncludeGraph: aws.Bool(true),
-			Names:        page.Workflows,
+			Names:        res.Workflows,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get glue workflows: %w", err)
 		}
-		for _, wf := range wfRes.Workflows {
+		for _, wf := range workflows.Workflows {
 			r := resource.New(ctx, resource.GlueWorkflow, wf.Name, wf.Name, wf)
 			rg.AddResource(r)
 			// TODO: explore nodes/edges
 		}
-	}
-
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

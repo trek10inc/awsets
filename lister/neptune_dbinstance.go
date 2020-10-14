@@ -1,14 +1,11 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/neptune"
-
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/neptune"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSNeptuneDbInstance struct {
@@ -26,16 +23,16 @@ func (l AWSNeptuneDbInstance) Types() []resource.ResourceType {
 func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBInstances(ctx.Context, &neptune.DescribeDBInstancesInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-
-	paginator := neptune.NewDescribeDBInstancesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.DBInstances {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBInstances(ctx.Context, &neptune.DescribeDBInstancesInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.DBInstances {
 			dbArn := arn.ParseP(v.DBInstanceArn)
 			r := resource.New(ctx, resource.NeptuneDbInstance, dbArn.ResourceId, "", v)
 			for _, pgroup := range v.DBParameterGroups {
@@ -47,8 +44,7 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			if v.DBSubnetGroup != nil {
 				r.AddRelation(resource.Ec2Vpc, v.DBSubnetGroup.VpcId, "")
 				if v.DBSubnetGroup.DBSubnetGroupArn != nil {
-					subnetGroupArn := arn.ParseP(v.DBSubnetGroup.DBSubnetGroupArn)
-					r.AddRelation(resource.NeptuneDbSubnetGroup, subnetGroupArn.ResourceId, subnetGroupArn.ResourceVersion)
+					r.AddARNRelation(resource.NeptuneDbSubnetGroup, v.DBSubnetGroup.DBSubnetGroupArn)
 				}
 				for _, subnet := range v.DBSubnetGroup.Subnets {
 					r.AddRelation(resource.Ec2Subnet, subnet.SubnetIdentifier, "")
@@ -69,7 +65,7 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

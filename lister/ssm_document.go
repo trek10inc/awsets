@@ -1,11 +1,10 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSSsmDocument struct {
@@ -22,21 +21,23 @@ func (l AWSSsmDocument) Types() []resource.ResourceType {
 
 func (l AWSSsmDocument) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := ssm.NewFromConfig(ctx.AWSCfg)
-	res, err := svc.ListDocuments(ctx.Context, &ssm.ListDocumentsInput{
-		MaxResults: aws.Int32(50),
-	})
 
 	rg := resource.NewGroup()
-	paginator := ssm.NewListDocumentsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, docId := range page.DocumentIdentifiers {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListDocuments(ctx.Context, &ssm.ListDocumentsInput{
+			MaxResults: aws.Int32(50),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, docId := range res.DocumentIdentifiers {
 			if docId.Owner != nil && *docId.Owner != "Amazon" { // TODO: should Amazon things be filtered?
 				r := resource.New(ctx, resource.SsmDocument, docId.Name, docId.Name, docId)
 				rg.AddResource(r)
 			}
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

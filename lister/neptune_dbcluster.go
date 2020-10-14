@@ -3,12 +3,11 @@ package lister
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/arn"
 )
 
 type AWSNeptuneDbCluster struct {
@@ -27,12 +26,9 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-
-	var marker *string
-
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeDBClusters(ctx.Context, &neptune.DescribeDBClustersInput{
-			Marker:     marker,
+			Marker:     nt,
 			MaxRecords: aws.Int32(100),
 		})
 		if err != nil {
@@ -48,17 +44,15 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
 			if cluster.ReplicationSourceIdentifier != nil {
-				sourceArn := arn.ParseP(cluster.ReplicationSourceIdentifier)
-				r.AddRelation(resource.NeptuneDbInstance, sourceArn.ResourceId, sourceArn.ResourceVersion)
+				r.AddARNRelation(resource.NeptuneDbInstance, cluster.ReplicationSourceIdentifier)
 			}
 			for _, replica := range cluster.ReadReplicaIdentifiers {
 				//TODO: cluster vs instance based on type?
-				replicaArn := arn.Parse(replica)
+				replicaArn := arn.ParseP(replica)
 				r.AddRelation(resource.NeptuneDbCluster, replicaArn.ResourceId, replicaArn.ResourceVersion)
 			}
 			for _, role := range cluster.AssociatedRoles {
-				roleArn := arn.ParseP(role.RoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, roleArn.ResourceVersion)
+				r.AddARNRelation(resource.IamRole, role.RoleArn)
 			}
 			r.AddARNRelation(resource.KmsKey, cluster.KmsKeyId)
 			//if cluster.KmsKeyId != nil {
@@ -68,10 +62,7 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 
 			rg.AddResource(r)
 		}
-		if res.Marker == nil {
-			break
-		}
-		marker = res.Marker
-	}
-	return rg, nil
+		return res.Marker, nil
+	})
+	return rg, err
 }

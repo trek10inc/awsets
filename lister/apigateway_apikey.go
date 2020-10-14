@@ -70,7 +70,7 @@ func (l AWSApiGatewayApiKey) List(ctx context.AWSetsCtx) (*resource.Group, error
 							UsagePlanId: usagePlan.Id,
 						})
 						if err != nil {
-							return nil, fmt.Errorf("failed to get usage plan keys for plan %s: %w", usagePlan.Id, err)
+							return nil, fmt.Errorf("failed to get usage plan keys for plan %s: %w", *usagePlan.Id, err)
 						}
 						for _, usagePlanKey := range planKeysRes.Items {
 							planKeyRes := resource.New(ctx, resource.ApiGatewayUsagePlanKey, usagePlanKey.Id, usagePlanKey.Name, usagePlanKey)

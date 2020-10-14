@@ -3,13 +3,11 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSRdsDbClusterParameterGroup struct {
@@ -28,12 +26,10 @@ func (l AWSRdsDbClusterParameterGroup) List(ctx context.AWSetsCtx) (*resource.Gr
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-
-	var marker *string
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &rds.DescribeDBClusterParameterGroupsInput{
 			MaxRecords: aws.Int32(100),
-			Marker:     marker,
+			Marker:     nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list cluster parameter groups: %w", err)
@@ -43,10 +39,7 @@ func (l AWSRdsDbClusterParameterGroup) List(ctx context.AWSetsCtx) (*resource.Gr
 			r := resource.New(ctx, resource.RdsDbParameterGroup, groupArn.ResourceId, "", pGroup)
 			rg.AddResource(r)
 		}
-		if res.Marker == nil {
-			break
-		}
-		marker = res.Marker
-	}
-	return rg, nil
+		return res.Marker, nil
+	})
+	return rg, err
 }

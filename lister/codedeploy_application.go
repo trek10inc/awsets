@@ -40,7 +40,7 @@ func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, 
 				ApplicationName: app,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get codedeploy application %s: %w", app, err)
+				return nil, fmt.Errorf("failed to get codedeploy application %s: %w", *app, err)
 			}
 			v := appRes.Application
 			if v == nil {
@@ -55,7 +55,7 @@ func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, 
 					NextToken:       nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to list codedeploy deployment groups for app %s: %w", app, err)
+					return nil, fmt.Errorf("failed to list codedeploy deployment groups for app %s: %w", *app, err)
 				}
 				groups := depGroups.DeploymentGroups
 				if len(groups) > 0 {
@@ -64,7 +64,7 @@ func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, 
 						DeploymentGroupNames: groups,
 					})
 					if err != nil {
-						return nil, fmt.Errorf("failed to get codedeploy deployment groups for app %s: %w", app, err)
+						return nil, fmt.Errorf("failed to get codedeploy deployment groups for app %s: %w", *app, err)
 					}
 					for _, group := range groupsRes.DeploymentGroupsInfo {
 						groupR := resource.New(ctx, resource.CodeDeployDeploymentGroup, group.DeploymentGroupId, group.DeploymentGroupName, group)

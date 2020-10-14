@@ -26,33 +26,33 @@ func (l AWSGreengrassLoggerDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		loggerdefs, err := svc.ListLoggerDefinitions(ctx.Context, &greengrass.ListLoggerDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListLoggerDefinitions(ctx.Context, &greengrass.ListLoggerDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass logger definitions: %w", err)
 		}
-		for _, v := range loggerdefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
-			var ldNextToken *string
-			for {
-				loggerDefVersions, err := svc.ListLoggerDefinitionVersions(ctx.Context, &greengrass.ListLoggerDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListLoggerDefinitionVersions(ctx.Context, &greengrass.ListLoggerDefinitionVersionsInput{
 					LoggerDefinitionId: v.Id,
 					MaxResults:         aws.String("100"),
-					NextToken:          ldNextToken,
+					NextToken:          nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass logger definition versions for %s: %w", *v.Id, err)
 				}
-				for _, ldId := range loggerDefVersions.Versions {
+				for _, ldId := range versions.Versions {
 					ld, err := svc.GetLoggerDefinitionVersion(ctx.Context, &greengrass.GetLoggerDefinitionVersionInput{
 						LoggerDefinitionId:        ldId.Id,
 						LoggerDefinitionVersionId: ldId.Version,
@@ -66,17 +66,14 @@ func (l AWSGreengrassLoggerDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 					r.AddRelation(resource.GreengrassLoggerDefinitionVersion, ld.Id, ld.Version)
 					rg.AddResource(ldRes)
 				}
-				if loggerDefVersions.NextToken == nil {
-					break
-				}
-				ldNextToken = loggerDefVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if loggerdefs.NextToken == nil {
-			break
-		}
-		nextToken = loggerdefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

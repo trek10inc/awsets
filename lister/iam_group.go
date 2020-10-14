@@ -3,12 +3,10 @@ package lister
 import (
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listGroupsOnce sync.Once
@@ -32,19 +30,20 @@ func (l AWSIamGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	var outerErr error
 
 	listGroupsOnce.Do(func() {
-		res, err := svc.ListGroups(ctx.Context, &iam.ListGroupsInput{
-			MaxItems: aws.Int32(100),
-		})
-
-		paginator := iam.NewListGroupsPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, group := range page.Groups {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListGroups(ctx.Context, &iam.ListGroupsInput{
+				MaxItems: aws.Int32(100),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, group := range res.Groups {
 				r := resource.NewGlobal(ctx, resource.IamGroup, group.GroupId, group.GroupName, group)
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr

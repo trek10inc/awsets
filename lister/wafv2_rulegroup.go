@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/service/wafv2"
-
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listWafv2RuleGroupOnce sync.Once
@@ -30,7 +28,7 @@ func (l AWSWafv2RuleGroup) Types() []resource.ResourceType {
 func (l AWSWafv2RuleGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 
-	rg, err := wafv2RuleGroupQuery(ctx, wafv2.ScopeRegional)
+	rg, err := wafv2RuleGroupQuery(ctx, types.ScopeRegional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list rule groups: %w", err)
 	}
@@ -39,7 +37,7 @@ func (l AWSWafv2RuleGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	var outerErr error
 	listWafv2RuleGroupOnce.Do(func() {
 		ctxUsEast := ctx.Copy("us-east-1")
-		rgNew, err := wafv2RuleGroupQuery(ctxUsEast, wafv2.ScopeCloudfront)
+		rgNew, err := wafv2RuleGroupQuery(ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global rule groups: %w", err)
 		}
@@ -49,18 +47,17 @@ func (l AWSWafv2RuleGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	return rg, outerErr
 }
 
-func wafv2RuleGroupQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Group, error) {
+func wafv2RuleGroupQuery(ctx context.AWSetsCtx, scope types.Scope) (*resource.Group, error) {
 	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextMarker *string
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListRuleGroups(ctx.Context, &wafv2.ListRuleGroupsInput{
 			Limit:      aws.Int32(100),
-			NextMarker: nextMarker,
+			NextMarker: nt,
 			Scope:      scope,
 		})
 		if err != nil {
-			return rg, err
+			return nil, err
 		}
 		for _, rgId := range res.RuleGroups {
 			rulegroup, err := svc.GetRuleGroup(ctx.Context, &wafv2.GetRuleGroupInput{
@@ -73,7 +70,7 @@ func wafv2RuleGroupQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Gr
 			}
 			if v := rulegroup.RuleGroup; v != nil {
 				var r resource.Resource
-				if scope == wafv2.ScopeCloudfront {
+				if scope == types.ScopeCloudfront {
 					r = resource.NewGlobal(ctx, resource.Wafv2RuleGroup, v.Id, v.Name, v)
 				} else {
 					r = resource.New(ctx, resource.Wafv2RuleGroup, v.Id, v.Name, v)
@@ -81,10 +78,7 @@ func wafv2RuleGroupQuery(ctx context.AWSetsCtx, scope wafv2.Scope) (*resource.Gr
 				rg.AddResource(r)
 			}
 		}
-		if res.NextMarker == nil {
-			break
-		}
-		nextMarker = res.NextMarker
-	}
-	return rg, nil
+		return res.NextMarker, nil
+	})
+	return rg, err
 }

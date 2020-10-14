@@ -3,10 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +24,10 @@ func (l AWSWafRegionalByteMatchSet) Types() []resource.ResourceType {
 func (l AWSWafRegionalByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextMarker *string
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListByteMatchSets(ctx.Context, &wafregional.ListByteMatchSetsInput{
 			Limit:      aws.Int32(100),
-			NextMarker: nextMarker,
+			NextMarker: nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list regional byte match sets: %w", err)
@@ -40,18 +37,14 @@ func (l AWSWafRegionalByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group
 				ByteMatchSetId: id.ByteMatchSetId,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get byte match set %s: %w", aws.StringValue(id.ByteMatchSetId), err)
+				return nil, fmt.Errorf("failed to get byte match set %s: %w", *id.ByteMatchSetId, err)
 			}
 			if v := matchSet.ByteMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalByteMatchSet, v.ByteMatchSetId, v.Name, v)
 				rg.AddResource(r)
 			}
 		}
-		if res.NextMarker == nil {
-			break
-		}
-		nextMarker = res.NextMarker
-	}
-
-	return rg, nil
+		return res.NextMarker, nil
+	})
+	return rg, err
 }

@@ -3,13 +3,12 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSSqsQueue struct {
@@ -27,38 +26,39 @@ func (l AWSSqsQueue) Types() []resource.ResourceType {
 func (l AWSSqsQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := sqs.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListQueues(ctx.Context, &sqs.ListQueuesInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := sqs.NewListQueuesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, queue := range page.QueueUrls {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListQueues(ctx.Context, &sqs.ListQueuesInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, queue := range res.QueueUrls {
 			qRes, err := svc.GetQueueAttributes(ctx.Context, &sqs.GetQueueAttributesInput{
-				AttributeNames: []sqs.QueueAttributeName{sqs.QueueAttributeNameAll},
-				QueueUrl:       aws.String(queue),
+				AttributeNames: []types.QueueAttributeName{types.QueueAttributeNameAll},
+				QueueUrl:       queue,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get queue attributes %s: %w", queue, err)
+				return nil, fmt.Errorf("failed to get queue attributes %s: %w", *queue, err)
 			}
-			queueArn := arn.Parse(qRes.Attributes["QueueArn"])
+			queueArn := arn.ParseP(qRes.Attributes["QueueArn"])
 			asMap := make(map[string]interface{})
 			for k, v := range qRes.Attributes {
 				asMap[k] = v
 			}
 			tagRes, err := svc.ListQueueTags(ctx.Context, &sqs.ListQueueTagsInput{
-				QueueUrl: aws.String(queue),
+				QueueUrl: queue,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get queue tags %s: %w", queue, err)
+				return nil, fmt.Errorf("failed to get queue tags %s: %w", *queue, err)
 			}
 			asMap["Tags"] = tagRes.Tags
 			r := resource.New(ctx, resource.SqsQueue, queue, queueArn.ResourceId, asMap)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

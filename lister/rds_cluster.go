@@ -1,12 +1,11 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSRdsDbCluster struct {
@@ -24,15 +23,16 @@ func (l AWSRdsDbCluster) Types() []resource.ResourceType {
 func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBClusters(ctx.Context, &rds.DescribeDBClustersInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := rds.NewDescribeDBClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, cluster := range page.DBClusters {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBClusters(ctx.Context, &rds.DescribeDBClustersInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, cluster := range res.DBClusters {
 			clusterArn := arn.ParseP(cluster.DBClusterArn)
 			r := resource.New(ctx, resource.RdsDbCluster, clusterArn.ResourceId, "", cluster)
 
@@ -57,7 +57,7 @@ func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

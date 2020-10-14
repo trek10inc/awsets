@@ -25,12 +25,10 @@ func (l AWSWafRegionalIpSet) Types() []resource.ResourceType {
 func (l AWSWafRegionalIpSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextMarker *string
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListIPSets(ctx.Context, &wafregional.ListIPSetsInput{
 			Limit:      aws.Int32(100),
-			NextMarker: nextMarker,
+			NextMarker: nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list ip sets: %w", err)
@@ -40,18 +38,14 @@ func (l AWSWafRegionalIpSet) List(ctx context.AWSetsCtx) (*resource.Group, error
 				IPSetId: id.IPSetId,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get ipset %s: %w", aws.StringValue(id.IPSetId), err)
+				return nil, fmt.Errorf("failed to get ipset %s: %w", *id.IPSetId, err)
 			}
 			if v := ipset.IPSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalIpSet, v.IPSetId, v.Name, v)
 				rg.AddResource(r)
 			}
 		}
-		if res.NextMarker == nil {
-			break
-		}
-		nextMarker = res.NextMarker
-	}
-
-	return rg, nil
+		return res.NextMarker, nil
+	})
+	return rg, err
 }

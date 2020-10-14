@@ -1,12 +1,11 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/arn"
 )
 
 type AWSNeptuneDbParameterGroup struct {
@@ -24,20 +23,21 @@ func (l AWSNeptuneDbParameterGroup) Types() []resource.ResourceType {
 func (l AWSNeptuneDbParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBParameterGroups(ctx.Context, &neptune.DescribeDBParameterGroupsInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := neptune.NewDescribeDBParameterGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.DBParameterGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBParameterGroups(ctx.Context, &neptune.DescribeDBParameterGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.DBParameterGroups {
 			groupArn := arn.ParseP(v.DBParameterGroupArn)
 			r := resource.New(ctx, resource.NeptuneDbParameterGroup, groupArn.ResourceId, "", v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

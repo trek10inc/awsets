@@ -22,15 +22,16 @@ func (l AWSFSxBackup) Types() []resource.ResourceType {
 func (l AWSFSxBackup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := fsx.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeBackups(ctx.Context, &fsx.DescribeBackupsInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := fsx.NewDescribeBackupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Backups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeBackups(ctx.Context, &fsx.DescribeBackupsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Backups {
 			r := resource.New(ctx, resource.FSxBackup, v.BackupId, v.BackupId, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			if v.FileSystem != nil {
@@ -38,7 +39,7 @@ func (l AWSFSxBackup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

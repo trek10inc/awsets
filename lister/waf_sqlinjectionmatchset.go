@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/waf"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -32,34 +31,28 @@ func (l AWSWafSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resource.Group
 	var outerErr error
 
 	listWafSqlInjectionMatchSetsOnce.Do(func() {
-		var nextMarker *string
-		for {
+		outerErr = Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListSqlInjectionMatchSets(ctx.Context, &waf.ListSqlInjectionMatchSetsInput{
 				Limit:      aws.Int32(100),
-				NextMarker: nextMarker,
+				NextMarker: nt,
 			})
 			if err != nil {
-				outerErr = fmt.Errorf("failed to list sql injection match sets: %w", err)
-				return
+				return nil, fmt.Errorf("failed to list sql injection match sets: %w", err)
 			}
 			for _, id := range res.SqlInjectionMatchSets {
 				matchSet, err := svc.GetSqlInjectionMatchSet(ctx.Context, &waf.GetSqlInjectionMatchSetInput{
 					SqlInjectionMatchSetId: id.SqlInjectionMatchSetId,
 				})
 				if err != nil {
-					outerErr = fmt.Errorf("failed to get sql injection match stringset %s: %w", aws.StringValue(id.SqlInjectionMatchSetId), err)
-					return
+					return nil, fmt.Errorf("failed to get sql injection match stringset %s: %w", *id.SqlInjectionMatchSetId, err)
 				}
 				if v := matchSet.SqlInjectionMatchSet; v != nil {
 					r := resource.NewGlobal(ctx, resource.WafSqlInjectionMatchSet, v.SqlInjectionMatchSetId, v.Name, v)
 					rg.AddResource(r)
 				}
 			}
-			if res.NextMarker == nil {
-				break
-			}
-			nextMarker = res.NextMarker
-		}
+			return res.NextMarker, nil
+		})
 	})
 
 	return rg, outerErr

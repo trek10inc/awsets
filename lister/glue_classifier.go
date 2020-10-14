@@ -1,13 +1,10 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/glue"
-
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/glue"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSGlueClassifier struct {
@@ -26,15 +23,17 @@ func (l AWSGlueClassifier) Types() []resource.ResourceType {
 
 func (l AWSGlueClassifier) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := glue.NewFromConfig(ctx.AWSCfg)
-	res, err := svc.GetClassifiers(ctx.Context, &glue.GetClassifiersInput{
-		MaxResults: aws.Int32(100),
-	})
 
 	rg := resource.NewGroup()
-	paginator := glue.NewGetClassifiersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Classifiers {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.GetClassifiers(ctx.Context, &glue.GetClassifiersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Classifiers {
 
 			if x := v.CsvClassifier; x != nil {
 				r := resource.NewVersion(ctx, resource.GlueClassifier, x.Name, x.Name, x.Version, x)
@@ -50,8 +49,7 @@ func (l AWSGlueClassifier) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 				rg.AddResource(r)
 			}
 		}
-	}
-
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

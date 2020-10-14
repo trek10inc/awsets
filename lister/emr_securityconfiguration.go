@@ -23,12 +23,13 @@ func (l AWSEMRSecurityConfiguration) Types() []resource.ResourceType {
 func (l AWSEMRSecurityConfiguration) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := emr.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListSecurityConfigurations(ctx.Context, &emr.ListSecurityConfigurationsInput{})
 	rg := resource.NewGroup()
-	paginator := emr.NewListSecurityConfigurationsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, id := range page.SecurityConfigurations {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListSecurityConfigurations(ctx.Context, &emr.ListSecurityConfigurationsInput{})
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range res.SecurityConfigurations {
 			v, err := svc.DescribeSecurityConfiguration(ctx.Context, &emr.DescribeSecurityConfigurationInput{
 				Name: id.Name,
 			})
@@ -38,7 +39,7 @@ func (l AWSEMRSecurityConfiguration) List(ctx context.AWSetsCtx) (*resource.Grou
 			r := resource.New(ctx, resource.EmrSecurityConfiguration, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

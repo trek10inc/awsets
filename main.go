@@ -7,14 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-
 	context2 "github.com/trek10inc/awsets/context"
-
 	"github.com/trek10inc/awsets/lister"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type ListerName string
@@ -126,9 +123,9 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 	// have access to
 	cfg.Region = "us-east-1"
 	ec2svc := ec2.NewFromConfig(cfg)
-	regionsRes, err := ec2svc.DescribeRegions(ctx.Context, &ec2.DescribeRegionsInput{
+	regionsRes, err := ec2svc.DescribeRegions(context.Background(), &ec2.DescribeRegionsInput{
 		AllRegions: aws.Bool(true),
-	}).Send(context.TODO())
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query regions: %w", err)
 	}

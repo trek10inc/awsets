@@ -50,7 +50,7 @@ func (l AWSElbv2Loadbalancer) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					Marker:          nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to describe target groups for %s: %w", v.LoadBalancerName, err)
+					return nil, fmt.Errorf("failed to describe target groups for %s: %w", *v.LoadBalancerName, err)
 				}
 				for _, tg := range targetGroups.TargetGroups {
 					tgArn := arn.ParseP(tg.TargetGroupArn)
@@ -72,7 +72,7 @@ func (l AWSElbv2Loadbalancer) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					Marker:          nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to describe listeners for %s: %w", v.LoadBalancerName, err)
+					return nil, fmt.Errorf("failed to describe listeners for %s: %w", *v.LoadBalancerName, err)
 				}
 				for _, l := range listeners.Listeners {
 					lArn := arn.ParseP(l.ListenerArn)

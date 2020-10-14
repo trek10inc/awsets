@@ -3,10 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +24,10 @@ func (l AWSWafRegionalSqlInjectionMatchSet) Types() []resource.ResourceType {
 func (l AWSWafRegionalSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextMarker *string
-	for {
+	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListSqlInjectionMatchSets(ctx.Context, &wafregional.ListSqlInjectionMatchSetsInput{
 			Limit:      aws.Int32(100),
-			NextMarker: nextMarker,
+			NextMarker: nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list regional sql injection match sets: %w", err)
@@ -40,18 +37,14 @@ func (l AWSWafRegionalSqlInjectionMatchSet) List(ctx context.AWSetsCtx) (*resour
 				SqlInjectionMatchSetId: id.SqlInjectionMatchSetId,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get sql injection match set %s: %w", aws.StringValue(id.SqlInjectionMatchSetId), err)
+				return nil, fmt.Errorf("failed to get sql injection match set %s: %w", *id.SqlInjectionMatchSetId, err)
 			}
 			if v := matchSet.SqlInjectionMatchSet; v != nil {
 				r := resource.New(ctx, resource.WafRegionalSqlInjectionMatchSet, v.SqlInjectionMatchSetId, v.Name, v)
 				rg.AddResource(r)
 			}
 		}
-		if res.NextMarker == nil {
-			break
-		}
-		nextMarker = res.NextMarker
-	}
-
-	return rg, nil
+		return res.NextMarker, nil
+	})
+	return rg, err
 }

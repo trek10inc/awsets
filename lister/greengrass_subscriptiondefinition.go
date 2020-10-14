@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/service/greengrass"
-
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/greengrass"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSGreengrassSubscriptionDefinition struct {
@@ -32,33 +29,33 @@ func (l AWSGreengrassSubscriptionDefinition) List(ctx context.AWSetsCtx) (*resou
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		subscriptiondefs, err := svc.ListSubscriptionDefinitions(ctx.Context, &greengrass.ListSubscriptionDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListSubscriptionDefinitions(ctx.Context, &greengrass.ListSubscriptionDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass subscription definitions: %w", err)
 		}
-		for _, v := range subscriptiondefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
-			var sdNextToken *string
-			for {
-				subscriptionDefVersions, err := svc.ListSubscriptionDefinitionVersions(ctx.Context, &greengrass.ListSubscriptionDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListSubscriptionDefinitionVersions(ctx.Context, &greengrass.ListSubscriptionDefinitionVersionsInput{
 					SubscriptionDefinitionId: v.Id,
 					MaxResults:               aws.String("100"),
-					NextToken:                sdNextToken,
+					NextToken:                nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass subscription definition versions for %s: %w", *v.Id, err)
 				}
-				for _, sdId := range subscriptionDefVersions.Versions {
+				for _, sdId := range versions.Versions {
 					sd, err := svc.GetSubscriptionDefinitionVersion(ctx.Context, &greengrass.GetSubscriptionDefinitionVersionInput{
 						SubscriptionDefinitionId:        sdId.Id,
 						SubscriptionDefinitionVersionId: sdId.Version,
@@ -72,17 +69,14 @@ func (l AWSGreengrassSubscriptionDefinition) List(ctx context.AWSetsCtx) (*resou
 					r.AddRelation(resource.GreengrassSubscriptionDefinitionVersion, sd.Id, sd.Version)
 					rg.AddResource(sdRes)
 				}
-				if subscriptionDefVersions.NextToken == nil {
-					break
-				}
-				sdNextToken = subscriptionDefVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if subscriptiondefs.NextToken == nil {
-			break
-		}
-		nextToken = subscriptiondefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

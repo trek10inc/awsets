@@ -3,13 +3,10 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-
 	"github.com/aws/aws-sdk-go-v2/service/iot"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSIoTCACertificate struct {
@@ -28,23 +25,22 @@ func (l AWSIoTCACertificate) List(ctx context.AWSetsCtx) (*resource.Group, error
 
 	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var marker *string
-	for {
-		cacerts, err := svc.ListCACertificates(ctx.Context, &iot.ListCACertificatesInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListCACertificates(ctx.Context, &iot.ListCACertificatesInput{
 			PageSize: aws.Int32(100),
-			Marker:   marker,
+			Marker:   nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list iot ca certificates: %w", err)
 		}
-		for _, cacert := range cacerts.Certificates {
+		for _, cacert := range res.Certificates {
 			r := resource.New(ctx, resource.IoTCACertificate, cacert.CertificateId, cacert.CertificateId, cacert)
 
-			var certMarker *string
-			for {
+			// Certs by CA
+			err = Paginator(func(nt2 *string) (*string, error) {
 				certs, err := svc.ListCertificatesByCA(ctx.Context, &iot.ListCertificatesByCAInput{
 					CaCertificateId: cacert.CertificateId,
-					Marker:          certMarker,
+					Marker:          nt2,
 					PageSize:        aws.Int32(100),
 				})
 				if err != nil {
@@ -54,18 +50,14 @@ func (l AWSIoTCACertificate) List(ctx context.AWSetsCtx) (*resource.Group, error
 					r.AddRelation(resource.IoTCertificate, cert.CertificateId, "")
 				}
 
-				if certs.NextMarker == nil {
-					break
-				}
-				certMarker = certs.NextMarker
+				return res.NextMarker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
-
 			rg.AddResource(r)
 		}
-		if cacerts.NextMarker == nil {
-			break
-		}
-		marker = cacerts.NextMarker
-	}
-	return rg, nil
+		return res.NextMarker, nil
+	})
+	return rg, err
 }

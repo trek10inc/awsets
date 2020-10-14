@@ -33,21 +33,18 @@ func (l AWSWafWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	var outerErr error
 
 	listWafWebAclsOnce.Do(func() {
-		var nextMarker *string
-		for {
+		outerErr = Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListWebACLs(ctx.Context, &waf.ListWebACLsInput{
 				Limit:      aws.Int32(100),
-				NextMarker: nextMarker,
+				NextMarker: nt,
 			})
 			if err != nil {
-				outerErr = fmt.Errorf("failed to list webacls: %w", err)
-				return
+				return nil, fmt.Errorf("failed to list webacls: %w", err)
 			}
 			for _, webaclId := range res.WebACLs {
 				webacl, err := svc.GetWebACL(ctx.Context, &waf.GetWebACLInput{WebACLId: webaclId.WebACLId})
 				if err != nil {
-					outerErr = fmt.Errorf("failed to get webacl %s: %w", aws.StringValue(webaclId.WebACLId), err)
-					return
+					return nil, fmt.Errorf("failed to get webacl %s: %w", *webaclId.WebACLId, err)
 				}
 				if webacl.WebACL == nil {
 					continue
@@ -56,11 +53,8 @@ func (l AWSWafWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				r := resource.NewGlobal(ctx, resource.WafWebACL, webaclArn.ResourceId, webacl.WebACL.Name, webacl.WebACL)
 				rg.AddResource(r)
 			}
-			if res.NextMarker == nil {
-				break
-			}
-			nextMarker = res.NextMarker
-		}
+			return res.NextMarker, nil
+		})
 	})
 
 	return rg, outerErr

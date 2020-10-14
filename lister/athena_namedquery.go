@@ -50,7 +50,7 @@ func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 						NamedQueryId: id,
 					})
 					if err != nil {
-						return nil, fmt.Errorf("failed to get named query %s: %w", id, err)
+						return nil, fmt.Errorf("failed to get named query %s: %w", *id, err)
 					}
 					if v := query.NamedQuery; v != nil {
 						nqR := resource.New(ctx, resource.AthenaNamedQuery, v.NamedQueryId, v.Name, v)

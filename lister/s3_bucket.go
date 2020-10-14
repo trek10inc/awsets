@@ -4,18 +4,16 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
-	"github.com/fatih/structs"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/fatih/structs"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listBucketsOnce sync.Once
-var bucketsByRegion = make(map[string][]*s3.Bucket)
+var bucketsByRegion = make(map[string][]*types.Bucket)
 
 type AWSS3Bucket struct {
 }
@@ -39,9 +37,6 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	listBucketsOnce.Do(func() {
 
 		res, err := svc.ListBuckets(ctx.Context, &s3.ListBucketsInput{})
-
-		res, err := req
-
 		if err != nil {
 			outerErr = fmt.Errorf("failed to query buckets from %s: %w", ctx.Region(), err)
 			return
@@ -54,14 +49,11 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
 				//return
 			}
-			reg, err := bucketLocation.LocationConstraint.MarshalValue()
-			if err != nil {
-				ctx.Logger.Errorf("failed to marshal s3 location for bucket %s: %v\n", *bucket.Name, err)
-			}
+			reg := string(bucketLocation.LocationConstraint)
 			if len(reg) == 0 {
 				reg = "us-east-1"
 			}
-			bucketsByRegion[reg] = append(bucketsByRegion[reg], &res.Buckets[i])
+			bucketsByRegion[reg] = append(bucketsByRegion[reg], res.Buckets[i])
 		}
 	})
 	if outerErr != nil {
@@ -75,7 +67,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			buck["Lifecycle"] = structs.Map(lifecycleRes.GetBucketLifecycleConfigurationOutput)
+			buck["Lifecycle"] = structs.Map(lifecycleRes.Rules)
 		} else {
 			buck["Lifecycle"] = nil
 		}
@@ -88,7 +80,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			buck["Policy"] = aws.StringValue(policyRes.Policy)
+			buck["Policy"] = aws.ToString(policyRes.Policy)
 		} else {
 			buck["Policy"] = nil
 		}
@@ -97,7 +89,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			buck["Encryption"] = structs.Map(encrRes.GetBucketEncryptionOutput)
+			buck["Encryption"] = structs.Map(encrRes.ServerSideEncryptionConfiguration)
 		} else {
 			buck["Encryption"] = nil
 		}
@@ -106,7 +98,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			ts := structs.Map(tagRes.GetBucketTaggingOutput)
+			ts := structs.Map(tagRes.TagSet)
 			buck["Tags"] = ts["TagSet"]
 		} else {
 			buck["Tags"] = nil

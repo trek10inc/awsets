@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/service/route53"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listRoute53HostedZonesOnce sync.Once
@@ -32,35 +30,42 @@ func (l AWSRoute53HostedZone) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	var outerErr error
 
 	listRoute53HostedZonesOnce.Do(func() {
-		res, err := svc.ListHostedZones(ctx.Context, &route53.ListHostedZonesInput{})
-		paginator := route53.NewListHostedZonesPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, hostedZone := range page.HostedZones {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListHostedZones(ctx.Context, &route53.ListHostedZonesInput{
+				Marker: nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, hostedZone := range res.HostedZones {
 
 				r := resource.NewGlobal(ctx, resource.Route53HostedZone, hostedZone.Id, hostedZone.Name, hostedZone)
 
-				rsPaginator := route53.NewListResourceRecordSetsPaginator(svc.ListResourceRecordSets(ctx.Context, &route53.ListResourceRecordSetsInput{
-					HostedZoneId: hostedZone.Id,
-				}))
-				for rsPaginator.Next(ctx.Context) {
-					rsPage := rsPaginator.CurrentPage()
-					for _, rs := range rsPage.ResourceRecordSets {
+				// Record Sets
+				err = Paginator(func(nt2 *string) (*string, error) {
+					sets, err := svc.ListResourceRecordSets(ctx.Context, &route53.ListResourceRecordSetsInput{
+						HostedZoneId:          hostedZone.Id,
+						StartRecordIdentifier: nt,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to list record sets for hosted zone %s: %w", *hostedZone.Name, err)
+					}
+					for _, rs := range sets.ResourceRecordSets {
 						rsRes := resource.NewGlobal(ctx, resource.Route53RecordSet, rs.Name, rs.Name, rs)
 						rsRes.AddRelation(resource.Route53HostedZone, hostedZone.Id, "")
 						rsRes.AddRelation(resource.Route53HealthCheck, rs.HealthCheckId, "")
 						rg.AddResource(rsRes)
 					}
-				}
-				err := rsPaginator.Err()
+					return sets.NextRecordIdentifier, nil
+				})
 				if err != nil {
-					outerErr = fmt.Errorf("failed to list record sets for hosted zone %s: %w", *hostedZone.Name, err)
-					return
+					return nil, err
 				}
+
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr

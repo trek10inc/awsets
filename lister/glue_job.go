@@ -26,15 +26,17 @@ func (l AWSGlueJob) Types() []resource.ResourceType {
 
 func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := glue.NewFromConfig(ctx.AWSCfg)
-	res, err := svc.GetJobs(ctx.Context, &glue.GetJobsInput{
-		MaxResults: aws.Int32(100),
-	})
 
 	rg := resource.NewGroup()
-	paginator := glue.NewGetJobsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Jobs {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.GetJobs(ctx.Context, &glue.GetJobsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Jobs {
 
 			r := resource.New(ctx, resource.GlueJob, v.Name, v.Name, v)
 			r.AddARNRelation(resource.IamRole, v.Role)
@@ -44,27 +46,30 @@ func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 			}
 
-			triggerPag := glue.NewGetTriggersPaginator(svc.GetTriggers(ctx.Context, &glue.GetTriggersInput{
-				DependentJobName: v.Name,
-				MaxResults:       aws.Int32(50),
-			}))
-			for triggerPag.Next(ctx.Context) {
-				triggerPage := triggerPag.CurrentPage()
-				for _, t := range triggerPage.Triggers {
+			// Triggers
+			err = Paginator(func(nt2 *string) (*string, error) {
+				triggers, err := svc.GetTriggers(ctx.Context, &glue.GetTriggersInput{
+					DependentJobName: v.Name,
+					MaxResults:       aws.Int32(50),
+					NextToken:        nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get triggers for job %s: %w", *v.Name, err)
+				}
+				for _, t := range triggers.Triggers {
 					tRes := resource.New(ctx, resource.GlueTrigger, t.Id, t.Name, t)
 					tRes.AddRelation(resource.GlueJob, v.Name, "")
 					tRes.AddRelation(resource.GlueWorkflow, t.WorkflowName, "")
 					rg.AddResource(tRes)
 				}
-			}
-			err := triggerPag.Err()
+				return triggers.NextToken, nil
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get triggers for job %s: %w", *v.Name, err)
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-	}
-
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

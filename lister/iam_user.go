@@ -33,21 +33,28 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	var outerErr error
 	listUsersOnce.Do(func() {
-		paginator := iam.NewListUsersPaginator(svc.ListUsers(ctx.Context, &iam.ListUsersInput{
-			MaxItems: aws.Int32(100),
-		}))
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, user := range page.Users {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListUsers(ctx.Context, &iam.ListUsersInput{
+				MaxItems: aws.Int32(100),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, user := range res.Users {
 				r := resource.NewGlobal(ctx, resource.IamUser, user.UserId, user.UserName, user)
 
-				akPaginator := iam.NewListAccessKeysPaginator(svc.ListAccessKeys(ctx.Context, &iam.ListAccessKeysInput{
-					MaxItems: aws.Int32(100),
-					UserName: user.UserName,
-				}))
-				for akPaginator.Next(ctx.Context) {
-					akPage := akPaginator.CurrentPage()
-					for _, ak := range akPage.AccessKeyMetadata {
+				// Access Keys
+				err = Paginator(func(nt2 *string) (*string, error) {
+					keys, err := svc.ListAccessKeys(ctx.Context, &iam.ListAccessKeysInput{
+						MaxItems: aws.Int32(100),
+						UserName: user.UserName,
+						Marker:   nt2,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to get access keys for user %s: %w", *user.UserName, err)
+					}
+					for _, ak := range keys.AccessKeyMetadata {
 						akR := resource.NewGlobal(ctx, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
 						akR.AddRelation(resource.IamUser, user.UserId, "")
 
@@ -55,18 +62,20 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 							AccessKeyId: ak.AccessKeyId,
 						})
 						if err != nil {
-							outerErr = fmt.Errorf("failed to get lasted used time for access key %s: %w", *ak.AccessKeyId, err)
-							return
+							return nil, fmt.Errorf("failed to get lasted used time for access key %s: %w", *ak.AccessKeyId, err)
 						}
 						akR.AddAttribute("LastUsed", lastUsed.AccessKeyLastUsed)
 						rg.AddResource(akR)
 					}
+					return res.Marker, nil
+				})
+				if err != nil {
+					return nil, err
 				}
-
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr

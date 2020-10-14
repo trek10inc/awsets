@@ -1,14 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/service/redshift"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSRedshiftCluster struct {
@@ -26,15 +22,16 @@ func (l AWSRedshiftCluster) Types() []resource.ResourceType {
 func (l AWSRedshiftCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeClusters(ctx.Context, &redshift.DescribeClustersInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := redshift.NewDescribeClustersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, cluster := range page.Clusters {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeClusters(ctx.Context, &redshift.DescribeClustersInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, cluster := range res.Clusters {
 			r := resource.New(ctx, resource.RedshiftCluster, cluster.ClusterIdentifier, cluster.ClusterIdentifier, cluster)
 			r.AddRelation(resource.Ec2Vpc, cluster.VpcId, "")
 			r.AddRelation(resource.RedshiftSubnetGroup, cluster.ClusterSubnetGroupName, "")
@@ -45,8 +42,7 @@ func (l AWSRedshiftCluster) List(ctx context.AWSetsCtx) (*resource.Group, error)
 				r.AddRelation(resource.Ec2SecurityGroup, sg.VpcSecurityGroupId, "")
 			}
 			for _, role := range cluster.IamRoles {
-				roleArn := arn.ParseP(role.IamRoleArn)
-				r.AddRelation(resource.IamRole, roleArn.ResourceId, "")
+				r.AddARNRelation(resource.IamRole, role.IamRoleArn)
 			}
 			r.AddARNRelation(resource.KmsKey, cluster.KmsKeyId)
 
@@ -56,7 +52,7 @@ func (l AWSRedshiftCluster) List(ctx context.AWSetsCtx) (*resource.Group, error)
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

@@ -29,33 +29,33 @@ func (l AWSGreengrassConnectorDefinition) List(ctx context.AWSetsCtx) (*resource
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		connectordefs, err := svc.ListConnectorDefinitions(ctx.Context, &greengrass.ListConnectorDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListConnectorDefinitions(ctx.Context, &greengrass.ListConnectorDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass connector definitions: %w", err)
 		}
-		for _, v := range connectordefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassConnectorDefinition, v.Id, v.Name, v)
-			var cdNextToken *string
-			for {
-				connectorDefVersions, err := svc.ListConnectorDefinitionVersions(ctx.Context, &greengrass.ListConnectorDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListConnectorDefinitionVersions(ctx.Context, &greengrass.ListConnectorDefinitionVersionsInput{
 					ConnectorDefinitionId: v.Id,
 					MaxResults:            aws.String("100"),
-					NextToken:             cdNextToken,
+					NextToken:             nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass connector definition versions for %s: %w", *v.Id, err)
 				}
-				for _, cdId := range connectorDefVersions.Versions {
+				for _, cdId := range versions.Versions {
 					cd, err := svc.GetConnectorDefinitionVersion(ctx.Context, &greengrass.GetConnectorDefinitionVersionInput{
 						ConnectorDefinitionId:        cdId.Id,
 						ConnectorDefinitionVersionId: cdId.Version,
@@ -69,17 +69,14 @@ func (l AWSGreengrassConnectorDefinition) List(ctx context.AWSetsCtx) (*resource
 					r.AddRelation(resource.GreengrassConnectorDefinitionVersion, cd.Id, cd.Version)
 					rg.AddResource(cdRes)
 				}
-				if connectorDefVersions.NextToken == nil {
-					break
-				}
-				cdNextToken = connectorDefVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if connectordefs.NextToken == nil {
-			break
-		}
-		nextToken = connectordefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

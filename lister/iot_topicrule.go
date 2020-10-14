@@ -3,14 +3,11 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/arn"
-
 	"github.com/aws/aws-sdk-go-v2/service/iot"
+	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSIoTTopicRule struct {
@@ -29,25 +26,21 @@ func (l AWSIoTTopicRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		topicRules, err := svc.ListTopicRules(ctx.Context, &iot.ListTopicRulesInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListTopicRules(ctx.Context, &iot.ListTopicRulesInput{
 			MaxResults: aws.Int32(100),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list iot topic rules: %w", err)
 		}
-		for _, rule := range topicRules.Rules {
+		for _, rule := range res.Rules {
 			ruleArn := arn.ParseP(rule.RuleArn)
 			r := resource.New(ctx, resource.IotTopicRule, ruleArn.ResourceId, rule.RuleName, rule)
 
 			rg.AddResource(r)
 		}
-		if topicRules.NextToken == nil {
-			break
-		}
-		nextToken = topicRules.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

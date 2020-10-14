@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
+	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSRdsDbProxy struct {
@@ -31,15 +30,20 @@ func (l AWSRdsDbProxy) Types() []resource.ResourceType {
 func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBProxies(ctx.Context, &rds.DescribeDBProxiesInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := rds.NewDescribeDBProxiesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.DBProxies {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBProxies(ctx.Context, &rds.DescribeDBProxiesInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "InvalidAction") {
+				// If DB Proxy is not supported in a region, returns an InvalidAction error
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, v := range res.DBProxies {
 			proxyArn := arn.ParseP(v.DBProxyArn)
 			r := resource.New(ctx, resource.RdsDbProxy, proxyArn.ResourceId, v.DBProxyName, v)
 			r.AddARNRelation(resource.IamRole, v.RoleArn)
@@ -51,43 +55,50 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 
 			// DB Proxy Target Groups
-			tgPaginator := rds.NewDescribeDBProxyTargetGroupsPaginator(svc.DescribeDBProxyTargetGroups(ctx.Context, &rds.DescribeDBProxyTargetGroupsInput{
-				DBProxyName: v.DBProxyName,
-				MaxRecords:  aws.Int32(100),
-			}))
-			for tgPaginator.Next(ctx.Context) {
-				tgPage := tgPaginator.CurrentPage()
-				for _, tg := range tgPage.TargetGroups {
+			err = Paginator(func(nt2 *string) (*string, error) {
+				targetGroups, err := svc.DescribeDBProxyTargetGroups(ctx.Context, &rds.DescribeDBProxyTargetGroupsInput{
+					DBProxyName: v.DBProxyName,
+					MaxRecords:  aws.Int32(100),
+					Marker:      nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get target groups for %s: %w", *v.DBProxyName, err)
+				}
+				for _, tg := range targetGroups.TargetGroups {
 					tgArn := arn.ParseP(tg.TargetGroupArn)
 					tgR := resource.New(ctx, resource.RdsDbProxyTargetGroup, tgArn.ResourceId, tg.TargetGroupName, tg)
 					tgR.AddRelation(resource.RdsDbProxy, proxyArn.ResourceId, "")
 					rg.AddResource(tgR)
 				}
-			}
-			err := tgPaginator.Err()
+				return targetGroups.Marker, nil
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get target groups for %s: %w", *v.DBProxyName, err)
+				return nil, err
 			}
 
 			// DB Proxy Targets
-			targets := make([]rds.DBProxyTarget, 0)
-			tPaginator := rds.NewDescribeDBProxyTargetsPaginator(svc.DescribeDBProxyTargets(ctx.Context, &rds.DescribeDBProxyTargetsInput{
-				DBProxyName: v.DBProxyName,
-				MaxRecords:  aws.Int32(100),
-			}))
-			for tPaginator.Next(ctx.Context) {
-				tPage := tPaginator.CurrentPage()
-				targets = append(targets, tPage.Targets...)
-				// TODO: map to the actual instances
+			targets := make([]*types.DBProxyTarget, 0)
+			err = Paginator(func(nt2 *string) (*string, error) {
+				proxyTargets, err := svc.DescribeDBProxyTargets(ctx.Context, &rds.DescribeDBProxyTargetsInput{
+					DBProxyName: v.DBProxyName,
+					MaxRecords:  aws.Int32(100),
+					Marker:      nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get proxy targets for %s: %w", *v.DBProxyName, err)
+				}
+				targets = append(targets, proxyTargets.Targets...)
+				return proxyTargets.Marker, nil
+			})
+			if err != nil {
+				return nil, err
 			}
+			if len(targets) > 0 {
+				r.AddAttribute("ProxyTargets", targets)
+			}
+			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-	if err != nil {
-		if strings.Contains(err.Error(), "InvalidAction") {
-			// If DB Proxy is not supported in a region, returns an InvalidAction error
-			err = nil
-		}
-	}
+		return res.Marker, nil
+	})
 	return rg, err
 }

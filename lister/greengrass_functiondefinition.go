@@ -29,33 +29,33 @@ func (l AWSGreengrassFunctionDefinition) List(ctx context.AWSetsCtx) (*resource.
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		functiondefs, err := svc.ListFunctionDefinitions(ctx.Context, &greengrass.ListFunctionDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListFunctionDefinitions(ctx.Context, &greengrass.ListFunctionDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass function definitions: %w", err)
 		}
-		for _, v := range functiondefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassFunctionDefinition, v.Id, v.Name, v)
-			var fdNextToken *string
-			for {
-				functionDefVersions, err := svc.ListFunctionDefinitionVersions(ctx.Context, &greengrass.ListFunctionDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListFunctionDefinitionVersions(ctx.Context, &greengrass.ListFunctionDefinitionVersionsInput{
 					FunctionDefinitionId: v.Id,
 					MaxResults:           aws.String("100"),
-					NextToken:            fdNextToken,
+					NextToken:            nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass function definition versions for %s: %w", *v.Id, err)
 				}
-				for _, fdId := range functionDefVersions.Versions {
+				for _, fdId := range versions.Versions {
 					fd, err := svc.GetFunctionDefinitionVersion(ctx.Context, &greengrass.GetFunctionDefinitionVersionInput{
 						FunctionDefinitionId:        fdId.Id,
 						FunctionDefinitionVersionId: fdId.Version,
@@ -69,17 +69,14 @@ func (l AWSGreengrassFunctionDefinition) List(ctx context.AWSetsCtx) (*resource.
 					r.AddRelation(resource.GreengrassFunctionDefinitionVersion, fd.Id, fd.Version)
 					rg.AddResource(fdRes)
 				}
-				if functionDefVersions.NextToken == nil {
-					break
-				}
-				fdNextToken = functionDefVersions.NextToken
+				return res.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if functiondefs.NextToken == nil {
-			break
-		}
-		nextToken = functiondefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

@@ -22,15 +22,16 @@ func (l AWSFSxFileSystem) Types() []resource.ResourceType {
 func (l AWSFSxFileSystem) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := fsx.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeFileSystems(ctx.Context, &fsx.DescribeFileSystemsInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := fsx.NewDescribeFileSystemsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.FileSystems {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeFileSystems(ctx.Context, &fsx.DescribeFileSystemsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.FileSystems {
 			r := resource.New(ctx, resource.FSxFileSystem, v.FileSystemId, v.FileSystemId, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
@@ -42,7 +43,7 @@ func (l AWSFSxFileSystem) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

@@ -1,12 +1,11 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSRdsDbParameterGroup struct {
@@ -24,20 +23,21 @@ func (l AWSRdsDbParameterGroup) Types() []resource.ResourceType {
 func (l AWSRdsDbParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBParameterGroups(ctx.Context, &rds.DescribeDBParameterGroupsInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := rds.NewDescribeDBParameterGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, pGroup := range page.DBParameterGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBParameterGroups(ctx.Context, &rds.DescribeDBParameterGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, pGroup := range res.DBParameterGroups {
 			groupArn := arn.ParseP(pGroup.DBParameterGroupArn)
 			r := resource.New(ctx, resource.RdsDbParameterGroup, groupArn.ResourceId, "", pGroup)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

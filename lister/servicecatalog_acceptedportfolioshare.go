@@ -24,24 +24,26 @@ func (l AWSServiceCatalogAcceptedPortfolioShare) Types() []resource.ResourceType
 func (l AWSServiceCatalogAcceptedPortfolioShare) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := servicecatalog.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListAcceptedPortfolioShares(ctx.Context, &servicecatalog.ListAcceptedPortfolioSharesInput{
-		PageSize: aws.Int32(20),
-	})
 	rg := resource.NewGroup()
-	paginator := servicecatalog.NewListAcceptedPortfolioSharesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.PortfolioDetails {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListAcceptedPortfolioShares(ctx.Context, &servicecatalog.ListAcceptedPortfolioSharesInput{
+			PageSize:  aws.Int32(20),
+			PageToken: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.PortfolioDetails {
 			detail, err := svc.DescribePortfolio(ctx.Context, &servicecatalog.DescribePortfolioInput{
 				Id: v.Id,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe service catalog portfolio %s: %w", *v.Id, err)
 			}
-			r := resource.New(ctx, resource.ServiceCatalogAcceptedPortfolioShare, v.Id, v.DisplayName, detail.DescribePortfolioOutput)
+			r := resource.New(ctx, resource.ServiceCatalogAcceptedPortfolioShare, v.Id, v.DisplayName, detail)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextPageToken, nil
+	})
 	return rg, err
 }

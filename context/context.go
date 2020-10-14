@@ -17,8 +17,8 @@ type AWSetsCtx struct {
 
 func New(config aws.Config, ctx context.Context, logger Logger) (AWSetsCtx, error) {
 	config.Region = "us-east-1"
-	svc := sts.New(config)
-	res, err := svc.GetCallerIdentity(ctx.Context, &sts.GetCallerIdentityInput{}).Send(context.Background())
+	svc := sts.NewFromConfig(config)
+	res, err := svc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return AWSetsCtx{}, fmt.Errorf("failed to get account id: %w", err)
 	}

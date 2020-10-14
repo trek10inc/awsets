@@ -23,21 +23,22 @@ func (l AWSGlueConnection) Types() []resource.ResourceType {
 
 func (l AWSGlueConnection) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := glue.NewFromConfig(ctx.AWSCfg)
-	res, err := svc.GetConnections(ctx.Context, &glue.GetConnectionsInput{
-		HidePassword: aws.Bool(true),
-		MaxResults:   aws.Int32(100),
-	})
 
 	rg := resource.NewGroup()
-	paginator := glue.NewGetConnectionsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.ConnectionList {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.GetConnections(ctx.Context, &glue.GetConnectionsInput{
+			HidePassword: aws.Bool(true),
+			MaxResults:   aws.Int32(100),
+			NextToken:    nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.ConnectionList {
 			r := resource.New(ctx, resource.GlueConnection, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-	}
-
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

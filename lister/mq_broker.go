@@ -24,17 +24,15 @@ func (l AWSAmazonMQBroker) Types() []resource.ResourceType {
 func (l AWSAmazonMQBroker) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := mq.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-
-	var nextToken *string
-	for {
-		brokers, err := svc.ListBrokers(ctx.Context, &mq.ListBrokersInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListBrokers(ctx.Context, &mq.ListBrokersInput{
 			MaxResults: aws.Int32(100),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list mq brokers: %w", err)
 		}
-		for _, broker := range brokers.BrokerSummaries {
+		for _, broker := range res.BrokerSummaries {
 
 			v, err := svc.DescribeBroker(ctx.Context, &mq.DescribeBrokerInput{
 				BrokerId: broker.BrokerId,
@@ -59,10 +57,7 @@ func (l AWSAmazonMQBroker) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 			rg.AddResource(r)
 		}
-		if brokers.NextToken == nil {
-			break
-		}
-		nextToken = brokers.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

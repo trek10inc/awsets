@@ -3,11 +3,9 @@ package lister
 import (
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/service/route53"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listRoute53HealthChecksOnce sync.Once
@@ -31,16 +29,19 @@ func (l AWSRoute53HealthCheck) List(ctx context.AWSetsCtx) (*resource.Group, err
 	var outerErr error
 
 	listRoute53HealthChecksOnce.Do(func() {
-		res, err := svc.ListHealthChecks(ctx.Context, &route53.ListHealthChecksInput{})
-		paginator := route53.NewListHealthChecksPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, healthCheck := range page.HealthChecks {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListHealthChecks(ctx.Context, &route53.ListHealthChecksInput{
+				Marker: nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, healthCheck := range res.HealthChecks {
 				r := resource.NewGlobal(ctx, resource.Route53HealthCheck, healthCheck.Id, healthCheck.Id, healthCheck)
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr

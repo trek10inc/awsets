@@ -3,12 +3,10 @@ package lister
 import (
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listPoliciesOnce sync.Once
@@ -32,19 +30,20 @@ func (l AWSIamPolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	var outerErr error
 
 	listPoliciesOnce.Do(func() {
-		res, err := svc.ListPolicies(ctx.Context, &iam.ListPoliciesInput{
-			MaxItems: aws.Int32(100),
-		})
-
-		paginator := iam.NewListPoliciesPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, policy := range page.Policies {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListPolicies(ctx.Context, &iam.ListPoliciesInput{
+				MaxItems: aws.Int32(100),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, policy := range res.Policies {
 				r := resource.NewGlobal(ctx, resource.IamPolicy, policy.PolicyId, policy.PolicyName, policy)
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr

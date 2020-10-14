@@ -3,11 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -27,25 +25,23 @@ func (l AWSSagemakerModel) Types() []resource.ResourceType {
 func (l AWSSagemakerModel) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := sagemaker.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListModels(ctx.Context, &sagemaker.ListModelsInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := sagemaker.NewListModelsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, model := range page.Models {
-			modelRes, err := svc.DescribeModel(ctx.Context, &sagemaker.DescribeModelInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListModels(ctx.Context, &sagemaker.ListModelsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, model := range res.Models {
+			v, err := svc.DescribeModel(ctx.Context, &sagemaker.DescribeModelInput{
 				ModelName: model.ModelName,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe model %s: %w", *model.ModelName, err)
 			}
-			v := modelRes.DescribeModelOutput
-			if v == nil {
-				continue
-			}
+
 			modelArn := arn.ParseP(v.ModelArn)
 			r := resource.New(ctx, resource.SagemakerModel, modelArn.ResourceId, v.ModelName, v)
 			r.AddARNRelation(resource.IamRole, v.ExecutionRoleArn)
@@ -59,7 +55,7 @@ func (l AWSSagemakerModel) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

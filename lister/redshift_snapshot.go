@@ -1,12 +1,10 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/service/redshift"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 type AWSRedshiftSnapshot struct {
@@ -24,15 +22,16 @@ func (l AWSRedshiftSnapshot) Types() []resource.ResourceType {
 func (l AWSRedshiftSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeClusterSnapshots(ctx.Context, &redshift.DescribeClusterSnapshotsInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := redshift.NewDescribeClusterSnapshotsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Snapshots {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeClusterSnapshots(ctx.Context, &redshift.DescribeClusterSnapshotsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Snapshots {
 			r := resource.New(ctx, resource.RedshiftSnapshot, v.SnapshotIdentifier, v.SnapshotIdentifier, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
@@ -40,7 +39,7 @@ func (l AWSRedshiftSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error
 
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

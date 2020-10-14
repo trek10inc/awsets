@@ -24,26 +24,28 @@ func (l AWSRedshiftSecurityGroup) Types() []resource.ResourceType {
 func (l AWSRedshiftSecurityGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeClusterSecurityGroups(ctx.Context, &redshift.DescribeClusterSecurityGroupsInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := redshift.NewDescribeClusterSecurityGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, sg := range page.ClusterSecurityGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeClusterSecurityGroups(ctx.Context, &redshift.DescribeClusterSecurityGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "VPC-by-Default customers cannot use cluster security groups") {
+				// EC2-Classic thing
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, sg := range res.ClusterSecurityGroups {
 			r := resource.New(ctx, resource.RedshiftSecurityGroup, sg.ClusterSecurityGroupName, sg.ClusterSecurityGroupName, sg)
 			for _, ec2sg := range sg.EC2SecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, ec2sg.EC2SecurityGroupName, "")
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
-	if strings.Contains(err.Error(), "VPC-by-Default customers cannot use cluster security groups") {
-		// EC2-Classic thing
-		err = nil
-	}
+		return res.Marker, nil
+	})
+
 	return rg, err
 }

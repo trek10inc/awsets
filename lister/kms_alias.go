@@ -1,12 +1,11 @@
 package lister
 
 import (
-	"github.com/trek10inc/awsets/context"
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/trek10inc/awsets/arn"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 type AWSKmsAlias struct {
@@ -24,15 +23,16 @@ func (l AWSKmsAlias) Types() []resource.ResourceType {
 func (l AWSKmsAlias) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := kms.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListAliases(ctx.Context, &kms.ListAliasesInput{
-		Limit: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := kms.NewListAliasesPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, alias := range page.Aliases {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListAliases(ctx.Context, &kms.ListAliasesInput{
+			Limit:  aws.Int32(100),
+			Marker: nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, alias := range res.Aliases {
 			aliasArn := arn.ParseP(alias.AliasArn)
 			r := resource.New(ctx, resource.KmsAlias, aliasArn.ResourceId, alias.AliasName, alias)
 			if alias.TargetKeyId != nil {
@@ -40,7 +40,7 @@ func (l AWSKmsAlias) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextMarker, nil
+	})
 	return rg, err
 }

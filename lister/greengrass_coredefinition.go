@@ -29,33 +29,33 @@ func (l AWSGreengrassCoreDefinition) List(ctx context.AWSetsCtx) (*resource.Grou
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		coredefs, err := svc.ListCoreDefinitions(ctx.Context, &greengrass.ListCoreDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListCoreDefinitions(ctx.Context, &greengrass.ListCoreDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass core definitions: %w", err)
 		}
-		for _, v := range coredefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassCoreDefinition, v.Id, v.Name, v)
-			var cdNextToken *string
-			for {
-				coreDefVersions, err := svc.ListCoreDefinitionVersions(ctx.Context, &greengrass.ListCoreDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+				versions, err := svc.ListCoreDefinitionVersions(ctx.Context, &greengrass.ListCoreDefinitionVersionsInput{
 					CoreDefinitionId: v.Id,
 					MaxResults:       aws.String("100"),
-					NextToken:        cdNextToken,
+					NextToken:        nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass core definition versions for %s: %w", *v.Id, err)
 				}
-				for _, cdId := range coreDefVersions.Versions {
+				for _, cdId := range versions.Versions {
 					cd, err := svc.GetCoreDefinitionVersion(ctx.Context, &greengrass.GetCoreDefinitionVersionInput{
 						CoreDefinitionId:        cdId.Id,
 						CoreDefinitionVersionId: cdId.Version,
@@ -69,17 +69,14 @@ func (l AWSGreengrassCoreDefinition) List(ctx context.AWSetsCtx) (*resource.Grou
 					r.AddRelation(resource.GreengrassCoreDefinitionVersion, cd.Id, cd.Version)
 					rg.AddResource(cdRes)
 				}
-				if coreDefVersions.NextToken == nil {
-					break
-				}
-				cdNextToken = coreDefVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if coredefs.NextToken == nil {
-			break
-		}
-		nextToken = coredefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

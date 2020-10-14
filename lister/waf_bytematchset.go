@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/waf"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -32,35 +31,28 @@ func (l AWSWafByteMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error)
 	var outerErr error
 
 	listWafByteMatchSetsOnce.Do(func() {
-		var nextMarker *string
-		for {
+		outerErr = Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListByteMatchSets(ctx.Context, &waf.ListByteMatchSetsInput{
 				Limit:      aws.Int32(100),
-				NextMarker: nextMarker,
+				NextMarker: nt,
 			})
 			if err != nil {
-				outerErr = fmt.Errorf("failed to list byte match sets: %w", err)
-				return
+				return nil, fmt.Errorf("failed to list byte match sets: %w", err)
 			}
 			for _, id := range res.ByteMatchSets {
 				byteMatchSet, err := svc.GetByteMatchSet(ctx.Context, &waf.GetByteMatchSetInput{
 					ByteMatchSetId: id.ByteMatchSetId,
 				})
 				if err != nil {
-					outerErr = fmt.Errorf("failed to get byte match stringset %s: %w", aws.StringValue(id.ByteMatchSetId), err)
-					return
+					return nil, fmt.Errorf("failed to get byte match stringset %s: %w", *id.ByteMatchSetId, err)
 				}
 				if v := byteMatchSet.ByteMatchSet; v != nil {
 					r := resource.NewGlobal(ctx, resource.WafByteMatchSet, v.ByteMatchSetId, v.Name, v)
 					rg.AddResource(r)
 				}
 			}
-			if res.NextMarker == nil {
-				break
-			}
-			nextMarker = res.NextMarker
-		}
+			return res.NextMarker, nil
+		})
 	})
-
 	return rg, outerErr
 }

@@ -1,12 +1,11 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/arn"
 )
 
 type AWSNeptuneDbSubnetGroup struct {
@@ -24,15 +23,16 @@ func (l AWSNeptuneDbSubnetGroup) Types() []resource.ResourceType {
 func (l AWSNeptuneDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.DescribeDBSubnetGroups(ctx.Context, &neptune.DescribeDBSubnetGroupsInput{
-		MaxRecords: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := neptune.NewDescribeDBSubnetGroupsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.DBSubnetGroups {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.DescribeDBSubnetGroups(ctx.Context, &neptune.DescribeDBSubnetGroupsInput{
+			MaxRecords: aws.Int32(100),
+			Marker:     nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.DBSubnetGroups {
 			subnetArn := arn.ParseP(v.DBSubnetGroupArn)
 			r := resource.New(ctx, resource.NeptuneDbSubnetGroup, subnetArn.ResourceId, "", v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
@@ -41,7 +41,7 @@ func (l AWSNeptuneDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, e
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.Marker, nil
+	})
 	return rg, err
 }

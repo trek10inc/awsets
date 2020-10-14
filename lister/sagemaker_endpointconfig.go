@@ -3,11 +3,9 @@ package lister
 import (
 	"fmt"
 
-	"github.com/trek10inc/awsets/arn"
-
-	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
+	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -29,24 +27,21 @@ func (l AWSSagemakerEndpointConfig) Types() []resource.ResourceType {
 func (l AWSSagemakerEndpointConfig) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := sagemaker.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListEndpointConfigs(ctx.Context, &sagemaker.ListEndpointConfigsInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := sagemaker.NewListEndpointConfigsPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, epc := range page.EndpointConfigs {
-			epcRes, err := svc.DescribeEndpointConfig(ctx.Context, &sagemaker.DescribeEndpointConfigInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListEndpointConfigs(ctx.Context, &sagemaker.ListEndpointConfigsInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, epc := range res.EndpointConfigs {
+			v, err := svc.DescribeEndpointConfig(ctx.Context, &sagemaker.DescribeEndpointConfigInput{
 				EndpointConfigName: epc.EndpointConfigName,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe endpoint config %s: %w", *epc.EndpointConfigName, err)
-			}
-			v := epcRes.DescribeEndpointConfigOutput
-			if v == nil {
-				continue
 			}
 			epcArn := arn.ParseP(v.EndpointConfigArn)
 			r := resource.New(ctx, resource.SagemakerEndpointConfig, epcArn.ResourceId, v.EndpointConfigName, v)
@@ -59,7 +54,7 @@ func (l AWSSagemakerEndpointConfig) List(ctx context.AWSetsCtx) (*resource.Group
 			}
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

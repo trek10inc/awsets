@@ -29,33 +29,34 @@ func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 
 	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
-	var nextToken *string
-	for {
-		devicedefs, err := svc.ListDeviceDefinitions(ctx.Context, &greengrass.ListDeviceDefinitionsInput{
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListDeviceDefinitions(ctx.Context, &greengrass.ListDeviceDefinitionsInput{
 			MaxResults: aws.String("100"),
-			NextToken:  nextToken,
+			NextToken:  nt,
 		})
 		if err != nil {
 			// greengrass errors are not of type awserr.Error
 			if strings.Contains(err.Error(), "TooManyRequestsException") {
 				// If greengrass is not supported in a region, returns "TooManyRequests exception"
-				return rg, nil
+				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list greengrass device definitions: %w", err)
 		}
-		for _, v := range devicedefs.Definitions {
+		for _, v := range res.Definitions {
 			r := resource.New(ctx, resource.GreengrassDeviceDefinition, v.Id, v.Name, v)
-			var ddNextToken *string
-			for {
-				deviceDefVersions, err := svc.ListDeviceDefinitionVersions(ctx.Context, &greengrass.ListDeviceDefinitionVersionsInput{
+
+			// Versions
+			err = Paginator(func(nt2 *string) (*string, error) {
+
+				versions, err := svc.ListDeviceDefinitionVersions(ctx.Context, &greengrass.ListDeviceDefinitionVersionsInput{
 					DeviceDefinitionId: v.Id,
 					MaxResults:         aws.String("100"),
-					NextToken:          ddNextToken,
+					NextToken:          nt2,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to list greengrass device definition versions for %s: %w", *v.Id, err)
 				}
-				for _, ddId := range deviceDefVersions.Versions {
+				for _, ddId := range versions.Versions {
 					dd, err := svc.GetDeviceDefinitionVersion(ctx.Context, &greengrass.GetDeviceDefinitionVersionInput{
 						DeviceDefinitionId:        ddId.Id,
 						DeviceDefinitionVersionId: ddId.Version,
@@ -69,17 +70,14 @@ func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 					r.AddRelation(resource.GreengrassDeviceDefinitionVersion, dd.Id, dd.Version)
 					rg.AddResource(ddRes)
 				}
-				if deviceDefVersions.NextToken == nil {
-					break
-				}
-				ddNextToken = deviceDefVersions.NextToken
+				return versions.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
 			}
 			rg.AddResource(r)
 		}
-		if devicedefs.NextToken == nil {
-			break
-		}
-		nextToken = devicedefs.NextToken
-	}
-	return rg, nil
+		return res.NextToken, nil
+	})
+	return rg, err
 }

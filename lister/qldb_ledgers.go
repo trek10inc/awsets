@@ -22,19 +22,20 @@ func (l AWSQLDBLedger) Types() []resource.ResourceType {
 func (l AWSQLDBLedger) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := qldb.NewFromConfig(ctx.AWSCfg)
 
-	res, err := svc.ListLedgers(ctx.Context, &qldb.ListLedgersInput{
-		MaxResults: aws.Int32(100),
-	})
-
 	rg := resource.NewGroup()
-	paginator := qldb.NewListLedgersPaginator(req)
-	for paginator.Next(ctx.Context) {
-		page := paginator.CurrentPage()
-		for _, v := range page.Ledgers {
+	err := Paginator(func(nt *string) (*string, error) {
+		res, err := svc.ListLedgers(ctx.Context, &qldb.ListLedgersInput{
+			MaxResults: aws.Int32(100),
+			NextToken:  nt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Ledgers {
 			r := resource.New(ctx, resource.QLDBLedger, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-	}
-	err := paginator.Err()
+		return res.NextToken, nil
+	})
 	return rg, err
 }

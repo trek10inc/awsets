@@ -3,12 +3,10 @@ package lister
 import (
 	"sync"
 
-	"github.com/trek10inc/awsets/context"
-
-	"github.com/trek10inc/awsets/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/resource"
 )
 
 var listIAMRolesOnce sync.Once
@@ -32,19 +30,20 @@ func (l AWSIamRole) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	var outerErr error
 
 	listIAMRolesOnce.Do(func() {
-		res, err := svc.ListRoles(ctx.Context, &iam.ListRolesInput{
-			MaxItems: aws.Int32(100),
-		})
-
-		paginator := iam.NewListRolesPaginator(req)
-		for paginator.Next(ctx.Context) {
-			page := paginator.CurrentPage()
-			for _, role := range page.Roles {
+		outerErr = Paginator(func(nt *string) (*string, error) {
+			res, err := svc.ListRoles(ctx.Context, &iam.ListRolesInput{
+				MaxItems: aws.Int32(100),
+				Marker:   nt,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, role := range res.Roles {
 				r := resource.NewGlobal(ctx, resource.IamRole, role.RoleName, role.RoleName, role)
 				rg.AddResource(r)
 			}
-		}
-		outerErr = paginator.Err()
+			return res.Marker, nil
+		})
 	})
 
 	return rg, outerErr
