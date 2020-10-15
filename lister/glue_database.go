@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/glue"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSGlueDatabase) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := glue.NewFromConfig(ctx.AWSCfg)
+func (l AWSGlueDatabase) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := glue.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetDatabases(ctx.Context, &glue.GetDatabasesInput{
+		res, err := svc.GetDatabases(cfg.Context, &glue.GetDatabasesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,11 +37,11 @@ func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, v := range res.DatabaseList {
-			r := resource.New(ctx, resource.GlueDatabase, v.Name, v.Name, v)
+			r := resource.New(cfg, resource.GlueDatabase, v.Name, v.Name, v)
 
 			// Glue Tables
 			err = Paginator(func(nt2 *string) (*string, error) {
-				tables, err := svc.GetTables(ctx.Context, &glue.GetTablesInput{
+				tables, err := svc.GetTables(cfg.Context, &glue.GetTablesInput{
 					DatabaseName: v.Name,
 					MaxResults:   aws.Int32(100),
 					NextToken:    nt2,
@@ -50,7 +50,7 @@ func (l AWSGlueDatabase) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					return nil, fmt.Errorf("failed to list tables for database %s: %w", *v.Name, err)
 				}
 				for _, table := range tables.TableList {
-					tableR := resource.New(ctx, resource.GlueTable, makeGlueTableId(v.Name, table.Name), table.Name, table)
+					tableR := resource.New(cfg, resource.GlueTable, makeGlueTableId(v.Name, table.Name), table.Name, table)
 					tableR.AddRelation(resource.GlueDatabase, v.Name, "")
 					rg.AddResource(tableR)
 				}

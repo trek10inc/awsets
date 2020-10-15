@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/athena"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,13 +21,13 @@ func (l AWSAthenaWorkGroup) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AthenaWorkGroup, resource.AthenaNamedQuery}
 }
 
-func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := athena.NewFromConfig(ctx.AWSCfg)
+func (l AWSAthenaWorkGroup) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := athena.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListWorkGroups(ctx.Context, &athena.ListWorkGroupsInput{
+		res, err := svc.ListWorkGroups(cfg.Context, &athena.ListWorkGroupsInput{
 			MaxResults: aws.Int32(50),
 			NextToken:  nt,
 		})
@@ -35,10 +35,10 @@ func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 			return nil, err
 		}
 		for _, wg := range res.WorkGroups {
-			r := resource.New(ctx, resource.AthenaWorkGroup, wg.Name, wg.Name, wg)
+			r := resource.New(cfg, resource.AthenaWorkGroup, wg.Name, wg.Name, wg)
 
 			err = Paginator(func(nt2 *string) (*string, error) {
-				nqRes, err := svc.ListNamedQueries(ctx.Context, &athena.ListNamedQueriesInput{
+				nqRes, err := svc.ListNamedQueries(cfg.Context, &athena.ListNamedQueriesInput{
 					MaxResults: aws.Int32(50),
 					WorkGroup:  wg.Name,
 				})
@@ -46,14 +46,14 @@ func (l AWSAthenaWorkGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 					return nil, fmt.Errorf("failed to list named querys for workgroup %s: %w", *wg.Name, err)
 				}
 				for _, id := range nqRes.NamedQueryIds {
-					query, err := svc.GetNamedQuery(ctx.Context, &athena.GetNamedQueryInput{
+					query, err := svc.GetNamedQuery(cfg.Context, &athena.GetNamedQueryInput{
 						NamedQueryId: id,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to get named query %s: %w", *id, err)
 					}
 					if v := query.NamedQuery; v != nil {
-						nqR := resource.New(ctx, resource.AthenaNamedQuery, v.NamedQueryId, v.Name, v)
+						nqR := resource.New(cfg, resource.AthenaNamedQuery, v.NamedQueryId, v.Name, v)
 						nqR.AddRelation(resource.AthenaWorkGroup, wg.Name, "")
 						rg.AddResource(nqR)
 					}

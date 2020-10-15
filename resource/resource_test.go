@@ -21,7 +21,7 @@ func Test_NewResourceWithTags(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
 	if r.Region != "us-east-1" {
 		t.Fatalf("expected us-east-1, got %s\n", r.Region)
 	}
@@ -46,7 +46,7 @@ func Test_NewResourceWithoutTags(t *testing.T) {
 	object := map[string]interface{}{
 		"Foo": "Bar",
 	}
-	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
 	if len(r.Tags) != 0 {
 		t.Fatalf("expected zero tags\n")
 	}
@@ -69,7 +69,7 @@ func Test_NewGlobalResource(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := NewGlobal(ctx, IamRole, "resource_id", "resource_name", object)
+	r := NewGlobal(cfg, IamRole, "resource_id", "resource_name", object)
 	if r.Region != "aws-global" {
 		t.Fatalf("expected aws-global, got %s", r.Region)
 	}
@@ -89,7 +89,7 @@ func Test_NewResourceVersion(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := NewVersion(ctx, IamRole, "resource_id", "resource_name", "v1", object)
+	r := NewVersion(cfg, IamRole, "resource_id", "resource_name", "v1", object)
 	if r.Version != "v1" {
 		t.Fatalf("expected v1, got %s\n", r.Version)
 	}
@@ -108,7 +108,7 @@ func Test_ResourceAddRelation(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
 	r.AddRelation(IamRole, "role1", "role1")
 	r.AddARNRelation(IamRole, "arn:aws:iam::123456789:role/role2")
 
@@ -174,9 +174,9 @@ func Test_JSON(t *testing.T) {
 	rg.AddResource(r1)
 	r2 := New(ctxUsEast2, Ec2Image, "resource 2", "resource_2", object)
 	rg.AddResource(r2)
-	r3 := NewVersion(ctxUsEast1, Ec2Instance, "resource 3", "resource_3", "2", object)
+	r3 := NewVersion(cfgUsEast1, Ec2Instance, "resource 3", "resource_3", "2", object)
 	rg.AddResource(r3)
-	r4 := NewVersion(ctxUsEast1, Ec2Instance, "resource 4", "resource_4", "2", object)
+	r4 := NewVersion(cfgUsEast1, Ec2Instance, "resource 4", "resource_4", "2", object)
 	rg.AddResource(r4)
 
 	jsonStr, err := rg.JSON()

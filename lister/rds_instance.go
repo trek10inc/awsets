@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,12 +20,12 @@ func (l AWSRdsDbInstance) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.RdsDbInstance}
 }
 
-func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.NewFromConfig(ctx.AWSCfg)
+func (l AWSRdsDbInstance) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := rds.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBInstances(ctx.Context, &rds.DescribeDBInstancesInput{
+		res, err := svc.DescribeDBInstances(cfg.Context, &rds.DescribeDBInstancesInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, dbInstance := range res.DBInstances {
 			dbArn := arn.ParseP(dbInstance.DBInstanceArn)
-			r := resource.New(ctx, resource.RdsDbInstance, dbArn.ResourceId, "", dbInstance)
+			r := resource.New(cfg, resource.RdsDbInstance, dbArn.ResourceId, "", dbInstance)
 			for _, pgroup := range dbInstance.DBParameterGroups {
 				r.AddRelation(resource.RdsDbParameterGroup, pgroup.DBParameterGroupName, "")
 			}

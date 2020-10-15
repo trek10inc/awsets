@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,11 +21,11 @@ func (l AWSWafRegionalRateBasedRule) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.WafRegionalRateBasedRule}
 }
 
-func (l AWSWafRegionalRateBasedRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := wafregional.NewFromConfig(ctx.AWSCfg)
+func (l AWSWafRegionalRateBasedRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := wafregional.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListRateBasedRules(ctx.Context, &wafregional.ListRateBasedRulesInput{
+		res, err := svc.ListRateBasedRules(cfg.Context, &wafregional.ListRateBasedRulesInput{
 			Limit:      aws.Int32(100),
 			NextMarker: nt,
 		})
@@ -33,14 +33,14 @@ func (l AWSWafRegionalRateBasedRule) List(ctx context.AWSetsCtx) (*resource.Grou
 			return nil, fmt.Errorf("failed to list regional rate based rule: %w", err)
 		}
 		for _, id := range res.Rules {
-			rule, err := svc.GetRateBasedRule(ctx.Context, &wafregional.GetRateBasedRuleInput{
+			rule, err := svc.GetRateBasedRule(cfg.Context, &wafregional.GetRateBasedRuleInput{
 				RuleId: id.RuleId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get rate based rule %s: %w", *id.RuleId, err)
 			}
 			if v := rule.Rule; v != nil {
-				r := resource.New(ctx, resource.WafRegionalRateBasedRule, v.RuleId, v.Name, v)
+				r := resource.New(cfg, resource.WafRegionalRateBasedRule, v.RuleId, v.Name, v)
 				rg.AddResource(r)
 			}
 		}

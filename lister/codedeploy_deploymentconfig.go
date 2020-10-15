@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/codedeploy"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,19 +22,19 @@ func (l AWSCodeDeployDeploymentConfig) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCodeDeployDeploymentConfig) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := codedeploy.NewFromConfig(ctx.AWSCfg)
+func (l AWSCodeDeployDeploymentConfig) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := codedeploy.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListDeploymentConfigs(ctx.Context, &codedeploy.ListDeploymentConfigsInput{
+		res, err := svc.ListDeploymentConfigs(cfg.Context, &codedeploy.ListDeploymentConfigsInput{
 			NextToken: nt,
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, config := range res.DeploymentConfigsList {
-			configRes, err := svc.GetDeploymentConfig(ctx.Context, &codedeploy.GetDeploymentConfigInput{
+			configRes, err := svc.GetDeploymentConfig(cfg.Context, &codedeploy.GetDeploymentConfigInput{
 				DeploymentConfigName: config,
 			})
 			if err != nil {
@@ -44,7 +44,7 @@ func (l AWSCodeDeployDeploymentConfig) List(ctx context.AWSetsCtx) (*resource.Gr
 			if v == nil {
 				continue
 			}
-			r := resource.New(ctx, resource.CodeDeployDeploymentConfig, v.DeploymentConfigId, v.DeploymentConfigName, v)
+			r := resource.New(cfg, resource.CodeDeployDeploymentConfig, v.DeploymentConfigId, v.DeploymentConfigName, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

@@ -1,4 +1,4 @@
-package context
+package option
 
 import (
 	"fmt"
@@ -9,6 +9,21 @@ type Logger interface {
 	Errorf(format string, a ...interface{})
 	Infof(format string, a ...interface{})
 	Debugf(format string, a ...interface{})
+}
+
+type NoOpLogger struct {
+}
+
+func (l NoOpLogger) Errorf(format string, a ...interface{}) {
+	// no op
+}
+
+func (l NoOpLogger) Infof(format string, a ...interface{}) {
+	// no op
+}
+
+func (l NoOpLogger) Debugf(format string, a ...interface{}) {
+	// no op
 }
 
 type DefaultLogger struct {

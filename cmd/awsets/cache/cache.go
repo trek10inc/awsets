@@ -19,7 +19,7 @@ type BoltCache struct {
 	refresh bool
 }
 
-func NewBoltCache(account string, refresh bool) (*BoltCache, error) {
+func NewBoltCache(refresh bool) (*BoltCache, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w\n", err)
@@ -28,18 +28,25 @@ func NewBoltCache(account string, refresh bool) (*BoltCache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open cache: %w\n", err)
 	}
-	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err = tx.CreateBucketIfNotExists([]byte(account))
+	return &BoltCache{
+		db:      db,
+		refresh: refresh,
+	}, err
+}
+
+func (c *BoltCache) Initialize(accountId string) error {
+	c.account = accountId
+	err := c.db.Update(func(tx *bbolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(c.account))
 		if err != nil {
 			return fmt.Errorf("failed to create or get bucket: %w\n", err)
 		}
 		return nil
 	})
-	return &BoltCache{
-		db:      db,
-		account: account,
-		refresh: refresh,
-	}, err
+	if err != nil {
+		return fmt.Errorf("failed to initialize cache: %w", err)
+	}
+	return nil
 }
 
 func (c *BoltCache) IsCached(region string, kind awsets.ListerName) bool {

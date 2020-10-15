@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,9 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/trek10inc/awsets"
+	"github.com/trek10inc/awsets/option"
+
 	"github.com/trek10inc/awsets/cmd/awsets/cache"
-	context2 "github.com/trek10inc/awsets/context"
+
+	"github.com/trek10inc/awsets"
 	"github.com/urfave/cli/v2"
 )
 
@@ -70,17 +71,11 @@ var listCmd = &cli.Command{
 		if err != nil {
 			log.Fatalf("failed to load aws config: %v\n", err)
 		}
-		var logger context2.Logger
-		if c.Bool("verbose") {
-			logger = VerboseLogger{}
-		} else {
-			logger = context2.DefaultLogger{}
-		}
 
-		ctx, err := context2.New(awscfg, context.Background(), logger)
-		if err != nil {
-			return fmt.Errorf("failed to initialize AWSets: %w", err)
-		}
+		//ctx, err := context2.New(awscfg, context.Background(), logger)
+		//if err != nil {
+		//	return fmt.Errorf("failed to initialize AWSets: %w", err)
+		//}
 
 		listers := awsets.Listers(strings.Split(c.String("include"), ","), strings.Split(c.String("exclude"), ","))
 
@@ -107,12 +102,22 @@ var listCmd = &cli.Command{
 			fmt.Printf("querying %d combinations\n", len(regions)*len(listers))
 		}
 
-		bc, err := cache.NewBoltCache(ctx.AccountId, c.Bool("refresh"))
+		bc, err := cache.NewBoltCache(c.Bool("refresh"))
 		if err != nil {
 			log.Fatalf("failed to open cache: %v", err)
 		}
 
-		rg := awsets.List(ctx, regions, listers, bc)
+		var logger option.Logger
+		if c.Bool("verbose") {
+			logger = VerboseLogger{}
+		} else {
+			logger = option.DefaultLogger{}
+		}
+
+		rg, err := awsets.List(awscfg, regions, listers, bc, option.WithLogger(logger))
+		if err != nil {
+			return fmt.Errorf("failed to list resources: %w", err)
+		}
 
 		j, err := rg.JSON()
 		if err != nil {

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/fatih/structs"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -27,26 +27,26 @@ func (l AWSS3Bucket) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.S3Bucket}
 }
 
-func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSS3Bucket) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := s3.NewFromConfig(ctx.AWSCfg)
+	svc := s3.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	var outerErr error
 	listBucketsOnce.Do(func() {
 
-		res, err := svc.ListBuckets(ctx.Context, &s3.ListBucketsInput{})
+		res, err := svc.ListBuckets(cfg.Context, &s3.ListBucketsInput{})
 		if err != nil {
-			outerErr = fmt.Errorf("failed to query buckets from %s: %w", ctx.Region(), err)
+			outerErr = fmt.Errorf("failed to query buckets from %s: %w", cfg.Region(), err)
 			return
 		}
 		for i, bucket := range res.Buckets {
-			bucketLocation, err := svc.GetBucketLocation(ctx.Context, &s3.GetBucketLocationInput{Bucket: bucket.Name})
+			bucketLocation, err := svc.GetBucketLocation(cfg.Context, &s3.GetBucketLocationInput{Bucket: bucket.Name})
 			if err != nil {
-				ctx.Logger.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
+				cfg.Logger.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, cfg.Region(), err)
 				continue
-				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, ctx.Region(), err)
+				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, cfg.Region(), err)
 				//return
 			}
 			reg := string(bucketLocation.LocationConstraint)
@@ -60,10 +60,10 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		return rg, outerErr
 	}
 
-	for _, bucket := range bucketsByRegion[ctx.Region()] {
-		//fmt.Printf("processing bucket %s in region %s\n", *bucket.Name, ctx.Region())
+	for _, bucket := range bucketsByRegion[cfg.Region()] {
+		//fmt.Printf("processing bucket %s in region %s\n", *bucket.Name, cfg.Region())
 		buck := structs.Map(bucket)
-		lifecycleRes, err := svc.GetBucketLifecycleConfiguration(ctx.Context, &s3.GetBucketLifecycleConfigurationInput{
+		lifecycleRes, err := svc.GetBucketLifecycleConfiguration(cfg.Context, &s3.GetBucketLifecycleConfigurationInput{
 			Bucket: bucket.Name,
 		})
 		if err == nil {
@@ -72,11 +72,11 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			buck["Lifecycle"] = nil
 		}
 
-		//websiteRes, err := svc.GetBucketWebsite(ctx.Context, &s3.GetBucketWebsiteInput{
+		//websiteRes, err := svc.GetBucketWebsite(cfg.Context, &s3.GetBucketWebsiteInput{
 		//	Bucket: bucket.Name,
 		//})
 
-		policyRes, err := svc.GetBucketPolicy(ctx.Context, &s3.GetBucketPolicyInput{
+		policyRes, err := svc.GetBucketPolicy(cfg.Context, &s3.GetBucketPolicyInput{
 			Bucket: bucket.Name,
 		})
 		if err == nil {
@@ -85,7 +85,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			buck["Policy"] = nil
 		}
 
-		encrRes, err := svc.GetBucketEncryption(ctx.Context, &s3.GetBucketEncryptionInput{
+		encrRes, err := svc.GetBucketEncryption(cfg.Context, &s3.GetBucketEncryptionInput{
 			Bucket: bucket.Name,
 		})
 		if err == nil {
@@ -94,7 +94,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			buck["Encryption"] = nil
 		}
 
-		tagRes, err := svc.GetBucketTagging(ctx.Context, &s3.GetBucketTaggingInput{
+		tagRes, err := svc.GetBucketTagging(cfg.Context, &s3.GetBucketTaggingInput{
 			Bucket: bucket.Name,
 		})
 		if err == nil {
@@ -104,7 +104,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			buck["Tags"] = nil
 		}
 
-		r := resource.New(ctx, resource.S3Bucket, bucket.Name, bucket.Name, buck)
+		r := resource.New(cfg, resource.S3Bucket, bucket.Name, bucket.Name, buck)
 
 		rg.AddResource(r)
 	}

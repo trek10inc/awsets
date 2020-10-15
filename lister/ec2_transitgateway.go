@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSEc2TransitGateway) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Ec2TransitGateway}
 }
 
-func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(ctx.AWSCfg)
+func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeTransitGateways(ctx.Context, &ec2.DescribeTransitGatewaysInput{
+		res, err := svc.DescribeTransitGateways(cfg.Context, &ec2.DescribeTransitGatewaysInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -38,7 +38,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			return nil, err
 		}
 		for _, v := range res.TransitGateways {
-			r := resource.New(ctx, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
+			r := resource.New(cfg, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
 			// TODO lots of additional info to query here
 			rg.AddResource(r)
 		}

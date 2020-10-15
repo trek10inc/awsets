@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSEc2LaunchTemplate) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Ec2LaunchTemplate}
 }
 
-func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(ctx.AWSCfg)
+func (l AWSEc2LaunchTemplate) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeLaunchTemplates(ctx.Context, &ec2.DescribeLaunchTemplatesInput{
+		res, err := svc.DescribeLaunchTemplates(cfg.Context, &ec2.DescribeLaunchTemplatesInput{
 			MaxResults: aws.Int32(200),
 			NextToken:  nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			return nil, err
 		}
 		for _, v := range res.LaunchTemplates {
-			launchTemplates, err := svc.DescribeLaunchTemplateVersions(ctx.Context, &ec2.DescribeLaunchTemplateVersionsInput{
+			launchTemplates, err := svc.DescribeLaunchTemplateVersions(cfg.Context, &ec2.DescribeLaunchTemplateVersionsInput{
 				LaunchTemplateId: v.LaunchTemplateId,
 				Versions:         []*string{aws.String(fmt.Sprintf("%d", *v.LatestVersionNumber))},
 			})
@@ -42,7 +42,7 @@ func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				return nil, fmt.Errorf("failed to describe launch template version for %s: %w", *v.LaunchTemplateName, err)
 			}
 			for _, lt := range launchTemplates.LaunchTemplateVersions {
-				r := resource.New(ctx, resource.Ec2LaunchTemplate, lt.LaunchTemplateId, lt.LaunchTemplateName, lt)
+				r := resource.New(cfg, resource.Ec2LaunchTemplate, lt.LaunchTemplateId, lt.LaunchTemplateName, lt)
 				if data := lt.LaunchTemplateData; data != nil {
 					//r.AddRelation(resource.Ec2Im)data.ImageId
 					for _, ni := range data.NetworkInterfaces {

@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/glue"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSGlueCrawler) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGlueCrawler) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := glue.NewFromConfig(ctx.AWSCfg)
+func (l AWSGlueCrawler) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := glue.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetCrawlers(ctx.Context, &glue.GetCrawlersInput{
+		res, err := svc.GetCrawlers(cfg.Context, &glue.GetCrawlersInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSGlueCrawler) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, v := range res.Crawlers {
-			r := resource.NewVersion(ctx, resource.GlueCrawler, v.Name, v.Name, v.Version, v)
+			r := resource.NewVersion(cfg, resource.GlueCrawler, v.Name, v.Name, v.Version, v)
 			r.AddARNRelation(resource.IamRole, v.Role)
 			r.AddRelation(resource.GlueDatabase, v.DatabaseName, "")
 			// TODO: review relationships to s3, ddb, jdbc

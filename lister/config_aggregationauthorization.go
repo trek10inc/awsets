@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,13 +21,13 @@ func (l AWSConfigAggregationAuthorization) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ConfigAggregationAuthorization}
 }
 
-func (l AWSConfigAggregationAuthorization) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSConfigAggregationAuthorization) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := configservice.NewFromConfig(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeAggregationAuthorizations(ctx.Context, &configservice.DescribeAggregationAuthorizationsInput{
+		res, err := svc.DescribeAggregationAuthorizations(cfg.Context, &configservice.DescribeAggregationAuthorizationsInput{
 			Limit:     aws.Int32(100),
 			NextToken: nt,
 		})
@@ -35,7 +35,7 @@ func (l AWSConfigAggregationAuthorization) List(ctx context.AWSetsCtx) (*resourc
 			return nil, fmt.Errorf("failed to list config aggregation authorizations: %w", err)
 		}
 		for _, v := range res.AggregationAuthorizations {
-			r := resource.New(ctx, resource.ConfigAggregationAuthorization, v.AuthorizedAccountId, v.AuthorizedAccountId, v)
+			r := resource.New(cfg, resource.ConfigAggregationAuthorization, v.AuthorizedAccountId, v.AuthorizedAccountId, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

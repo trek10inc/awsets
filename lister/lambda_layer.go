@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSLambdaLayerVersion) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.LambdaLayer, resource.LambdaLayerVersion}
 }
 
-func (l AWSLambdaLayerVersion) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := lambda.NewFromConfig(ctx.AWSCfg)
+func (l AWSLambdaLayerVersion) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := lambda.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListLayers(ctx.Context, &lambda.ListLayersInput{
+		res, err := svc.ListLayers(cfg.Context, &lambda.ListLayersInput{
 			MaxItems: aws.Int32(50),
 			Marker:   nt,
 		})
@@ -37,12 +37,12 @@ func (l AWSLambdaLayerVersion) List(ctx context.AWSetsCtx) (*resource.Group, err
 		for _, layer := range res.Layers {
 			layerArn := arn.ParseP(layer.LayerArn)
 
-			r := resource.New(ctx, resource.LambdaLayer, layerArn.ResourceId, layer.LayerName, layer)
+			r := resource.New(cfg, resource.LambdaLayer, layerArn.ResourceId, layer.LayerName, layer)
 			rg.AddResource(r)
 
 			// Layer Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				versions, err := svc.ListLayerVersions(ctx.Context, &lambda.ListLayerVersionsInput{
+				versions, err := svc.ListLayerVersions(cfg.Context, &lambda.ListLayerVersionsInput{
 					LayerName: layer.LayerArn,
 					MaxItems:  aws.Int32(50),
 					Marker:    nt2,
@@ -52,7 +52,7 @@ func (l AWSLambdaLayerVersion) List(ctx context.AWSetsCtx) (*resource.Group, err
 				}
 				for _, lv := range versions.LayerVersions {
 					lvArn := arn.ParseP(lv.LayerVersionArn)
-					lvr := resource.New(ctx, resource.LambdaLayerVersion, lvArn.ResourceId, lvArn.ResourceVersion, lv)
+					lvr := resource.New(cfg, resource.LambdaLayerVersion, lvArn.ResourceId, lvArn.ResourceVersion, lv)
 					lvr.AddRelation(resource.LambdaLayer, layerArn.ResourceId, "")
 					rg.AddResource(lvr)
 				}

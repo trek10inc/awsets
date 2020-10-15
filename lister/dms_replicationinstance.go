@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSDMSReplicationInstance) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.DMSReplicationInstance}
 }
 
-func (l AWSDMSReplicationInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := databasemigrationservice.NewFromConfig(ctx.AWSCfg)
+func (l AWSDMSReplicationInstance) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := databasemigrationservice.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeReplicationInstances(ctx.Context, &databasemigrationservice.DescribeReplicationInstancesInput{
+		res, err := svc.DescribeReplicationInstances(cfg.Context, &databasemigrationservice.DescribeReplicationInstancesInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -38,7 +38,7 @@ func (l AWSDMSReplicationInstance) List(ctx context.AWSetsCtx) (*resource.Group,
 			return nil, err
 		}
 		for _, v := range res.ReplicationInstances {
-			r := resource.New(ctx, resource.DMSReplicationInstance, v.ReplicationInstanceIdentifier, v.ReplicationInstanceIdentifier, v)
+			r := resource.New(cfg, resource.DMSReplicationInstance, v.ReplicationInstanceIdentifier, v.ReplicationInstanceIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.DMSReplicationSubnetGroup, v.ReplicationSubnetGroup, "")
 			for _, sg := range v.VpcSecurityGroups {

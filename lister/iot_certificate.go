@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iot"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSIoTCertificate) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.IoTCertificate}
 }
 
-func (l AWSIoTCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSIoTCertificate) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := iot.NewFromConfig(ctx.AWSCfg)
+	svc := iot.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListCertificates(ctx.Context, &iot.ListCertificatesInput{
+		res, err := svc.ListCertificates(cfg.Context, &iot.ListCertificatesInput{
 			PageSize: aws.Int32(100),
 			Marker:   nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSIoTCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			return nil, fmt.Errorf("failed to list iot certificates: %w", err)
 		}
 		for _, cert := range res.Certificates {
-			r := resource.New(ctx, resource.IoTCertificate, cert.CertificateId, cert.CertificateId, cert)
+			r := resource.New(cfg, resource.IoTCertificate, cert.CertificateId, cert.CertificateId, cert)
 			rg.AddResource(r)
 		}
 		return res.NextMarker, nil

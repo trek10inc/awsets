@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iot"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSIoTThingType) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.IoTThingType}
 }
 
-func (l AWSIoTThingType) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSIoTThingType) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := iot.NewFromConfig(ctx.AWSCfg)
+	svc := iot.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListThingTypes(ctx.Context, &iot.ListThingTypesInput{
+		res, err := svc.ListThingTypes(cfg.Context, &iot.ListThingTypesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -36,7 +36,7 @@ func (l AWSIoTThingType) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, thingType := range res.ThingTypes {
 			ttArn := arn.ParseP(thingType.ThingTypeArn)
-			r := resource.New(ctx, resource.IoTThingType, ttArn.ResourceId, thingType.ThingTypeName, thingType)
+			r := resource.New(cfg, resource.IoTThingType, ttArn.ResourceId, thingType.ThingTypeName, thingType)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

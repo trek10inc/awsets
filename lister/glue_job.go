@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/glue"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSGlueJob) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := glue.NewFromConfig(ctx.AWSCfg)
+func (l AWSGlueJob) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := glue.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetJobs(ctx.Context, &glue.GetJobsInput{
+		res, err := svc.GetJobs(cfg.Context, &glue.GetJobsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -38,7 +38,7 @@ func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, v := range res.Jobs {
 
-			r := resource.New(ctx, resource.GlueJob, v.Name, v.Name, v)
+			r := resource.New(cfg, resource.GlueJob, v.Name, v.Name, v)
 			r.AddARNRelation(resource.IamRole, v.Role)
 			if v.Connections != nil {
 				for _, c := range v.Connections.Connections {
@@ -48,7 +48,7 @@ func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			// Triggers
 			err = Paginator(func(nt2 *string) (*string, error) {
-				triggers, err := svc.GetTriggers(ctx.Context, &glue.GetTriggersInput{
+				triggers, err := svc.GetTriggers(cfg.Context, &glue.GetTriggersInput{
 					DependentJobName: v.Name,
 					MaxResults:       aws.Int32(50),
 					NextToken:        nt2,
@@ -57,7 +57,7 @@ func (l AWSGlueJob) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 					return nil, fmt.Errorf("failed to get triggers for job %s: %w", *v.Name, err)
 				}
 				for _, t := range triggers.Triggers {
-					tRes := resource.New(ctx, resource.GlueTrigger, t.Id, t.Name, t)
+					tRes := resource.New(cfg, resource.GlueTrigger, t.Id, t.Name, t)
 					tRes.AddRelation(resource.GlueJob, v.Name, "")
 					tRes.AddRelation(resource.GlueWorkflow, t.WorkflowName, "")
 					rg.AddResource(tRes)

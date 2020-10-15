@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSLambdaFunction) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.LambdaFunction, resource.LambdaVersion, resource.LambdaAlias, resource.LambdaEventSourceMapping}
 }
 
-func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := lambda.NewFromConfig(ctx.AWSCfg)
+func (l AWSLambdaFunction) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := lambda.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListFunctions(ctx.Context, &lambda.ListFunctionsInput{
+		res, err := svc.ListFunctions(cfg.Context, &lambda.ListFunctionsInput{
 			MaxItems: aws.Int32(100),
 			Marker:   nt,
 			// MasterRegion: TODO: maybe stringset this?
@@ -39,7 +39,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 		for _, function := range res.Functions {
 			fxnArn := arn.ParseP(function.FunctionArn)
-			r := resource.New(ctx, resource.LambdaFunction, fxnArn.ResourceId, function.Version, function)
+			r := resource.New(cfg, resource.LambdaFunction, fxnArn.ResourceId, function.Version, function)
 			r.AddARNRelation(resource.KmsKey, function.KMSKeyArn)
 
 			if function.VpcConfig != nil {
@@ -60,7 +60,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 			// Event Source Mapping
 			err = Paginator(func(nt2 *string) (*string, error) {
-				sources, err := svc.ListEventSourceMappings(ctx.Context, &lambda.ListEventSourceMappingsInput{
+				sources, err := svc.ListEventSourceMappings(cfg.Context, &lambda.ListEventSourceMappingsInput{
 					FunctionName: function.FunctionArn,
 					MaxItems:     aws.Int32(100),
 					Marker:       nt2,
@@ -69,7 +69,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 					return nil, fmt.Errorf("failed to list event source mappings for %s: %w", *function.FunctionName, err)
 				}
 				for _, esm := range sources.EventSourceMappings {
-					esmr := resource.New(ctx, resource.LambdaEventSourceMapping, esm.UUID, esm.UUID, esm)
+					esmr := resource.New(cfg, resource.LambdaEventSourceMapping, esm.UUID, esm.UUID, esm)
 					esmr.AddRelation(resource.LambdaFunction, fxnArn.ResourceId, function.Version)
 					rg.AddResource(esmr)
 					r.AddRelation(resource.LambdaEventSourceMapping, esm.UUID, "")
@@ -84,7 +84,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 			eics := make([]*types.FunctionEventInvokeConfig, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
-				configs, err := svc.ListFunctionEventInvokeConfigs(ctx.Context, &lambda.ListFunctionEventInvokeConfigsInput{
+				configs, err := svc.ListFunctionEventInvokeConfigs(cfg.Context, &lambda.ListFunctionEventInvokeConfigsInput{
 					FunctionName: function.FunctionArn,
 					MaxItems:     aws.Int32(50),
 				})
@@ -105,7 +105,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 			// Function Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				versions, err := svc.ListVersionsByFunction(ctx.Context, &lambda.ListVersionsByFunctionInput{
+				versions, err := svc.ListVersionsByFunction(cfg.Context, &lambda.ListVersionsByFunctionInput{
 					FunctionName: function.FunctionArn,
 					MaxItems:     aws.Int32(100),
 					Marker:       nt2,
@@ -116,13 +116,13 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 				for _, fv := range versions.Versions {
 					fvArn := arn.ParseP(fv.FunctionArn)
-					fvr := resource.New(ctx, resource.LambdaVersion, fvArn.ResourceId, fvArn.ResourceVersion, fv)
+					fvr := resource.New(cfg, resource.LambdaVersion, fvArn.ResourceId, fvArn.ResourceVersion, fv)
 					fvr.AddRelation(resource.LambdaFunction, fxnArn.ResourceId, "")
 					rg.AddResource(fvr)
 
 					// Function Aliases
 					err = Paginator(func(nt3 *string) (*string, error) {
-						aliases, err := svc.ListAliases(ctx.Context, &lambda.ListAliasesInput{
+						aliases, err := svc.ListAliases(cfg.Context, &lambda.ListAliasesInput{
 							FunctionName:    fv.FunctionName,
 							FunctionVersion: fv.Version,
 							MaxItems:        aws.Int32(100),
@@ -133,7 +133,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 						}
 						for _, alias := range aliases.Aliases {
 							aliasArn := arn.ParseP(alias.AliasArn)
-							aliasRes := resource.New(ctx, resource.LambdaAlias, aliasArn.ResourceId, alias.Name, alias)
+							aliasRes := resource.New(cfg, resource.LambdaAlias, aliasArn.ResourceId, alias.Name, alias)
 							aliasRes.AddRelation(resource.LambdaVersion, fvArn.ResourceId, fv.Version)
 							rg.AddResource(aliasRes)
 						}

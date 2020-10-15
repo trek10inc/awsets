@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSRdsDbSnapshot) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.RDSDbSnapshot}
 }
 
-func (l AWSRdsDbSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := rds.NewFromConfig(ctx.AWSCfg)
+func (l AWSRdsDbSnapshot) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := rds.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBSnapshots(ctx.Context, &rds.DescribeDBSnapshotsInput{
+		res, err := svc.DescribeDBSnapshots(cfg.Context, &rds.DescribeDBSnapshotsInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSRdsDbSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, v := range res.DBSnapshots {
-			r := resource.New(ctx, resource.RDSDbSnapshot, v.DBSnapshotIdentifier, v.DBSnapshotIdentifier, v)
+			r := resource.New(cfg, resource.RDSDbSnapshot, v.DBSnapshotIdentifier, v.DBSnapshotIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.RdsDbInstance, v.DBInstanceIdentifier, "")
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")

@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -28,13 +28,13 @@ func (l AWSEcsCluster) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ecs.NewFromConfig(ctx.AWSCfg)
+func (l AWSEcsCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := ecs.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListClusters(ctx.Context, &ecs.ListClustersInput{
+		res, err := svc.ListClusters(cfg.Context, &ecs.ListClustersInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -44,7 +44,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		if len(res.ClusterArns) == 0 {
 			return nil, nil
 		}
-		clusters, err := svc.DescribeClusters(ctx.Context, &ecs.DescribeClustersInput{
+		clusters, err := svc.DescribeClusters(cfg.Context, &ecs.DescribeClustersInput{
 			Clusters: res.ClusterArns,
 			Include: []types.ClusterField{
 				types.ClusterFieldAttachments,
@@ -58,12 +58,12 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, v := range clusters.Clusters {
 			clusterArn := arn.ParseP(v.ClusterArn)
-			clusterResource := resource.New(ctx, resource.EcsCluster, clusterArn.ResourceId, v.ClusterName, v)
+			clusterResource := resource.New(cfg, resource.EcsCluster, clusterArn.ResourceId, v.ClusterName, v)
 			rg.AddResource(clusterResource)
 
 			// ECS Services
 			err = Paginator(func(nt2 *string) (*string, error) {
-				services, err := svc.ListServices(ctx.Context, &ecs.ListServicesInput{
+				services, err := svc.ListServices(cfg.Context, &ecs.ListServicesInput{
 					Cluster:    v.ClusterArn,
 					MaxResults: aws.Int32(10),
 					NextToken:  nt2,
@@ -74,7 +74,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				if len(services.ServiceArns) == 0 {
 					return nil, nil
 				}
-				describeServices, err := svc.DescribeServices(ctx.Context, &ecs.DescribeServicesInput{
+				describeServices, err := svc.DescribeServices(cfg.Context, &ecs.DescribeServicesInput{
 					Cluster:  v.ClusterArn,
 					Include:  []types.ServiceField{types.ServiceFieldTags},
 					Services: services.ServiceArns,
@@ -85,7 +85,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				for _, service := range describeServices.Services {
 
 					serviceArn := arn.ParseP(service.ServiceArn)
-					serviceResource := resource.New(ctx, resource.EcsService, serviceArn.ResourceId, service.ServiceName, service)
+					serviceResource := resource.New(cfg, resource.EcsService, serviceArn.ResourceId, service.ServiceName, service)
 					serviceResource.AddARNRelation(resource.EcsCluster, v.ClusterArn)
 					serviceResource.AddARNRelation(resource.IamRole, service.RoleArn)
 					serviceResource.AddARNRelation(resource.EcsTaskDefinition, service.TaskDefinition)
@@ -104,7 +104,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			// ECS Tasks
 			err = Paginator(func(nt2 *string) (*string, error) {
-				tasks, err := svc.ListTasks(ctx.Context, &ecs.ListTasksInput{
+				tasks, err := svc.ListTasks(cfg.Context, &ecs.ListTasksInput{
 					Cluster:    v.ClusterArn,
 					MaxResults: aws.Int32(100),
 				})
@@ -114,7 +114,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				if len(tasks.TaskArns) == 0 {
 					return nil, nil
 				}
-				describeTasks, err := svc.DescribeTasks(ctx.Context, &ecs.DescribeTasksInput{
+				describeTasks, err := svc.DescribeTasks(cfg.Context, &ecs.DescribeTasksInput{
 					Cluster: v.ClusterArn,
 					Include: []types.TaskField{types.TaskFieldTags},
 					Tasks:   tasks.TaskArns,
@@ -124,7 +124,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 				for _, task := range describeTasks.Tasks {
 					taskArn := arn.ParseP(task.TaskArn)
-					taskResource := resource.New(ctx, resource.EcsTask, taskArn.ResourceId, "", task)
+					taskResource := resource.New(cfg, resource.EcsTask, taskArn.ResourceId, "", task)
 					taskResource.AddARNRelation(resource.EcsCluster, v.ClusterArn)
 					taskDefArn := arn.ParseP(task.TaskDefinitionArn)
 					taskResource.AddRelation(resource.EcsTaskDefinition, taskDefArn.ResourceId, "")
@@ -138,7 +138,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			// ECS Capacity Providers
 			err = Paginator(func(nt2 *string) (*string, error) {
-				providers, err := svc.DescribeCapacityProviders(ctx.Context, &ecs.DescribeCapacityProvidersInput{
+				providers, err := svc.DescribeCapacityProviders(cfg.Context, &ecs.DescribeCapacityProvidersInput{
 					CapacityProviders: v.CapacityProviders,
 					Include:           []types.CapacityProviderField{types.CapacityProviderFieldTags},
 					NextToken:         nt2,
@@ -148,7 +148,7 @@ func (l AWSEcsCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				}
 				for _, provider := range providers.CapacityProviders {
 					providerArn := arn.ParseP(provider.CapacityProviderArn)
-					providerRes := resource.New(ctx, resource.EcsCapacityProvider, providerArn.ResourceId, provider.Name, provider)
+					providerRes := resource.New(cfg, resource.EcsCapacityProvider, providerArn.ResourceId, provider.Name, provider)
 					providerRes.AddARNRelation(resource.EcsCluster, v.ClusterArn)
 					rg.AddResource(providerRes)
 				}

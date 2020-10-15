@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -27,14 +27,14 @@ func (l AWSIamUser) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := iam.NewFromConfig(ctx.AWSCfg)
+func (l AWSIamUser) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := iam.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 	listUsersOnce.Do(func() {
 		outerErr = Paginator(func(nt *string) (*string, error) {
-			res, err := svc.ListUsers(ctx.Context, &iam.ListUsersInput{
+			res, err := svc.ListUsers(cfg.Context, &iam.ListUsersInput{
 				MaxItems: aws.Int32(100),
 				Marker:   nt,
 			})
@@ -42,11 +42,11 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				return nil, err
 			}
 			for _, user := range res.Users {
-				r := resource.NewGlobal(ctx, resource.IamUser, user.UserId, user.UserName, user)
+				r := resource.NewGlobal(cfg, resource.IamUser, user.UserId, user.UserName, user)
 
 				// Access Keys
 				err = Paginator(func(nt2 *string) (*string, error) {
-					keys, err := svc.ListAccessKeys(ctx.Context, &iam.ListAccessKeysInput{
+					keys, err := svc.ListAccessKeys(cfg.Context, &iam.ListAccessKeysInput{
 						MaxItems: aws.Int32(100),
 						UserName: user.UserName,
 						Marker:   nt2,
@@ -55,10 +55,10 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						return nil, fmt.Errorf("failed to get access keys for user %s: %w", *user.UserName, err)
 					}
 					for _, ak := range keys.AccessKeyMetadata {
-						akR := resource.NewGlobal(ctx, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
+						akR := resource.NewGlobal(cfg, resource.IamAccessKey, ak.AccessKeyId, ak.AccessKeyId, ak)
 						akR.AddRelation(resource.IamUser, user.UserId, "")
 
-						lastUsed, err := svc.GetAccessKeyLastUsed(ctx.Context, &iam.GetAccessKeyLastUsedInput{
+						lastUsed, err := svc.GetAccessKeyLastUsed(cfg.Context, &iam.GetAccessKeyLastUsedInput{
 							AccessKeyId: ak.AccessKeyId,
 						})
 						if err != nil {

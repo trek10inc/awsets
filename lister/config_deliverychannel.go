@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,17 +20,17 @@ func (l AWSConfigDeliveryChannel) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ConfigDeliveryChannel}
 }
 
-func (l AWSConfigDeliveryChannel) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSConfigDeliveryChannel) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := configservice.NewFromConfig(ctx.AWSCfg)
+	svc := configservice.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 
-	channels, err := svc.DescribeDeliveryChannels(ctx.Context, &configservice.DescribeDeliveryChannelsInput{})
+	channels, err := svc.DescribeDeliveryChannels(cfg.Context, &configservice.DescribeDeliveryChannelsInput{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list config delivery channels: %w", err)
 	}
 	for _, v := range channels.DeliveryChannels {
-		r := resource.New(ctx, resource.ConfigDeliveryChannel, v.Name, v.Name, v)
+		r := resource.New(cfg, resource.ConfigDeliveryChannel, v.Name, v.Name, v)
 		r.AddRelation(resource.S3Bucket, v.S3BucketName, "")
 		rg.AddResource(r)
 	}

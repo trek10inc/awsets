@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSGreengrassGroup) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSGreengrassGroup) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := greengrass.NewFromConfig(ctx.AWSCfg)
+	svc := greengrass.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListGroups(ctx.Context, &greengrass.ListGroupsInput{
+		res, err := svc.ListGroups(cfg.Context, &greengrass.ListGroupsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nt,
 		})
@@ -43,11 +43,11 @@ func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 			return nil, fmt.Errorf("failed to list greengrass groups: %w", err)
 		}
 		for _, v := range res.Groups {
-			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
+			r := resource.New(cfg, resource.GreengrassGroup, v.Id, v.Name, v)
 
 			// Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				versions, err := svc.ListGroupVersions(ctx.Context, &greengrass.ListGroupVersionsInput{
+				versions, err := svc.ListGroupVersions(cfg.Context, &greengrass.ListGroupVersionsInput{
 					GroupId:    v.Id,
 					MaxResults: aws.String("100"),
 					NextToken:  nt2,
@@ -56,14 +56,14 @@ func (l AWSGreengrassGroup) List(ctx context.AWSetsCtx) (*resource.Group, error)
 					return nil, fmt.Errorf("failed to list greengrass group versions for %s: %w", *v.Id, err)
 				}
 				for _, gvId := range versions.Versions {
-					gv, err := svc.GetGroupVersion(ctx.Context, &greengrass.GetGroupVersionInput{
+					gv, err := svc.GetGroupVersion(cfg.Context, &greengrass.GetGroupVersionInput{
 						GroupId:        gvId.Id,
 						GroupVersionId: gvId.Version,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to list greengrass group version for %s, %s: %w", *gvId.Id, *gvId.Version, err)
 					}
-					gvRes := resource.NewVersion(ctx, resource.GreengrassGroupVersion, gv.Id, gv.Id, gv.Version, gv)
+					gvRes := resource.NewVersion(cfg, resource.GreengrassGroupVersion, gv.Id, gv.Id, gv.Version, gv)
 					if def := gv.Definition; def != nil {
 						// TODO relationships
 					}

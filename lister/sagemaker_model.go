@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSSagemakerModel) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.SagemakerModel}
 }
 
-func (l AWSSagemakerModel) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := sagemaker.NewFromConfig(ctx.AWSCfg)
+func (l AWSSagemakerModel) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := sagemaker.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListModels(ctx.Context, &sagemaker.ListModelsInput{
+		res, err := svc.ListModels(cfg.Context, &sagemaker.ListModelsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -35,7 +35,7 @@ func (l AWSSagemakerModel) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			return nil, err
 		}
 		for _, model := range res.Models {
-			v, err := svc.DescribeModel(ctx.Context, &sagemaker.DescribeModelInput{
+			v, err := svc.DescribeModel(cfg.Context, &sagemaker.DescribeModelInput{
 				ModelName: model.ModelName,
 			})
 			if err != nil {
@@ -43,7 +43,7 @@ func (l AWSSagemakerModel) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			}
 
 			modelArn := arn.ParseP(v.ModelArn)
-			r := resource.New(ctx, resource.SagemakerModel, modelArn.ResourceId, v.ModelName, v)
+			r := resource.New(cfg, resource.SagemakerModel, modelArn.ResourceId, v.ModelName, v)
 			r.AddARNRelation(resource.IamRole, v.ExecutionRoleArn)
 			if vpc := v.VpcConfig; vpc != nil {
 				for _, sg := range vpc.SecurityGroupIds {

@@ -5,8 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/glue"
 
-	"github.com/trek10inc/awsets/context"
-
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -26,18 +25,18 @@ func (l AWSGlueWorkflow) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGlueWorkflow) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := glue.NewFromConfig(ctx.AWSCfg)
+func (l AWSGlueWorkflow) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := glue.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListWorkflows(ctx.Context, &glue.ListWorkflowsInput{
+		res, err := svc.ListWorkflows(cfg.Context, &glue.ListWorkflowsInput{
 			MaxResults: aws.Int32(100),
 		})
 		if err != nil {
 			return nil, err
 		}
-		workflows, err := svc.BatchGetWorkflows(ctx.Context, &glue.BatchGetWorkflowsInput{
+		workflows, err := svc.BatchGetWorkflows(cfg.Context, &glue.BatchGetWorkflowsInput{
 			IncludeGraph: aws.Bool(true),
 			Names:        res.Workflows,
 		})
@@ -45,7 +44,7 @@ func (l AWSGlueWorkflow) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, fmt.Errorf("failed to get glue workflows: %w", err)
 		}
 		for _, wf := range workflows.Workflows {
-			r := resource.New(ctx, resource.GlueWorkflow, wf.Name, wf.Name, wf)
+			r := resource.New(cfg, resource.GlueWorkflow, wf.Name, wf.Name, wf)
 			rg.AddResource(r)
 			// TODO: explore nodes/edges
 		}

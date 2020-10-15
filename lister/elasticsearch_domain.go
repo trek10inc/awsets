@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/elasticsearchservice"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,11 +21,11 @@ func (l AWSElasticsearchDomain) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ElasticsearchDomain}
 }
 
-func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticsearchservice.NewFromConfig(ctx.AWSCfg)
+func (l AWSElasticsearchDomain) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := elasticsearchservice.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 
-	domainListRes, err := svc.ListDomainNames(ctx.Context, &elasticsearchservice.ListDomainNamesInput{})
+	domainListRes, err := svc.ListDomainNames(cfg.Context, &elasticsearchservice.ListDomainNamesInput{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domain names: %w", err)
 	}
@@ -44,7 +44,7 @@ func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, er
 	}
 
 	for _, fiveDomains := range domainsByFive {
-		domains, err := svc.DescribeElasticsearchDomains(ctx.Context, &elasticsearchservice.DescribeElasticsearchDomainsInput{
+		domains, err := svc.DescribeElasticsearchDomains(cfg.Context, &elasticsearchservice.DescribeElasticsearchDomainsInput{
 			DomainNames: fiveDomains, // max of 5 :(
 		})
 		if err != nil {
@@ -53,7 +53,7 @@ func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, er
 
 		for _, domain := range domains.DomainStatusList {
 			domainArn := arn.ParseP(domain.ARN)
-			r := resource.New(ctx, resource.ElasticsearchDomain, domainArn.ResourceId, domain.DomainName, domain)
+			r := resource.New(cfg, resource.ElasticsearchDomain, domainArn.ResourceId, domain.DomainName, domain)
 
 			if domain.VPCOptions != nil {
 				r.AddRelation(resource.Ec2Vpc, domain.VPCOptions.VPCId, "")
@@ -64,7 +64,7 @@ func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, er
 			if domain.EncryptionAtRestOptions != nil {
 				r.AddARNRelation(resource.KmsKey, domain.EncryptionAtRestOptions.KmsKeyId)
 			}
-			tagsRes, err := svc.ListTags(ctx.Context, &elasticsearchservice.ListTagsInput{
+			tagsRes, err := svc.ListTags(cfg.Context, &elasticsearchservice.ListTagsInput{
 				ARN: domain.ARN,
 			})
 			if err != nil {

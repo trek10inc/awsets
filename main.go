@@ -9,19 +9,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	context2 "github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/lister"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
 type ListerName string
-
-type AWSets struct {
-	AWSCfg    aws.Config
-	AccountId string
-	regions   []string
-	Logger    context2.Logger
-}
 
 // Types applies a filter to all supported AWS resources types and returns a
 // slice of the ones that match. It first builds a list of all resources types
@@ -158,10 +151,22 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 // results together before returning them. If a cache is provided, each
 // Lister/Region combination will first check for an existing result before
 // querying AWS. Any new results will be updated in the cache.
-func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache Cacher) *resource.Group {
-
+func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, options ...option.Option) (*resource.Group, error) {
+	awsetsCfg, err := option.NewConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range options {
+		opt(awsetsCfg)
+	}
 	if cache == nil {
-		cache = NoopCache{}
+		cache = NoOpCache{}
+	}
+
+	// Initialize cache
+	err = cache.Initialize(awsetsCfg.AccountId)
+	if err != nil {
+		return nil, err
 	}
 
 	// Creates a work queue
@@ -176,7 +181,7 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 		go func(id int, workQueue <-chan job) {
 			//var j job
 			defer func() {
-				ctx.Logger.Debugf("%d: finished worker\n", id)
+				awsetsCfg.Logger.Debugf("%d: finished worker\n", id)
 				wg.Done()
 			}()
 			//defer func() {
@@ -192,50 +197,50 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 						return
 					}
 					//j = job
-					ctx.Logger.Debugf("%d: processing: %s - %s\n", id, job.region, job.lister)
+					awsetsCfg.Logger.Debugf("%d: processing: %s - %s\n", id, job.region, job.lister)
 
 					// If listing is cached, return it
 					if cache.IsCached(job.region, job.lister) {
-						ctx.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
+						awsetsCfg.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
 						group, err := cache.LoadGroup(job.region, job.lister)
 						if err != nil {
-							ctx.Logger.Errorf("failed to load group: %v", err)
+							awsetsCfg.Logger.Errorf("failed to load group: %v", err)
 						}
 						rg.Merge(group)
 					} else {
-						ctx.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
+						awsetsCfg.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
 
 						// Find the appropriate Lister
 						l, err := GetByName(job.lister)
 						if err != nil {
-							ctx.Logger.Errorf("failed to get lister by name: %v", err)
+							awsetsCfg.Logger.Errorf("failed to get lister by name: %v", err)
 							continue
 						}
 
 						// Copies the AWSets context - this also configures the region in the AWS config
-						ctxcp := ctx.Copy(job.region)
+						cfgCopy := awsetsCfg.Copy(job.region)
 
 						// Execute listing
-						group, err := l.List(ctxcp)
+						group, err := l.List(cfgCopy)
 						if err != nil {
 							// indicates service is not supported in a region
 							if strings.Contains(err.Error(), "no such host") {
 								continue
 							}
-							ctx.Logger.Errorf("%d: failed job %s - %s\n with error: %v\n", id, job.region, job.lister, err)
+							awsetsCfg.Logger.Errorf("%d: failed job %s - %s\n with error: %v\n", id, job.region, job.lister, err)
 							continue
 						}
 
 						// Update the results in the cache
 						err = cache.SaveGroup(job.lister, group)
 						if err != nil {
-							ctx.Logger.Errorf("%d: failed to write cache for %s - %s: %v\n", id, job.region, job.lister, err)
+							awsetsCfg.Logger.Errorf("%d: failed to write cache for %s - %s: %v\n", id, job.region, job.lister, err)
 						}
 
 						// Merge the new results in with the rest
 						rg.Merge(group)
 					}
-					ctx.Logger.Debugf("%d: complete: %s - %s\n", id, job.region, job.lister)
+					awsetsCfg.Logger.Debugf("%d: complete: %s - %s\n", id, job.region, job.lister)
 				}
 			}
 		}(i, jobs)
@@ -255,7 +260,7 @@ func List(ctx context2.AWSetsCtx, regions []string, listers []ListerName, cache 
 	close(jobs)
 
 	wg.Wait()
-	return rg
+	return rg, nil
 }
 
 type job struct {
@@ -266,24 +271,29 @@ type job struct {
 // Cacher is an interface that defines the necessary functions for an AWSets
 // cache.
 type Cacher interface {
+	Initialize(accountId string) error
 	IsCached(region string, kind ListerName) bool
 	SaveGroup(kind ListerName, group *resource.Group) error
 	LoadGroup(region string, kind ListerName) (*resource.Group, error)
 }
 
-// NoopCache is the default cache provided by AWSets. It does nothing, and
+// NoOpCache is the default cache provided by AWSets. It does nothing, and
 // will never load nor save any data.
-type NoopCache struct {
+type NoOpCache struct {
 }
 
-func (c NoopCache) IsCached(region string, kind ListerName) bool {
-	return false
-}
-
-func (c NoopCache) SaveGroup(kind ListerName, group *resource.Group) error {
+func (c NoOpCache) Initialize(accountId string) error {
 	return nil
 }
 
-func (c NoopCache) LoadGroup(region string, kind ListerName) (*resource.Group, error) {
+func (c NoOpCache) IsCached(region string, kind ListerName) bool {
+	return false
+}
+
+func (c NoOpCache) SaveGroup(kind ListerName, group *resource.Group) error {
+	return nil
+}
+
+func (c NoOpCache) LoadGroup(region string, kind ListerName) (*resource.Group, error) {
 	return resource.NewGroup(), nil
 }

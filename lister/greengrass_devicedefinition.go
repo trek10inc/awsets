@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSGreengrassDeviceDefinition) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSGreengrassDeviceDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := greengrass.NewFromConfig(ctx.AWSCfg)
+	svc := greengrass.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListDeviceDefinitions(ctx.Context, &greengrass.ListDeviceDefinitionsInput{
+		res, err := svc.ListDeviceDefinitions(cfg.Context, &greengrass.ListDeviceDefinitionsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nt,
 		})
@@ -43,12 +43,12 @@ func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 			return nil, fmt.Errorf("failed to list greengrass device definitions: %w", err)
 		}
 		for _, v := range res.Definitions {
-			r := resource.New(ctx, resource.GreengrassDeviceDefinition, v.Id, v.Name, v)
+			r := resource.New(cfg, resource.GreengrassDeviceDefinition, v.Id, v.Name, v)
 
 			// Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
 
-				versions, err := svc.ListDeviceDefinitionVersions(ctx.Context, &greengrass.ListDeviceDefinitionVersionsInput{
+				versions, err := svc.ListDeviceDefinitionVersions(cfg.Context, &greengrass.ListDeviceDefinitionVersionsInput{
 					DeviceDefinitionId: v.Id,
 					MaxResults:         aws.String("100"),
 					NextToken:          nt2,
@@ -57,14 +57,14 @@ func (l AWSGreengrassDeviceDefinition) List(ctx context.AWSetsCtx) (*resource.Gr
 					return nil, fmt.Errorf("failed to list greengrass device definition versions for %s: %w", *v.Id, err)
 				}
 				for _, ddId := range versions.Versions {
-					dd, err := svc.GetDeviceDefinitionVersion(ctx.Context, &greengrass.GetDeviceDefinitionVersionInput{
+					dd, err := svc.GetDeviceDefinitionVersion(cfg.Context, &greengrass.GetDeviceDefinitionVersionInput{
 						DeviceDefinitionId:        ddId.Id,
 						DeviceDefinitionVersionId: ddId.Version,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to list greengrass device definition version for %s, %s: %w", *ddId.Id, *ddId.Version, err)
 					}
-					ddRes := resource.NewVersion(ctx, resource.GreengrassDeviceDefinitionVersion, dd.Id, dd.Id, dd.Version, dd)
+					ddRes := resource.NewVersion(cfg, resource.GreengrassDeviceDefinitionVersion, dd.Id, dd.Id, dd.Version, dd)
 					ddRes.AddRelation(resource.GreengrassDeviceDefinition, v.Id, "")
 					// TODO relationships to things
 					r.AddRelation(resource.GreengrassDeviceDefinitionVersion, dd.Id, dd.Version)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSElasticacheSecurityGroup) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ElasticacheSecurityGroup}
 }
 
-func (l AWSElasticacheSecurityGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.NewFromConfig(ctx.AWSCfg)
+func (l AWSElasticacheSecurityGroup) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := elasticache.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeCacheSecurityGroups(ctx.Context, &elasticache.DescribeCacheSecurityGroupsInput{
+		res, err := svc.DescribeCacheSecurityGroups(cfg.Context, &elasticache.DescribeCacheSecurityGroupsInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -40,7 +40,7 @@ func (l AWSElasticacheSecurityGroup) List(ctx context.AWSetsCtx) (*resource.Grou
 			return nil, err
 		}
 		for _, sg := range res.CacheSecurityGroups {
-			r := resource.New(ctx, resource.ElasticacheSecurityGroup, sg.CacheSecurityGroupName, sg.CacheSecurityGroupName, sg)
+			r := resource.New(cfg, resource.ElasticacheSecurityGroup, sg.CacheSecurityGroupName, sg.CacheSecurityGroupName, sg)
 			for _, ec2sg := range sg.EC2SecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, ec2sg.EC2SecurityGroupName, "")
 			}

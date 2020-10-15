@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/mq"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,11 +21,11 @@ func (l AWSAmazonMQBroker) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AmazonMQBroker}
 }
 
-func (l AWSAmazonMQBroker) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := mq.NewFromConfig(ctx.AWSCfg)
+func (l AWSAmazonMQBroker) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := mq.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListBrokers(ctx.Context, &mq.ListBrokersInput{
+		res, err := svc.ListBrokers(cfg.Context, &mq.ListBrokersInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -34,13 +34,13 @@ func (l AWSAmazonMQBroker) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 		}
 		for _, broker := range res.BrokerSummaries {
 
-			v, err := svc.DescribeBroker(ctx.Context, &mq.DescribeBrokerInput{
+			v, err := svc.DescribeBroker(cfg.Context, &mq.DescribeBrokerInput{
 				BrokerId: broker.BrokerId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe broker %s: %w", *broker.BrokerId, err)
 			}
-			r := resource.New(ctx, resource.AmazonMQBroker, v.BrokerId, v.BrokerName, v)
+			r := resource.New(cfg, resource.AmazonMQBroker, v.BrokerId, v.BrokerName, v)
 
 			for _, sg := range v.SecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, sg, "")

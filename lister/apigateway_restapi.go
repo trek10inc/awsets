@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -31,12 +31,12 @@ func (l AWSApiGatewayRestApi) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := apigateway.NewFromConfig(ctx.AWSCfg)
+func (l AWSApiGatewayRestApi) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := apigateway.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetRestApis(ctx.Context, &apigateway.GetRestApisInput{
+		res, err := svc.GetRestApis(cfg.Context, &apigateway.GetRestApisInput{
 			Limit:    aws.Int32(500),
 			Position: nt,
 		})
@@ -48,11 +48,11 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			return nil, fmt.Errorf("failed to get rest apis: %w", err)
 		}
 		for _, restapi := range res.Items {
-			r := resource.New(ctx, resource.ApiGatewayRestApi, restapi.Id, restapi.Name, restapi)
+			r := resource.New(cfg, resource.ApiGatewayRestApi, restapi.Id, restapi.Name, restapi)
 
 			// Models
 			err = Paginator(func(nt2 *string) (*string, error) {
-				modelRes, err := svc.GetModels(ctx.Context, &apigateway.GetModelsInput{
+				modelRes, err := svc.GetModels(cfg.Context, &apigateway.GetModelsInput{
 					Limit:     aws.Int32(100),
 					RestApiId: restapi.Id,
 					Position:  nt2,
@@ -61,7 +61,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to get models for api %s: %w", *restapi.Id, err)
 				}
 				for _, model := range modelRes.Items {
-					modelR := resource.New(ctx, resource.ApiGatewayModel, model.Id, model.Name, model)
+					modelR := resource.New(cfg, resource.ApiGatewayModel, model.Id, model.Name, model)
 					modelR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(modelR)
 				}
@@ -73,7 +73,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 			// Deployments
 			err = Paginator(func(nt2 *string) (*string, error) {
-				depRes, err := svc.GetDeployments(ctx.Context, &apigateway.GetDeploymentsInput{
+				depRes, err := svc.GetDeployments(cfg.Context, &apigateway.GetDeploymentsInput{
 					Limit:     aws.Int32(500),
 					RestApiId: restapi.Id,
 					Position:  nt2,
@@ -82,11 +82,11 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to get deployments for restapi %s: %w", *restapi.Id, err)
 				}
 				for _, deployment := range depRes.Items {
-					depR := resource.New(ctx, resource.ApiGatewayDeployment, deployment.Id, "", restapi)
+					depR := resource.New(cfg, resource.ApiGatewayDeployment, deployment.Id, "", restapi)
 					r.AddRelation(resource.ApiGatewayDeployment, deployment.Id, "")
 					rg.AddResource(depR)
 
-					stageRes, err := svc.GetStages(ctx.Context, &apigateway.GetStagesInput{
+					stageRes, err := svc.GetStages(cfg.Context, &apigateway.GetStagesInput{
 						DeploymentId: deployment.Id,
 						RestApiId:    restapi.Id,
 					})
@@ -94,7 +94,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 						return nil, fmt.Errorf("failed to get stages for api: %s, deployment: %s - %w", *restapi.Id, *deployment.Id, err)
 					}
 					for _, stage := range stageRes.Item {
-						stageR := resource.New(ctx, resource.ApiGatewayStage, stage.StageName, "", stage)
+						stageR := resource.New(cfg, resource.ApiGatewayStage, stage.StageName, "", stage)
 						stageR.AddRelation(resource.ApiGatewayDeployment, stage.DeploymentId, "")
 						stageR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 						if arn.IsArnP(stage.WebAclArn) {
@@ -112,7 +112,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 			// Authorizers
 			err = Paginator(func(nt2 *string) (*string, error) {
-				authorizers, err := svc.GetAuthorizers(ctx.Context, &apigateway.GetAuthorizersInput{
+				authorizers, err := svc.GetAuthorizers(cfg.Context, &apigateway.GetAuthorizersInput{
 					Limit:     aws.Int32(100),
 					Position:  nt2,
 					RestApiId: restapi.Id,
@@ -121,7 +121,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to get authorizers for rest api %s: %w", *restapi.Id, err)
 				}
 				for _, authorizer := range authorizers.Items {
-					authR := resource.New(ctx, resource.ApiGatewayAuthorizer, authorizer.Id, authorizer.Name, authorizer)
+					authR := resource.New(cfg, resource.ApiGatewayAuthorizer, authorizer.Id, authorizer.Name, authorizer)
 					authR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(authR)
 				}
@@ -133,7 +133,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 			// Resources
 			err = Paginator(func(nt2 *string) (*string, error) {
-				resourcesRes, err := svc.GetResources(ctx.Context, &apigateway.GetResourcesInput{
+				resourcesRes, err := svc.GetResources(cfg.Context, &apigateway.GetResourcesInput{
 					Limit:     aws.Int32(100),
 					RestApiId: restapi.Id,
 					Position:  nt2,
@@ -142,7 +142,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to get resources for restapi %s: %w", *restapi.Id, err)
 				}
 				for _, res := range resourcesRes.Items {
-					resR := resource.New(ctx, resource.ApiGatewayResource, res.Id, res.Id, res)
+					resR := resource.New(cfg, resource.ApiGatewayResource, res.Id, res.Id, res)
 					resR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(resR)
 				}
@@ -155,7 +155,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			// Gateway Responses
 			gwResponses := make([]*types.GatewayResponse, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
-				gwRes, err := svc.GetGatewayResponses(ctx.Context, &apigateway.GetGatewayResponsesInput{
+				gwRes, err := svc.GetGatewayResponses(cfg.Context, &apigateway.GetGatewayResponsesInput{
 					Limit:     aws.Int32(100),
 					Position:  nt2,
 					RestApiId: restapi.Id,

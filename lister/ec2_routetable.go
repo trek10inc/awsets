@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSEc2RouteTable) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Ec2RouteTable}
 }
 
-func (l AWSEc2RouteTable) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(ctx.AWSCfg)
+func (l AWSEc2RouteTable) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeRouteTables(ctx.Context, &ec2.DescribeRouteTablesInput{
+		res, err := svc.DescribeRouteTables(cfg.Context, &ec2.DescribeRouteTablesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSEc2RouteTable) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, v := range res.RouteTables {
-			r := resource.New(ctx, resource.Ec2RouteTable, v.RouteTableId, v.RouteTableId, v)
+			r := resource.New(cfg, resource.Ec2RouteTable, v.RouteTableId, v.RouteTableId, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			for _, a := range v.Associations {
 				r.AddRelation(resource.Ec2Subnet, a.SubnetId, "")

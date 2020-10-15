@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/docdb"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSDocDBParameterGroup) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.DocDBParameterGroup}
 }
 
-func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := docdb.NewFromConfig(ctx.AWSCfg)
+func (l AWSDocDBParameterGroup) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := docdb.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &docdb.DescribeDBClusterParameterGroupsInput{
+		res, err := svc.DescribeDBClusterParameterGroups(cfg.Context, &docdb.DescribeDBClusterParameterGroupsInput{
 			Marker:     nt,
 			MaxRecords: aws.Int32(100),
 		})
@@ -36,12 +36,12 @@ func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 			return nil, fmt.Errorf("failed to get parameter groups: %w", err)
 		}
 		for _, group := range res.DBClusterParameterGroups {
-			r := resource.New(ctx, resource.DocDBParameterGroup, group.DBClusterParameterGroupName, group.DBClusterParameterGroupName, group)
+			r := resource.New(cfg, resource.DocDBParameterGroup, group.DBClusterParameterGroupName, group.DBClusterParameterGroupName, group)
 
 			var paramMarker *string
 			parameterList := make([]*types.Parameter, 0)
 			for {
-				params, err := svc.DescribeDBClusterParameters(ctx.Context, &docdb.DescribeDBClusterParametersInput{
+				params, err := svc.DescribeDBClusterParameters(cfg.Context, &docdb.DescribeDBClusterParametersInput{
 					DBClusterParameterGroupName: group.DBClusterParameterGroupName,
 					Marker:                      paramMarker,
 					MaxRecords:                  aws.Int32(100),

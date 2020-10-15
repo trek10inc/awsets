@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSElasticacheCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ElasticacheCluster}
 }
 
-func (l AWSElasticacheCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
-	svc := elasticache.NewFromConfig(ctx.AWSCfg)
+func (l AWSElasticacheCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+	svc := elasticache.NewFromConfig(cfg.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeCacheClusters(ctx.Context, &elasticache.DescribeCacheClustersInput{
+		res, err := svc.DescribeCacheClusters(cfg.Context, &elasticache.DescribeCacheClustersInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSElasticacheCluster) List(ctx context.AWSetsCtx) (*resource.Group, err
 			return nil, err
 		}
 		for _, cluster := range res.CacheClusters {
-			r := resource.New(ctx, resource.ElasticacheCluster, cluster.CacheClusterId, cluster.CacheClusterId, cluster)
+			r := resource.New(cfg, resource.ElasticacheCluster, cluster.CacheClusterId, cluster.CacheClusterId, cluster)
 
 			if cluster.CacheParameterGroup != nil {
 				r.AddRelation(resource.ElasticacheParameterGroup, cluster.CacheParameterGroup.CacheParameterGroupName, "")

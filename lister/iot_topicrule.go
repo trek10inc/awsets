@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iot"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSIoTTopicRule) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.IotTopicRule}
 }
 
-func (l AWSIoTTopicRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+func (l AWSIoTTopicRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
-	svc := iot.NewFromConfig(ctx.AWSCfg)
+	svc := iot.NewFromConfig(cfg.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListTopicRules(ctx.Context, &iot.ListTopicRulesInput{
+		res, err := svc.ListTopicRules(cfg.Context, &iot.ListTopicRulesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -36,7 +36,7 @@ func (l AWSIoTTopicRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, rule := range res.Rules {
 			ruleArn := arn.ParseP(rule.RuleArn)
-			r := resource.New(ctx, resource.IotTopicRule, ruleArn.ResourceId, rule.RuleName, rule)
+			r := resource.New(cfg, resource.IotTopicRule, ruleArn.ResourceId, rule.RuleName, rule)
 
 			rg.AddResource(r)
 		}
