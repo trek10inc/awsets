@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-
-	context2 "github.com/trek10inc/awsets/context"
+	"github.com/trek10inc/awsets/option"
 )
 
 func Test_NewResourceWithTags(t *testing.T) {
 
-	ctx := getContext()
+	cfg := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -41,7 +40,7 @@ func Test_NewResourceWithTags(t *testing.T) {
 
 func Test_NewResourceWithoutTags(t *testing.T) {
 
-	ctx := getContext()
+	cfg := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -60,7 +59,7 @@ func Test_NewResourceWithoutTags(t *testing.T) {
 
 func Test_NewGlobalResource(t *testing.T) {
 
-	ctx := getContext()
+	cfg := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -80,7 +79,7 @@ func Test_NewGlobalResource(t *testing.T) {
 
 func Test_NewResourceVersion(t *testing.T) {
 
-	ctx := getContext()
+	cfg := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -100,7 +99,7 @@ func Test_NewResourceVersion(t *testing.T) {
 
 func Test_ResourceAddRelation(t *testing.T) {
 
-	ctx := getContext()
+	cfg := getConfig()
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{
@@ -123,15 +122,15 @@ func Test_ResourceAddRelation(t *testing.T) {
 	}
 }
 
-func getContext() context2.AWSetsCtx {
+func getConfig() option.AWSetsConfig {
 	config := aws.Config{
 		Region: "us-east-1",
 	}
-	return context2.AWSetsCtx{
+	return option.AWSetsConfig{
 		AWSCfg:    config,
 		AccountId: "123456789",
 		Context:   context.Background(),
-		Logger:    nil,
+		Logger:    option.NoOpLogger{},
 	}
 }
 
@@ -161,8 +160,8 @@ func Test_JSON(t *testing.T) {
 
 	rg := NewGroup()
 
-	ctxUsEast1 := getContext()
-	ctxUsEast2 := ctxUsEast1.Copy("us-east-2")
+	cfgUsEast1 := getConfig()
+	cfgUsEast2 := cfgUsEast1.Copy("us-east-2")
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{
@@ -170,9 +169,9 @@ func Test_JSON(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r1 := New(ctxUsEast2, Ec2Instance, "resource 1", "resource_1", object)
+	r1 := New(cfgUsEast2, Ec2Instance, "resource 1", "resource_1", object)
 	rg.AddResource(r1)
-	r2 := New(ctxUsEast2, Ec2Image, "resource 2", "resource_2", object)
+	r2 := New(cfgUsEast2, Ec2Image, "resource 2", "resource_2", object)
 	rg.AddResource(r2)
 	r3 := NewVersion(cfgUsEast1, Ec2Instance, "resource 3", "resource_3", "2", object)
 	rg.AddResource(r3)
