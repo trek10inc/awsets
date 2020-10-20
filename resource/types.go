@@ -217,6 +217,7 @@ const (
 	LogGroup                                ResourceType = "logs/loggroup"
 	LogStream                               ResourceType = "logs/logstream"
 	LogMetricFilter                         ResourceType = "logs/metricfilter"
+	LogQueryDefinition                      ResourceType = "logs/querydefinition"
 	LogSubscriptionFilter                   ResourceType = "logs/subsciptionfilter"
 	NeptuneDbCluster                        ResourceType = "neptune/dbcluster"
 	NeptuneDbClusterParameterGroup          ResourceType = "neptune/dbclusterparametergroup"
