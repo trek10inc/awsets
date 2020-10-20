@@ -31,10 +31,13 @@ func (l AWSGlueWorkflow) List(cfg option.AWSetsConfig) (*resource.Group, error) 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListWorkflows(cfg.Context, &glue.ListWorkflowsInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: aws.Int32(25),
 		})
 		if err != nil {
 			return nil, err
+		}
+		if len(res.Workflows) == 0 {
+			return nil, nil
 		}
 		workflows, err := svc.BatchGetWorkflows(cfg.Context, &glue.BatchGetWorkflowsInput{
 			IncludeGraph: aws.Bool(true),

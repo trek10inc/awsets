@@ -9,11 +9,11 @@ import (
 )
 
 type AWSetsConfig struct {
-	AWSCfg    aws.Config
-	AccountId string
-	Context   context.Context
-	Logger    Logger
-	updater   string
+	AWSCfg     aws.Config
+	AccountId  string
+	Context    context.Context
+	Logger     Logger
+	StatusChan chan<- StatusUpdate
 }
 
 func NewConfig(awsCfg aws.Config) (*AWSetsConfig, error) {
@@ -46,6 +46,19 @@ func (c *AWSetsConfig) Copy(region string) AWSetsConfig {
 	return cop
 }
 
+func (c *AWSetsConfig) SendStatus(update StatusUpdate) {
+	if c.StatusChan == nil {
+		return
+	}
+	c.StatusChan <- update
+}
+
+func (c *AWSetsConfig) Close() {
+	if c.StatusChan != nil {
+		close(c.StatusChan)
+	}
+}
+
 type Option func(o *AWSetsConfig)
 
 func WithLogger(logger Logger) Option {
@@ -60,8 +73,8 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithUpdater(logger string) Option {
+func WithStatus(ch chan<- StatusUpdate) Option {
 	return func(o *AWSetsConfig) {
-
+		o.StatusChan = ch
 	}
 }

@@ -8,11 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/trek10inc/awsets/option"
-
-	"github.com/trek10inc/awsets/cmd/awsets/cache"
-
+	"github.com/cheggaaa/pb/v3"
 	"github.com/trek10inc/awsets"
+	"github.com/trek10inc/awsets/cmd/awsets/cache"
+	"github.com/trek10inc/awsets/option"
 	"github.com/urfave/cli/v2"
 )
 
@@ -57,6 +56,11 @@ var listCmd = &cli.Command{
 			Name:  "regions",
 			Value: "",
 			Usage: "comma separated list of region prefixes",
+		},
+		&cli.BoolFlag{
+			Name:  "show-progress",
+			Value: false,
+			Usage: "toggle progress meter",
 		},
 		&cli.BoolFlag{
 			Name:    "verbose",
@@ -113,8 +117,36 @@ var listCmd = &cli.Command{
 		} else {
 			logger = option.DefaultLogger{}
 		}
+		options := []option.Option{
+			option.WithLogger(logger),
+		}
+		if c.Bool("show-progress") {
+			statusChan := make(chan option.StatusUpdate)
+			options = append(options, option.WithStatus(statusChan))
+			go func() {
+				var bar *pb.ProgressBar
+				//doneCount := 0
+				for {
+					select {
+					case update, more := <-statusChan:
+						if !more {
+							if bar != nil {
+								bar.Finish()
+							}
+							return
+						}
+						if bar == nil {
+							bar = pb.StartNew(update.TotalJobs)
+						}
+						bar.Increment()
+						//doneCount++
+						//fmt.Printf("%d of %d\n", doneCount, update.TotalJobs)
+					}
+				}
+			}()
+		}
 
-		rg, err := awsets.List(awscfg, regions, listers, bc, option.WithLogger(logger))
+		rg, err := awsets.List(awscfg, regions, listers, bc, options...)
 		if err != nil {
 			return fmt.Errorf("failed to list resources: %w", err)
 		}

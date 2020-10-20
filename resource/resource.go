@@ -86,6 +86,10 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 			for k, v := range t {
 				resource.Tags[k] = v
 			}
+		case map[string]*string:
+			for k, v := range t {
+				resource.Tags[k] = *v
+			}
 		case nil:
 			// no op
 		default:

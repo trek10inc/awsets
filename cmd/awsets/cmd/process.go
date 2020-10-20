@@ -9,10 +9,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/jmespath/go-jmespath"
-
 	"github.com/emicklei/dot"
-
+	"github.com/jmespath/go-jmespath"
 	"github.com/trek10inc/awsets/resource"
 	"github.com/urfave/cli/v2"
 )

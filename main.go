@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -42,7 +43,7 @@ func Types(include []string, exclude []string) []resource.ResourceType {
 }
 
 // Listers applies an include/exclude filter to all implemented listers and
-// returns a slice of the lister names that match. The filter is processed
+// returns a slice of the Lister names that match. The filter is processed
 // against the resource types handled by each Lister.
 func Listers(include []string, exclude []string) []ListerName {
 	listerMap := make(map[ListerName]struct{}, 0)
@@ -89,7 +90,7 @@ func GetByName(name ListerName) (lister.Lister, error) {
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("no lister found for %s", name)
+	return nil, fmt.Errorf("no Lister found for %s", name)
 }
 
 // GetByType finds the Lister that processes the ResourceType given as an
@@ -103,7 +104,7 @@ func GetByType(kind resource.ResourceType) (lister.Lister, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("no lister found for %s", kind)
+	return nil, fmt.Errorf("no Lister found for %s", kind)
 }
 
 // Regions applies a filter to all available AWS regions and returns a list
@@ -159,6 +160,8 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	for _, opt := range options {
 		opt(awsetsCfg)
 	}
+	defer awsetsCfg.Close()
+
 	if cache == nil {
 		cache = NoOpCache{}
 	}
@@ -170,7 +173,8 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	}
 
 	// Creates a work queue
-	jobs := make(chan job, 0)
+	jobs := make(chan listjob, 0)
+	totalJobs := len(regions) * len(listers)
 
 	rg := resource.NewGroup()
 
@@ -178,78 +182,41 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int, workQueue <-chan job) {
-			//var j job
+		go func(id int) {
 			defer func() {
 				awsetsCfg.Logger.Debugf("%d: finished worker\n", id)
 				wg.Done()
 			}()
-			//defer func() {
-			//	if r := recover(); r != nil {
-			//		fmt.Printf("%d: Paniced in %s - %s. Error: %v\n", id, j.region, j.kind, r)
-			//		fmt.Printf("%d: stacktrace from panic: %v\n", id, string(debug.Stack()))
-			//	}
-			//}()
 			for {
 				select {
-				case job, more := <-workQueue:
+				case job, more := <-jobs:
 					if !more {
 						return
 					}
-					//j = job
 					awsetsCfg.Logger.Debugf("%d: processing: %s - %s\n", id, job.region, job.lister)
-
-					// If listing is cached, return it
-					if cache.IsCached(job.region, job.lister) {
-						awsetsCfg.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
-						group, err := cache.LoadGroup(job.region, job.lister)
-						if err != nil {
-							awsetsCfg.Logger.Errorf("failed to load group: %v", err)
-						}
-						rg.Merge(group)
+					group, err := processJob(awsetsCfg, id, job, cache)
+					if err != nil {
+						awsetsCfg.Logger.Errorf("job failed (%s - %s): %v\n", job.region, job.lister, err)
 					} else {
-						awsetsCfg.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
-
-						// Find the appropriate Lister
-						l, err := GetByName(job.lister)
-						if err != nil {
-							awsetsCfg.Logger.Errorf("failed to get lister by name: %v", err)
-							continue
-						}
-
-						// Copies the AWSets context - this also configures the region in the AWS config
-						cfgCopy := awsetsCfg.Copy(job.region)
-
-						// Execute listing
-						group, err := l.List(cfgCopy)
-						if err != nil {
-							// indicates service is not supported in a region
-							if strings.Contains(err.Error(), "no such host") {
-								continue
-							}
-							awsetsCfg.Logger.Errorf("%d: failed job %s - %s\n with error: %v\n", id, job.region, job.lister, err)
-							continue
-						}
-
-						// Update the results in the cache
-						err = cache.SaveGroup(job.lister, group)
-						if err != nil {
-							awsetsCfg.Logger.Errorf("%d: failed to write cache for %s - %s: %v\n", id, job.region, job.lister, err)
-						}
-
 						// Merge the new results in with the rest
 						rg.Merge(group)
 					}
+					awsetsCfg.SendStatus(option.StatusUpdate{
+						Lister:    string(job.lister),
+						Region:    job.region,
+						Error:     err,
+						TotalJobs: totalJobs,
+					})
 					awsetsCfg.Logger.Debugf("%d: complete: %s - %s\n", id, job.region, job.lister)
 				}
 			}
-		}(i, jobs)
+		}(i)
 	}
 
 	// Populate work queue with all Region/ListerName combinations
 	for _, k := range listers {
 		for _, r := range regions {
-			jobs <- job{
+			jobs <- listjob{
 				lister: k,
 				region: r,
 			}
@@ -263,7 +230,54 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	return rg, nil
 }
 
-type job struct {
+func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cacher) (rg *resource.Group, jobError error) {
+	defer func() {
+		if r := recover(); r != nil {
+			jobError = fmt.Errorf("panicked: %v", r)
+			awsetsCfg.Logger.Debugf("%d: stacktrace from panic: %v\n", id, string(debug.Stack()))
+		}
+	}()
+
+	rg = resource.NewGroup()
+	// If listing is cached, return it
+	if cache.IsCached(job.region, job.lister) {
+		awsetsCfg.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
+		rg, jobError = cache.LoadGroup(job.region, job.lister)
+		if jobError != nil {
+			jobError = fmt.Errorf("failed to load group from cache: %w", jobError)
+		}
+	} else {
+		awsetsCfg.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
+
+		// Find the appropriate Lister
+		l, err := GetByName(job.lister)
+		if err != nil {
+			return rg, fmt.Errorf("failed to get lister by name %s: %v", job.lister, err)
+		}
+
+		// Copies the AWSets context - this also configures the region in the AWS config
+		cfgCopy := awsetsCfg.Copy(job.region)
+
+		// Execute listing
+		rg, jobError = l.List(cfgCopy)
+		if jobError != nil {
+			// indicates service is not supported in a region
+			if strings.Contains(jobError.Error(), "no such host") {
+				jobError = nil
+			}
+			return
+		}
+
+		// Update the results in the cache
+		jobError = cache.SaveGroup(job.lister, rg)
+		if jobError != nil {
+			jobError = fmt.Errorf("failed to write resources to cache: %w", jobError)
+		}
+	}
+	return rg, jobError
+}
+
+type listjob struct {
 	lister ListerName
 	region string
 }

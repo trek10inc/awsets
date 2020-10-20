@@ -44,7 +44,7 @@ func (l AWSS3Bucket) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 		for i, bucket := range res.Buckets {
 			bucketLocation, err := svc.GetBucketLocation(cfg.Context, &s3.GetBucketLocationInput{Bucket: bucket.Name})
 			if err != nil {
-				cfg.Logger.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, cfg.Region(), err)
+				cfg.Logger.Errorf("failed to get bucket location for %s from %s: %w\n", *bucket.Name, cfg.Region(), err)
 				continue
 				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, cfg.Region(), err)
 				//return
@@ -98,8 +98,11 @@ func (l AWSS3Bucket) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			ts := structs.Map(tagRes.TagSet)
-			buck["Tags"] = ts["TagSet"]
+			tags := make(map[string]string)
+			for _, t := range tagRes.TagSet {
+				tags[*t.Key] = *t.Value
+			}
+			buck["Tags"] = tags
 		} else {
 			buck["Tags"] = nil
 		}
