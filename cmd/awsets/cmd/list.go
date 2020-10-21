@@ -60,7 +60,7 @@ var listCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:  "show-progress",
 			Value: false,
-			Usage: "toggle progress meter",
+			Usage: "toggle progress bar",
 		},
 		&cli.BoolFlag{
 			Name:    "verbose",
@@ -125,7 +125,6 @@ var listCmd = &cli.Command{
 			options = append(options, option.WithStatus(statusChan))
 			go func() {
 				var bar *pb.ProgressBar
-				//doneCount := 0
 				for {
 					select {
 					case update, more := <-statusChan:
@@ -139,8 +138,6 @@ var listCmd = &cli.Command{
 							bar = pb.StartNew(update.TotalJobs)
 						}
 						bar.Increment()
-						//doneCount++
-						//fmt.Printf("%d of %d\n", doneCount, update.TotalJobs)
 					}
 				}
 			}()

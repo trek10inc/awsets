@@ -1,4 +1,3 @@
-```
 accessanalyzer/analyzer
 acm/certificate
 amplify/app
@@ -15,12 +14,15 @@ apig/restapi
 apig/stage
 apig/usageplan
 apig/usageplankey
+apig/vpclink
 apigv2/api
 apigv2/apimapping
 apigv2/authorizer
 apigv2/deployment
 apigv2/domainname
 apigv2/integration
+applicationautoscaling/scalablepolicy
+applicationautoscaling/scalabletarget
 appmesh/mesh
 appmesh/route
 appmesh/virtualgateway
@@ -61,8 +63,12 @@ cloudwatch/alarm
 cloudwatch/dashboard
 codebuild/project
 codecommit/repository
+codedeploy/application
+codedeploy/deploymentconfig
+codedeploy/deploymentgroup
 codepipeline/pipeline
 codepipeline/webhook
+cognito/identitypool
 cognito/userpool
 cognito/userpoolclient
 cognito/userpoolgroup
@@ -77,6 +83,7 @@ config/organizationconfigrule
 config/organizationconformancepack
 config/remediationconfiguration
 config/rule
+dax/cluster
 dax/parametergroup
 dax/subnetgroup
 ddb/table
@@ -140,8 +147,14 @@ events/rule
 firehose/stream
 fsx/backup
 fsx/filesystem
+glue/classifier
+glue/connection
+glue/crawler
 glue/database
+glue/job
 glue/table
+glue/trigger
+glue/workflow
 greengrass/connectordefinition
 greengrass/connectordefinitionversion
 greengrass/coredefinition
@@ -182,6 +195,7 @@ lambda/layerversion
 lambda/version
 logs/loggroup
 logs/metricfilter
+logs/querydefinition
 logs/subsciptionfilter
 mq/broker
 mq/brokerconfiguration
@@ -210,6 +224,9 @@ route53/healthcheck
 route53/hostedzone
 route53/recordset
 s3/bucket
+sagemaker/endpoint
+sagemaker/endpointconfig
+sagemaker/model
 secretmanager/secret
 servicecatalog/acceptedportfolioshare
 servicecatalog/portfolio
@@ -241,4 +258,3 @@ wafv2/regexpatternset
 wafv2/rulegroup
 wafv2/webacl
 workspaces/workspace
-```

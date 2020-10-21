@@ -45,7 +45,7 @@ The output of this tool is a JSON array of objects in the following format:
 }
 ```
 
-Filters can be added to the query in order to restrict regions and resource types. A list of currently supported AWS resource types can be found [here](supported_resources.md).
+Filters can be added to the query in order to restrict regions and resource types. A list of currently supported AWS resource types can be found [here](supported_resources.txt).
 
 ## Getting Started
 
@@ -111,6 +111,7 @@ OPTIONS:
    --profile value           AWS profile to use
    --refresh                 force a refresh of cache (default: false)
    --regions value           comma separated list of region prefixes
+   --show-progress           toggle progress bar (default: false)
    --verbose, -v             toggle verbose logging (default: false)
    --help, -h                show help (default: false)
 ```

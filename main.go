@@ -183,10 +183,7 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(id int) {
-			defer func() {
-				awsetsCfg.Logger.Debugf("%d: finished worker\n", id)
-				wg.Done()
-			}()
+			defer wg.Done()
 			for {
 				select {
 				case job, more := <-jobs:
