@@ -8,7 +8,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/emicklei/dot v0.14.0
 	github.com/jmespath/go-jmespath v0.4.0
-	github.com/trek10inc/awsets v0.5.0
+	github.com/trek10inc/awsets v0.6.0
 	github.com/urfave/cli/v2 v2.2.0
 	go.etcd.io/bbolt v1.3.5
 )
