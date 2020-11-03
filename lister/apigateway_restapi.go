@@ -28,6 +28,7 @@ func (l AWSApiGatewayRestApi) Types() []resource.ResourceType {
 		resource.ApiGatewayStage,
 		resource.ApiGatewayAuthorizer,
 		resource.ApiGatewayResource,
+		resource.ApiGatewayMethod,
 	}
 }
 
@@ -137,6 +138,7 @@ func (l AWSApiGatewayRestApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 					Limit:     aws.Int32(100),
 					RestApiId: restapi.Id,
 					Position:  nt2,
+					Embed:     []*string{aws.String("methods")},
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to get resources for restapi %s: %w", *restapi.Id, err)
@@ -145,6 +147,12 @@ func (l AWSApiGatewayRestApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 					resR := resource.New(cfg, resource.ApiGatewayResource, res.Id, res.Id, res)
 					resR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
 					rg.AddResource(resR)
+					for verb, method := range res.ResourceMethods {
+						methodId := fmt.Sprintf("%s-%s", *res.Id, verb)
+						methodR := resource.New(cfg, resource.ApiGatewayMethod, methodId, methodId, method)
+						methodR.AddRelation(resource.ApiGatewayResource, res.Id, "")
+						rg.AddResource(methodR)
+					}
 				}
 				return resourcesRes.Position, nil
 			})

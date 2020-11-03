@@ -74,7 +74,7 @@ func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, 
 		for k, v := range unmapped {
 			stacksMsg += fmt.Sprintf("%s,%03d\n", k, v)
 		}
-		cfg.Logger.Infof(stacksMsg)
+		cfg.SendStatus(option.StatusLogInfo, stacksMsg)
 	}
 	return rg, err
 }

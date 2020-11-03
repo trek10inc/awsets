@@ -36,8 +36,8 @@ func (l AWSWafv2WebACL) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	// Do global
 	var outerErr error
 	listWafv2WebACLOnce.Do(func() {
-		ctxUsEast := cfg.Copy("us-east-1")
-		rgNew, err := wafv2WebACLQuery(ctxUsEast, types.ScopeCloudfront)
+		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		rgNew, err := wafv2WebACLQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global web ACLs: %w", err)
 		}
@@ -74,7 +74,33 @@ func wafv2WebACLQuery(cfg option.AWSetsConfig, scope types.Scope) (*resource.Gro
 					r = resource.NewGlobal(cfg, resource.Wafv2WebACL, v.Id, v.Name, v)
 				} else {
 					r = resource.New(cfg, resource.Wafv2WebACL, v.Id, v.Name, v)
+
+					allResources := make([]*string, 0)
+					for _, t := range []types.ResourceType{
+						types.ResourceTypeApiGateway,
+						types.ResourceTypeApplicationLoadBalancer,
+					} {
+						resources, err := svc.ListResourcesForWebACL(cfg.Context, &wafv2.ListResourcesForWebACLInput{
+							WebACLArn:    v.ARN,
+							ResourceType: t,
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to get resources for web acl %s: %w", *v.Id, err)
+						}
+						allResources = append(allResources, resources.ResourceArns...)
+						for _, res := range resources.ResourceArns {
+							if t == types.ResourceTypeApiGateway {
+								r.AddARNRelation(resource.ApiGatewayRestApi, res)
+							} else if t == types.ResourceTypeApplicationLoadBalancer {
+								r.AddARNRelation(resource.ElbV2LoadBalancer, res)
+							}
+						}
+					}
+					if len(allResources) > 0 {
+						r.AddARNRelation("Resources", allResources)
+					}
 				}
+
 				rg.AddResource(r)
 			}
 		}

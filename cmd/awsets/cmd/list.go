@@ -111,37 +111,48 @@ var listCmd = &cli.Command{
 			log.Fatalf("failed to open cache: %v", err)
 		}
 
-		var logger option.Logger
-		if c.Bool("verbose") {
-			logger = VerboseLogger{}
-		} else {
-			logger = option.DefaultLogger{}
-		}
+		statusChan := make(chan option.StatusUpdate)
 		options := []option.Option{
-			option.WithLogger(logger),
+			option.WithStatus(statusChan),
 		}
-		if c.Bool("show-progress") {
-			statusChan := make(chan option.StatusUpdate)
-			options = append(options, option.WithStatus(statusChan))
-			go func() {
-				var bar *pb.ProgressBar
-				for {
-					select {
-					case update, more := <-statusChan:
-						if !more {
-							if bar != nil {
-								bar.Finish()
-							}
-							return
+		verbose := c.Bool("verbose")
+		showProgress := c.Bool("show-progress")
+		go func() {
+			var bar *pb.ProgressBar
+			for {
+				select {
+				case update, more := <-statusChan:
+					if !more {
+						if bar != nil {
+							bar.Finish()
 						}
-						if bar == nil {
-							bar = pb.StartNew(update.TotalJobs)
+						return
+					}
+					if showProgress && bar == nil {
+						bar = pb.StartNew(update.TotalJobs)
+					}
+					switch update.Type {
+					case option.StatusLogInfo:
+						if verbose {
+							fmt.Fprintln(os.Stdout, update.Message)
 						}
-						bar.Increment()
+					case option.StatusLogDebug:
+						if verbose {
+							fmt.Fprintln(os.Stdout, update.Message)
+						}
+					case option.StatusLogError:
+						fmt.Fprintf(os.Stderr, update.Message)
+					case option.StatusProcessing:
+					case option.StatusComplete:
+						fallthrough
+					case option.StatusCompleteWithError:
+						if bar != nil {
+							bar.Increment()
+						}
 					}
 				}
-			}()
-		}
+			}
+		}()
 
 		rg, err := awsets.List(awscfg, regions, listers, bc, options...)
 		if err != nil {
@@ -162,20 +173,4 @@ var listCmd = &cli.Command{
 		}
 		return nil
 	},
-}
-
-type VerboseLogger struct {
-}
-
-func (l VerboseLogger) Errorf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, a...)
-}
-
-func (l VerboseLogger) Infof(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stdout, format, a...)
-}
-
-func (l VerboseLogger) Debugf(format string, a ...interface{}) {
-	// No op for now until various levels of verbosity are supported
-	//fmt.Fprintf(os.Stdout, format, a...)
 }

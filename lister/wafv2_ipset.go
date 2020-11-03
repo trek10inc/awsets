@@ -36,8 +36,8 @@ func (l AWSWafv2IpSet) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	// Do global
 	var outerErr error
 	listWafv2IpSetsOnce.Do(func() {
-		ctxUsEast := cfg.Copy("us-east-1")
-		rgNew, err := wafv2IpsetQuery(ctxUsEast, types.ScopeCloudfront)
+		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		rgNew, err := wafv2IpsetQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global ipsets in region %s: %w", ctxUsEast.Region(), err)
 		}

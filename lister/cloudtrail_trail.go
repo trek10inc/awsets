@@ -30,7 +30,7 @@ func (l AWSCloudtrailTrail) List(cfg option.AWSetsConfig) (*resource.Group, erro
 		IncludeShadowTrails: aws.Bool(true),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list iot thing: %w", err)
+		return nil, fmt.Errorf("failed to list cloudtrail trails: %w", err)
 	}
 	for _, trail := range trails.TrailList {
 		r := resource.New(cfg, resource.CloudtrailTrail, trail.Name, trail.Name, trail)
@@ -50,14 +50,18 @@ func (l AWSCloudtrailTrail) List(cfg option.AWSetsConfig) (*resource.Group, erro
 			cwLogsRoleArn := arn.ParseP(trail.CloudWatchLogsRoleArn)
 			r.AddRelation(resource.LogGroup, cwLogsRoleArn.ResourceId, "")
 		}
-		if trail.HomeRegion != nil && *trail.HomeRegion == cfg.Region() {
-			statusRes, err := svc.GetTrailStatus(cfg.Context, &cloudtrail.GetTrailStatusInput{
-				Name: trail.Name,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get status for trail %s: %w", *trail.Name, err)
+
+		trailArn := arn.ParseP(trail.TrailARN)
+		if trailArn.Account == cfg.AccountId {
+			if trail.HomeRegion != nil && *trail.HomeRegion == cfg.Region() {
+				statusRes, err := svc.GetTrailStatus(cfg.Context, &cloudtrail.GetTrailStatusInput{
+					Name: trail.Name,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get status for trail %s: %w", *trail.Name, err)
+				}
+				r.AddAttribute("Status", statusRes)
 			}
-			r.AddAttribute("Status", statusRes)
 		}
 		rg.AddResource(r)
 	}

@@ -44,10 +44,8 @@ func (l AWSS3Bucket) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 		for i, bucket := range res.Buckets {
 			bucketLocation, err := svc.GetBucketLocation(cfg.Context, &s3.GetBucketLocationInput{Bucket: bucket.Name})
 			if err != nil {
-				cfg.Logger.Errorf("failed to get bucket location for %s from %s: %w\n", *bucket.Name, cfg.Region(), err)
+				cfg.SendStatus(option.StatusLogError, fmt.Sprintf("failed to get bucket location for %s from %s: %v\n", *bucket.Name, cfg.Region(), err))
 				continue
-				//outerErr = fmt.Errorf("failed to get bucket location for %s from %s: %w", *bucket.Name, cfg.Region(), err)
-				//return
 			}
 			reg := string(bucketLocation.LocationConstraint)
 			if len(reg) == 0 {
@@ -61,7 +59,7 @@ func (l AWSS3Bucket) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	}
 
 	for _, bucket := range bucketsByRegion[cfg.Region()] {
-		//fmt.Printf("processing bucket %s in region %s\n", *bucket.Name, cfg.Region())
+
 		buck := structs.Map(bucket)
 		lifecycleRes, err := svc.GetBucketLifecycleConfiguration(cfg.Context, &s3.GetBucketLifecycleConfigurationInput{
 			Bucket: bucket.Name,

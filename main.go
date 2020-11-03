@@ -157,6 +157,7 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	if err != nil {
 		return nil, err
 	}
+
 	for _, opt := range options {
 		opt(awsetsCfg)
 	}
@@ -180,7 +181,7 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 
 	// Build worker pool
 	wg := &sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < awsetsCfg.WorkerCount; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -190,21 +191,19 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 					if !more {
 						return
 					}
-					awsetsCfg.Logger.Debugf("%d: processing: %s - %s\n", id, job.region, job.lister)
-					group, err := processJob(awsetsCfg, id, job, cache)
+
+					// Copies the AWSets context - this also configures the region in the AWS config
+					workerCfg := awsetsCfg.Copy(id, totalJobs, job.region, string(job.lister))
+
+					workerCfg.SendStatus(option.StatusProcessing, "processing")
+					group, err := processJob(workerCfg, id, job, cache)
 					if err != nil {
-						awsetsCfg.Logger.Errorf("job failed (%s - %s): %v\n", job.region, job.lister, err)
+						workerCfg.SendStatus(option.StatusCompleteWithError, err.Error())
 					} else {
 						// Merge the new results in with the rest
 						rg.Merge(group)
+						workerCfg.SendStatus(option.StatusComplete, "")
 					}
-					awsetsCfg.SendStatus(option.StatusUpdate{
-						Lister:    string(job.lister),
-						Region:    job.region,
-						Error:     err,
-						TotalJobs: totalJobs,
-					})
-					awsetsCfg.Logger.Debugf("%d: complete: %s - %s\n", id, job.region, job.lister)
 				}
 			}
 		}(i)
@@ -231,20 +230,20 @@ func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cache
 	defer func() {
 		if r := recover(); r != nil {
 			jobError = fmt.Errorf("panicked: %v", r)
-			awsetsCfg.Logger.Debugf("%d: stacktrace from panic: %v\n", id, string(debug.Stack()))
+			awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: stacktrace from panic: %v\n", id, string(debug.Stack())))
 		}
 	}()
 
 	rg = resource.NewGroup()
 	// If listing is cached, return it
 	if cache.IsCached(job.region, job.lister) {
-		awsetsCfg.Logger.Debugf("%d: cached: %s - %s\n", id, job.region, job.lister)
+		awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: cached: %s - %s", id, job.region, job.lister))
 		rg, jobError = cache.LoadGroup(job.region, job.lister)
 		if jobError != nil {
 			jobError = fmt.Errorf("failed to load group from cache: %w", jobError)
 		}
 	} else {
-		awsetsCfg.Logger.Debugf("%d: not cached: %s - %s\n", id, job.region, job.lister)
+		awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: not cached: %s - %s", id, job.region, job.lister))
 
 		// Find the appropriate Lister
 		l, err := GetByName(job.lister)
@@ -252,11 +251,8 @@ func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cache
 			return rg, fmt.Errorf("failed to get lister by name %s: %v", job.lister, err)
 		}
 
-		// Copies the AWSets context - this also configures the region in the AWS config
-		cfgCopy := awsetsCfg.Copy(job.region)
-
 		// Execute listing
-		rg, jobError = l.List(cfgCopy)
+		rg, jobError = l.List(*awsetsCfg)
 		if jobError != nil {
 			// indicates service is not supported in a region
 			if strings.Contains(jobError.Error(), "no such host") {

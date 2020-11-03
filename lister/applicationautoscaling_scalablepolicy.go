@@ -33,7 +33,7 @@ func (l AWSApplicationAutoScalingScalablePolicy) List(cfg option.AWSetsConfig) (
 		types.ServiceNamespaceAppstream,
 		types.ServiceNamespaceCassandra,
 		types.ServiceNamespaceComprehend,
-		types.ServiceNamespaceCustom_resource,
+		types.ServiceNamespaceCustomResource,
 		types.ServiceNamespaceDynamodb,
 		types.ServiceNamespaceLambda,
 		types.ServiceNamespaceEc2,

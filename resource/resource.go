@@ -58,6 +58,10 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 	} else {
 		asMap = rawObject.(map[string]interface{})
 	}
+
+	if _, ok := asMap["ResultMetadata"]; ok {
+		delete(asMap, "ResultMetadata")
+	}
 	resource := Resource{
 		Identifier: Identifier{
 			Account: account,
@@ -71,7 +75,7 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 		Tags:       make(map[string]string),
 	}
 	if strings.Contains(id, "arn:") {
-		fmt.Printf("new resource: %s - %s\n", kind.String(), id)
+		fmt.Printf("new resource contains arn: %s - %s\n", kind.String(), id)
 	}
 	if tags, ok := asMap["Tags"]; ok {
 		switch t := tags.(type) {

@@ -9,11 +9,11 @@ import (
 )
 
 type AWSetsConfig struct {
-	AWSCfg     aws.Config
-	AccountId  string
-	Context    context.Context
-	Logger     Logger
-	StatusChan chan<- StatusUpdate
+	AWSCfg      aws.Config
+	WorkerCount int
+	AccountId   string
+	Context     context.Context
+	StatusChan  chan<- StatusUpdate
 }
 
 func NewConfig(awsCfg aws.Config) (*AWSetsConfig, error) {
@@ -24,10 +24,10 @@ func NewConfig(awsCfg aws.Config) (*AWSetsConfig, error) {
 		return &AWSetsConfig{}, fmt.Errorf("failed to get account id: %w", err)
 	}
 	return &AWSetsConfig{
-		AWSCfg:    awsCfg,
-		AccountId: *res.Account,
-		Context:   context.Background(),
-		Logger:    DefaultLogger{},
+		AWSCfg:      awsCfg,
+		AccountId:   *res.Account,
+		Context:     context.Background(),
+		WorkerCount: 10,
 	}, nil
 }
 
@@ -35,22 +35,50 @@ func (c *AWSetsConfig) Region() string {
 	return c.AWSCfg.Region
 }
 
-func (c *AWSetsConfig) Copy(region string) AWSetsConfig {
-	cop := AWSetsConfig{
-		AWSCfg:    c.AWSCfg.Copy(),
-		AccountId: c.AccountId,
-		Context:   c.Context,
-		Logger:    c.Logger,
+func (c *AWSetsConfig) Copy(workerId, totalJobs int, region, lister string) *AWSetsConfig {
+	ctx := c.Context
+	ctx = context.WithValue(ctx, "workerId", workerId)
+	ctx = context.WithValue(ctx, "totalJobs", totalJobs)
+	ctx = context.WithValue(ctx, "region", region)
+	ctx = context.WithValue(ctx, "lister", lister)
+
+	cop := &AWSetsConfig{
+		AWSCfg:     c.AWSCfg.Copy(),
+		AccountId:  c.AccountId,
+		Context:    ctx,
+		StatusChan: c.StatusChan,
 	}
 	cop.AWSCfg.Region = region
 	return cop
 }
 
-func (c *AWSetsConfig) SendStatus(update StatusUpdate) {
+func (c *AWSetsConfig) CopyWithRegion(region string) *AWSetsConfig {
+	ctx := c.Context
+	ctx = context.WithValue(ctx, "region", region)
+
+	cop := &AWSetsConfig{
+		AWSCfg:     c.AWSCfg.Copy(),
+		AccountId:  c.AccountId,
+		Context:    ctx,
+		StatusChan: c.StatusChan,
+	}
+	cop.AWSCfg.Region = region
+	return cop
+}
+
+func (c *AWSetsConfig) SendStatus(statusType StatusType, msg string) {
 	if c.StatusChan == nil {
 		return
 	}
-	c.StatusChan <- update
+	su := StatusUpdate{
+		Type:      statusType,
+		Lister:    c.Context.Value("lister").(string),
+		Region:    c.Context.Value("region").(string),
+		Message:   msg,
+		WorkerId:  c.Context.Value("workerId").(int),
+		TotalJobs: c.Context.Value("totalJobs").(int),
+	}
+	c.StatusChan <- su
 }
 
 func (c *AWSetsConfig) Close() {
@@ -61,12 +89,6 @@ func (c *AWSetsConfig) Close() {
 
 type Option func(o *AWSetsConfig)
 
-func WithLogger(logger Logger) Option {
-	return func(o *AWSetsConfig) {
-		o.Logger = logger
-	}
-}
-
 func WithContext(ctx context.Context) Option {
 	return func(o *AWSetsConfig) {
 		o.Context = ctx
@@ -76,5 +98,13 @@ func WithContext(ctx context.Context) Option {
 func WithStatus(ch chan<- StatusUpdate) Option {
 	return func(o *AWSetsConfig) {
 		o.StatusChan = ch
+	}
+}
+
+func WithWorkerCount(numWorkers int) Option {
+	return func(o *AWSetsConfig) {
+		if numWorkers > 0 && numWorkers < 1000 {
+			o.WorkerCount = numWorkers
+		}
 	}
 }

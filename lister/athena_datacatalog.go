@@ -39,7 +39,7 @@ func (l AWSAthenaDataCatalog) List(cfg option.AWSetsConfig) (*resource.Group, er
 				Name: dcSummary.CatalogName,
 			})
 			if err != nil {
-				//cfg.Logger.Errorf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err)
+				//cfg.SendStatus(option.StatusLogError, fmt.Sprintf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err))
 			} else if v := dc.DataCatalog; v != nil {
 				r.AddAttribute("Description", v.Description)
 				r.AddAttribute("Parameters", v.Parameters)

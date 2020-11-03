@@ -36,8 +36,8 @@ func (l AWSWafv2RuleGroup) List(cfg option.AWSetsConfig) (*resource.Group, error
 	// Do global
 	var outerErr error
 	listWafv2RuleGroupOnce.Do(func() {
-		ctxUsEast := cfg.Copy("us-east-1")
-		rgNew, err := wafv2RuleGroupQuery(ctxUsEast, types.ScopeCloudfront)
+		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		rgNew, err := wafv2RuleGroupQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global rule groups: %w", err)
 		}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
+	"github.com/aws/aws-sdk-go-v2/service/wafregional/types"
 	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -40,6 +41,32 @@ func (l AWSWafRegionalWebAcl) List(cfg option.AWSetsConfig) (*resource.Group, er
 			if v := webacl.WebACL; v != nil {
 				//webaclArn := arn.ParseP(webacl.WebACL.WebACLArn)
 				r := resource.New(cfg, resource.WafRegionalWebACL, v.WebACLId, v.Name, v)
+
+				allResources := make([]*string, 0)
+				for _, t := range []types.ResourceType{
+					types.ResourceTypeApiGateway,
+					types.ResourceTypeApplicationLoadBalancer,
+				} {
+					resources, err := svc.ListResourcesForWebACL(cfg.Context, &wafregional.ListResourcesForWebACLInput{
+						WebACLId:     v.WebACLId,
+						ResourceType: t,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to get resources for web acl %s: %w", *v.WebACLId, err)
+					}
+					allResources = append(allResources, resources.ResourceArns...)
+					for _, res := range resources.ResourceArns {
+						if t == types.ResourceTypeApiGateway {
+							r.AddARNRelation(resource.ApiGatewayRestApi, res)
+						} else if t == types.ResourceTypeApplicationLoadBalancer {
+							r.AddARNRelation(resource.ElbV2LoadBalancer, res)
+						}
+					}
+				}
+				if len(allResources) > 0 {
+					r.AddARNRelation("Resources", allResources)
+				}
+
 				rg.AddResource(r)
 			}
 		}

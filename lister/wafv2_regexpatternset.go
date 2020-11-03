@@ -36,8 +36,8 @@ func (l AWSWafv2RegexPatternSet) List(cfg option.AWSetsConfig) (*resource.Group,
 	// Do global
 	var outerErr error
 	listWafv2RegexPatternSetOnce.Do(func() {
-		ctxUsEast := cfg.Copy("us-east-1")
-		rgNew, err := wafv2RegexPatternSetQuery(ctxUsEast, types.ScopeCloudfront)
+		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		rgNew, err := wafv2RegexPatternSetQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global regex pattern sets: %w", err)
 		}
