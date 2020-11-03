@@ -46,7 +46,7 @@ func (l AWSFirehoseStream) List(cfg option.AWSetsConfig) (*resource.Group, error
 				return nil, fmt.Errorf("failed to describe delivery stream %s: %w", *ds, err)
 			}
 			if *describeRes.DeliveryStreamDescription.HasMoreDestinations {
-				cfg.SendStatus(option.StatusLogError, fmt.Sprintf("need to page through destinations for %s", ds))
+				cfg.SendStatus(option.StatusLogError, fmt.Sprintf("need to page through destinations for %s", *ds))
 			}
 			dsArn := arn.ParseP(describeRes.DeliveryStreamDescription.DeliveryStreamARN)
 			r := resource.New(cfg, resource.FirehoseDeliveryStream, dsArn.ResourceId, describeRes.DeliveryStreamDescription.DeliveryStreamName, describeRes.DeliveryStreamDescription)

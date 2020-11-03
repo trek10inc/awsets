@@ -130,7 +130,6 @@ func getConfig() option.AWSetsConfig {
 		AWSCfg:    config,
 		AccountId: "123456789",
 		Context:   context.Background(),
-		Logger:    option.NoOpLogger{},
 	}
 }
 
@@ -161,7 +160,7 @@ func Test_JSON(t *testing.T) {
 	rg := NewGroup()
 
 	cfgUsEast1 := getConfig()
-	cfgUsEast2 := cfgUsEast1.Copy("us-east-2")
+	cfgUsEast2 := cfgUsEast1.CopyWithRegion("us-east-2")
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{
@@ -169,9 +168,9 @@ func Test_JSON(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r1 := New(cfgUsEast2, Ec2Instance, "resource 1", "resource_1", object)
+	r1 := New(*cfgUsEast2, Ec2Instance, "resource 1", "resource_1", object)
 	rg.AddResource(r1)
-	r2 := New(cfgUsEast2, Ec2Image, "resource 2", "resource_2", object)
+	r2 := New(*cfgUsEast2, Ec2Image, "resource 2", "resource_2", object)
 	rg.AddResource(r2)
 	r3 := NewVersion(cfgUsEast1, Ec2Instance, "resource 3", "resource_3", "2", object)
 	rg.AddResource(r3)
