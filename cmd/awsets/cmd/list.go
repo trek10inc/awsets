@@ -134,14 +134,14 @@ var listCmd = &cli.Command{
 					switch update.Type {
 					case option.StatusLogInfo:
 						if verbose {
-							fmt.Fprintln(os.Stdout, update.Message)
+							fmt.Fprintf(os.Stdout, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 						}
 					case option.StatusLogDebug:
 						if verbose {
-							fmt.Fprintln(os.Stdout, update.Message)
+							fmt.Fprintf(os.Stdout, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 						}
 					case option.StatusLogError:
-						fmt.Fprintf(os.Stderr, update.Message)
+						fmt.Fprintf(os.Stderr, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 					case option.StatusProcessing:
 					case option.StatusComplete:
 						fallthrough

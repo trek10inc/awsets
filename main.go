@@ -200,8 +200,12 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 					if err != nil {
 						workerCfg.SendStatus(option.StatusCompleteWithError, err.Error())
 					} else {
-						// Merge the new results in with the rest
-						rg.Merge(group)
+						if group == nil {
+							workerCfg.SendStatus(option.StatusLogError, "rg is nil after processing")
+						} else {
+							// Merge the new results in with the rest
+							rg.Merge(group)
+						}
 						workerCfg.SendStatus(option.StatusComplete, "")
 					}
 				}
@@ -230,7 +234,7 @@ func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cache
 	defer func() {
 		if r := recover(); r != nil {
 			jobError = fmt.Errorf("panicked: %v", r)
-			awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: stacktrace from panic: %v\n", id, string(debug.Stack())))
+			awsetsCfg.SendStatus(option.StatusLogError, fmt.Sprintf("%d: stacktrace from panic: %v\n", id, string(debug.Stack())))
 		}
 	}()
 

@@ -70,7 +70,7 @@ func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, 
 		return res.NextToken, nil
 	})
 	if len(unmapped) > 0 {
-		stacksMsg := fmt.Sprintf("unmapped cf types for region %s:\n", cfg.Region())
+		stacksMsg := fmt.Sprintf("unmapped cf types:\n")
 		for k, v := range unmapped {
 			stacksMsg += fmt.Sprintf("%s,%03d\n", k, v)
 		}
