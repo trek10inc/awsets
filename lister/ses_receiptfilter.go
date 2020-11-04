@@ -31,9 +31,9 @@ func (l AWSSESReceiptFilter) List(cfg option.AWSetsConfig) (*resource.Group, err
 	if err != nil {
 		if strings.Contains(err.Error(), "Unavailable Operation") {
 			// If SES isn't available in a region, returns Unavailable Operation error
-			return nil, nil
+			return rg, nil
 		}
-		return nil, err
+		return rg, err
 	}
 	for _, v := range filters.Filters {
 		r := resource.New(cfg, resource.SesReceiptFilter, v.Name, v.Name, v)
