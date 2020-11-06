@@ -200,12 +200,8 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 					if err != nil {
 						workerCfg.SendStatus(option.StatusCompleteWithError, err.Error())
 					} else {
-						if group == nil {
-							workerCfg.SendStatus(option.StatusLogError, "rg is nil after processing")
-						} else {
-							// Merge the new results in with the rest
-							rg.Merge(group)
-						}
+						// Merge the new results in with the rest
+						rg.Merge(group)
 						workerCfg.SendStatus(option.StatusComplete, "")
 					}
 				}

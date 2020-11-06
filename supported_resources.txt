@@ -89,6 +89,7 @@ dax/parametergroup
 dax/subnetgroup
 ddb/backup
 ddb/table
+ddbstream/stream
 dms/endpoint
 dms/replicationinstance
 dms/replicationsubnetgroup
@@ -178,6 +179,12 @@ iam/instanceprofile
 iam/policy
 iam/role
 iam/user
+imagebuilder/component
+imagebuilder/distributionconfiguration
+imagebuilder/image
+imagebuilder/imagepipeline
+imagebuilder/imagerecipe
+imagebuilder/infrastructureconfiguration
 iot/cacertificate
 iot/certificate
 iot/policy
@@ -185,6 +192,9 @@ iot/thing
 iot/thinggroup
 iot/thingtype
 iot/topicrule
+iotsitewise/asset
+iotsitewise/assetmodel
+iotsitewise/gateway
 kafka/cluster
 kinesis/stream
 kms/alias

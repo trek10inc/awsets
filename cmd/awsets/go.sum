@@ -73,6 +73,8 @@ github.com/aws/aws-sdk-go-v2/service/docdb v0.29.0 h1:oFPAXQ2knLeFjWaDDcb53ta9/O
 github.com/aws/aws-sdk-go-v2/service/docdb v0.29.0/go.mod h1:6lnW/v9QNpz3KVlLb0Q1pJhybYcURdp9aozs0MWZwp8=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v0.29.0 h1:d5yqntamqBYCLo5K/KUfjWXaWG1NADl3wpKbEHzQ/AU=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v0.29.0/go.mod h1:GnrvWDFrLYlFuAHVFORuS8LFOU4Nhy+zsEFPB4aXl7o=
+github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v0.29.0 h1:Mez0GZO9FZNXWmt7k7MduHyqiwd9CD1gNZRGoQ+FIrM=
+github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v0.29.0/go.mod h1:eP8Iry27nkQxFLgScoBZIaVU2rFG9oxFZsTNurygLuI=
 github.com/aws/aws-sdk-go-v2/service/ec2 v0.29.0 h1:Cce76s5ELe4B5lcxJGmCNncRRUNu1PI11GoLx6cesxM=
 github.com/aws/aws-sdk-go-v2/service/ec2 v0.29.0/go.mod h1:85Da92ykdcG4mD+cz4Vp7D3VsKf0/Bl6WHrE0V0jBig=
 github.com/aws/aws-sdk-go-v2/service/ecr v0.29.0 h1:90pUygW5pNWDPevIhGW1ZQTyQLj+0wRulp+LSWu3C+w=
@@ -105,6 +107,8 @@ github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0 h1:rWd6Ik73ca9R7VXpRoeM+
 github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0/go.mod h1:Qime32S/PdxuoB2kPTFjkUUD41BUZuZ4WoQEz8/Sh8E=
 github.com/aws/aws-sdk-go-v2/service/iam v0.29.0 h1:w5tnMJZPZ0UvKNuS48fszCuK65DWiSx1cFnBbv8A45A=
 github.com/aws/aws-sdk-go-v2/service/iam v0.29.0/go.mod h1:lcprpUAWnKttfq6rYtp59O6MihrOv2C5rbIKBYnzz5k=
+github.com/aws/aws-sdk-go-v2/service/imagebuilder v0.29.0 h1:2mSRtCmcILnVPmIT34whFkQ59L3FsK9Wr888aGj3U1Y=
+github.com/aws/aws-sdk-go-v2/service/imagebuilder v0.29.0/go.mod h1:7KcoKWovQs8dAWt9xMXOn+kK8r5VyE4GMa6gwKr7TPk=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v0.3.0 h1:OGNwNNeQvOZsa+zAK5nE7r6e0serfSAFznoXqbvbzFE=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v0.3.0/go.mod h1:bMiNrEKNefchodwRJnuwaiAZj2NJq8ZHAYASve6mbFs=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v0.1.1 h1:mX0AC4zkkDMNLxzF56aov9zb/35qa9hc6MmWlwA9JRo=
@@ -113,6 +117,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/s3shared v0.3.1 h1:5dV7pN0xCrnecvb
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v0.3.1/go.mod h1:XHXNMjAkjOXqnmixax5P9IsLhJd6mEU+yrsGls4b5zk=
 github.com/aws/aws-sdk-go-v2/service/iot v0.29.0 h1:dBRwX6zWGOhLYVBtovSegwHvWs8jyXjGr8VLXOZcAU8=
 github.com/aws/aws-sdk-go-v2/service/iot v0.29.0/go.mod h1:y1bAjY+iAJ9vX4k3ELVLZp5PFDhduko3u0hDis9N2LM=
+github.com/aws/aws-sdk-go-v2/service/iotsitewise v0.29.0 h1:tGPEPTKhkg1/q47V6xgGRT89i4t1wrYam6eebKKJXJw=
+github.com/aws/aws-sdk-go-v2/service/iotsitewise v0.29.0/go.mod h1:JKGwnJ85nCXo8TkPfYXX6INGIqOC2t+hIcCBodPB1Cc=
 github.com/aws/aws-sdk-go-v2/service/kafka v0.29.0 h1:e4hbi5dgxtRwpalIr2wI/FBts/fdfu8NNXDspjurxgU=
 github.com/aws/aws-sdk-go-v2/service/kafka v0.29.0/go.mod h1:XSUuPcRyDpjwQYRG8aAKzPLqjMJN7/Uqq6jOAsEk5zM=
 github.com/aws/aws-sdk-go-v2/service/kinesis v0.29.0 h1:YCMdSI9ierV/qxfOuygfZv8Ju1ma0mjyexEJIR4Z5Eo=

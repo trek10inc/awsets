@@ -122,7 +122,8 @@ func (r *Resource) AddARNRelation(kind ResourceType, iArn interface{}) {
 		return
 	}
 	if !strings.Contains(sArn, "arn:") {
-		fmt.Errorf("resource %+v tried adding relationsip that was not an ARN: %s-%s", r.Identifier, kind.String(), sArn)
+		// TODO: remove printing
+		fmt.Printf("resource %+v tried adding relationsip that was not an ARN: %s-%s", r.Identifier, kind.String(), sArn)
 		return
 	}
 	parsedArn := arn.Parse(sArn)
@@ -150,6 +151,7 @@ func (r *Resource) addRelation(account string, region string, kind ResourceType,
 	}
 
 	if strings.Contains(id, "arn:") {
+		// TODO: remove printing
 		fmt.Printf("new relation with %s has arn: %s - %s\n", r.Type.String(), kind.String(), id)
 	}
 	if strings.HasPrefix(kind.String(), "iam/") ||
@@ -197,6 +199,9 @@ func NewGroup() *Group {
 }
 
 func (g *Group) Merge(group *Group) {
+	if group == nil {
+		return
+	}
 	g.Lock()
 	defer g.Unlock()
 	for _, res := range group.Resources {

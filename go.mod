@@ -35,6 +35,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dax v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/docdb v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ecr v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ecs v0.29.0
@@ -51,7 +52,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/glue v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/iam v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/imagebuilder v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/iot v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/iotsitewise v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/kafka v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/kinesis v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/kms v0.29.0
@@ -72,6 +75,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sts v0.29.0
+	//github.com/aws/aws-sdk-go-v2/service/timestreamquery v0.29.0
+	//github.com/aws/aws-sdk-go-v2/service/timestreamwrite v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/transfer v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/waf v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/wafregional v0.29.0
