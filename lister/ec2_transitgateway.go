@@ -40,6 +40,7 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 		for _, v := range res.TransitGateways {
 			r := resource.New(cfg, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
 			// TODO lots of additional info to query here
+
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

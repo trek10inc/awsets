@@ -7,33 +7,33 @@ import (
 	"github.com/trek10inc/awsets/resource"
 )
 
-type AWSEc2Vpc struct {
+type AWSEc2DHCPOption struct {
 }
 
 func init() {
-	i := AWSEc2Vpc{}
+	i := AWSEc2DHCPOption{}
 	listers = append(listers, i)
 }
 
-func (l AWSEc2Vpc) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.Ec2Vpc}
+func (l AWSEc2DHCPOption) Types() []resource.ResourceType {
+	return []resource.ResourceType{
+		resource.Ec2DHCPOption,
+	}
 }
 
-func (l AWSEc2Vpc) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSEc2DHCPOption) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	svc := ec2.NewFromConfig(cfg.AWSCfg)
-
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeVpcs(cfg.Context, &ec2.DescribeVpcsInput{
+		res, err := svc.DescribeDhcpOptions(cfg.Context, &ec2.DescribeDhcpOptionsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range res.Vpcs {
-			r := resource.New(cfg, resource.Ec2Vpc, v.VpcId, v.VpcId, v)
-			r.AddRelation(resource.Ec2DHCPOption, v.DhcpOptionsId, "")
+		for _, v := range res.DhcpOptions {
+			r := resource.New(cfg, resource.Ec2DHCPOption, v.DhcpOptionsId, v.DhcpOptionsId, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil
