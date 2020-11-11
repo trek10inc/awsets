@@ -1,10 +1,12 @@
 package lister
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -18,7 +20,10 @@ func init() {
 }
 
 func (l AWSEc2TransitGateway) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.Ec2TransitGateway}
+	return []resource.ResourceType{
+		resource.Ec2TransitGateway,
+		resource.Ec2TransitGatewayAttachment,
+	}
 }
 
 func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, error) {
@@ -40,6 +45,143 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 		for _, v := range res.TransitGateways {
 			r := resource.New(cfg, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
 			// TODO lots of additional info to query here
+
+			// Attachments
+			err = Paginator(func(nt2 *string) (*string, error) {
+				attachments, err := svc.DescribeTransitGatewayAttachments(cfg.Context, &ec2.DescribeTransitGatewayAttachmentsInput{
+					Filters: []*types.Filter{
+						{
+							Name:   aws.String("transit-gateway-id"),
+							Values: []*string{v.TransitGatewayId},
+						},
+					},
+					MaxResults: aws.Int32(100),
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get transit gateway attachments for %s: %w", *v.TransitGatewayId, err)
+				}
+				for _, a := range attachments.TransitGatewayAttachments {
+					attachmentR := resource.New(cfg, resource.Ec2TransitGatewayAttachment, a.TransitGatewayAttachmentId, a.TransitGatewayAttachmentId, a)
+					attachmentR.AddRelation(resource.Ec2TransitGateway, v.TransitGatewayId, "")
+					switch a.ResourceType {
+					case types.TransitGatewayAttachmentResourceTypeVpc:
+						attachmentR.AddRelation(resource.Ec2Vpc, a.ResourceId, "")
+					case types.TransitGatewayAttachmentResourceTypeVpn:
+						attachmentR.AddRelation(resource.Ec2VpnGateway, a.ResourceId, "") // TODO validate type
+					case types.TransitGatewayAttachmentResourceTypeDirectConnectGateway:
+						//attachmentR.AddRelation(resource., a.ResourceId, "")
+					case types.TransitGatewayAttachmentResourceTypePeering:
+						attachmentR.AddRelation(resource.Ec2VpcPeering, a.ResourceId, "")
+					case types.TransitGatewayAttachmentResourceTypeTgwPeering:
+						//attachmentR.AddRelation(resource., a.ResourceId, "")
+					}
+					rg.AddResource(attachmentR)
+				}
+				return attachments.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			// Routes
+			err = Paginator(func(nt2 *string) (*string, error) {
+				routeTables, err := svc.DescribeTransitGatewayRouteTables(cfg.Context, &ec2.DescribeTransitGatewayRouteTablesInput{
+					Filters: []*types.Filter{
+						{
+							Name:   aws.String("transit-gateway-id"),
+							Values: []*string{v.TransitGatewayId},
+						},
+					},
+					MaxResults: aws.Int32(100),
+					NextToken:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get transit gateway attachments for %s: %w", *v.TransitGatewayId, err)
+				}
+
+				for _, rt := range routeTables.TransitGatewayRouteTables {
+					rtR := resource.New(cfg, resource.Ec2TransitGatewayRouteTable, rt.TransitGatewayRouteTableId, rt.TransitGatewayRouteTableId, rt)
+					rtR.AddRelation(resource.Ec2TransitGateway, v.TransitGatewayId, "")
+					// Route Table Associations
+					allAssociations := make([]*types.TransitGatewayRouteTableAssociation, 0)
+					err = Paginator(func(nt3 *string) (*string, error) {
+						associations, err := svc.GetTransitGatewayRouteTableAssociations(cfg.Context, &ec2.GetTransitGatewayRouteTableAssociationsInput{
+							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
+							MaxResults:                 aws.Int32(100),
+							NextToken:                  nt3,
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to get associations for route table %s: %w", *rt.TransitGatewayRouteTableId, err)
+						}
+
+						allAssociations = append(allAssociations, associations.Associations...)
+						return associations.NextToken, nil
+					})
+					if err != nil {
+						return nil, err
+					}
+					if len(allAssociations) > 0 {
+						rtR.AddAttribute("Associations", allAssociations)
+						for _, a := range allAssociations {
+							switch a.ResourceType {
+							case types.TransitGatewayAttachmentResourceTypeVpc:
+								rtR.AddRelation(resource.Ec2Vpc, a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypeVpn:
+								rtR.AddRelation(resource.Ec2VpnGateway, a.ResourceId, "") // TODO validate type
+							case types.TransitGatewayAttachmentResourceTypeDirectConnectGateway:
+								//rtR.AddRelation(resource., a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypePeering:
+								rtR.AddRelation(resource.Ec2VpcPeering, a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypeTgwPeering:
+								//rtR.AddRelation(resource., a.ResourceId, "")
+							}
+						}
+					}
+
+					// Route Table Propagations
+					allPropagations := make([]*types.TransitGatewayRouteTablePropagation, 0)
+					err = Paginator(func(nt3 *string) (*string, error) {
+						propagations, err := svc.GetTransitGatewayRouteTablePropagations(cfg.Context, &ec2.GetTransitGatewayRouteTablePropagationsInput{
+							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
+							MaxResults:                 aws.Int32(100),
+							NextToken:                  nt3,
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to get propagations for route table %s: %w", *rt.TransitGatewayRouteTableId, err)
+						}
+
+						allPropagations = append(allPropagations, propagations.TransitGatewayRouteTablePropagations...)
+						return propagations.NextToken, nil
+					})
+					if err != nil {
+						return nil, err
+					}
+					if len(allPropagations) > 0 {
+						rtR.AddAttribute("Propagations", allPropagations)
+						for _, a := range allPropagations {
+							switch a.ResourceType {
+							case types.TransitGatewayAttachmentResourceTypeVpc:
+								rtR.AddRelation(resource.Ec2Vpc, a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypeVpn:
+								rtR.AddRelation(resource.Ec2VpnGateway, a.ResourceId, "") // TODO validate type
+							case types.TransitGatewayAttachmentResourceTypeDirectConnectGateway:
+								//rtR.AddRelation(resource., a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypePeering:
+								rtR.AddRelation(resource.Ec2VpcPeering, a.ResourceId, "")
+							case types.TransitGatewayAttachmentResourceTypeTgwPeering:
+								//rtR.AddRelation(resource., a.ResourceId, "")
+							}
+
+						}
+					}
+					rg.AddResource(rtR)
+				}
+				return routeTables.NextToken, nil
+			})
+			if err != nil {
+				return nil, err
+			}
 
 			rg.AddResource(r)
 		}

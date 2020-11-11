@@ -105,6 +105,8 @@ github.com/aws/aws-sdk-go-v2/service/glue v0.29.0 h1:LHGZWB3xxx3n96aGwxz7PXLKXPu
 github.com/aws/aws-sdk-go-v2/service/glue v0.29.0/go.mod h1:cMAmsFvVen5in88Cz12sZz8XGO+695CA8MhjpA9wKww=
 github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0 h1:rWd6Ik73ca9R7VXpRoeM+TN2e8/pTG7Vld4X5i4Um84=
 github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0/go.mod h1:Qime32S/PdxuoB2kPTFjkUUD41BUZuZ4WoQEz8/Sh8E=
+github.com/aws/aws-sdk-go-v2/service/guardduty v0.29.0 h1:Llpg1IkxrP/9EaHkARmDY30DQ8HAX9jYf4slcT9gVl8=
+github.com/aws/aws-sdk-go-v2/service/guardduty v0.29.0/go.mod h1:ExK5Ssq0yfeULXXidmO/uZBYFVPJV9lgoObMCvzwKYo=
 github.com/aws/aws-sdk-go-v2/service/iam v0.29.0 h1:w5tnMJZPZ0UvKNuS48fszCuK65DWiSx1cFnBbv8A45A=
 github.com/aws/aws-sdk-go-v2/service/iam v0.29.0/go.mod h1:lcprpUAWnKttfq6rYtp59O6MihrOv2C5rbIKBYnzz5k=
 github.com/aws/aws-sdk-go-v2/service/imagebuilder v0.29.0 h1:2mSRtCmcILnVPmIT34whFkQ59L3FsK9Wr888aGj3U1Y=

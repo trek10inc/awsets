@@ -16,7 +16,9 @@ func init() {
 }
 
 func (l AWSEc2Subnet) Types() []resource.ResourceType {
-	return []resource.ResourceType{resource.Ec2Subnet}
+	return []resource.ResourceType{
+		resource.Ec2Subnet,
+	}
 }
 
 func (l AWSEc2Subnet) List(cfg option.AWSetsConfig) (*resource.Group, error) {

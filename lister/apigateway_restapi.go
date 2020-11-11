@@ -29,6 +29,8 @@ func (l AWSApiGatewayRestApi) Types() []resource.ResourceType {
 		resource.ApiGatewayAuthorizer,
 		resource.ApiGatewayResource,
 		resource.ApiGatewayMethod,
+		resource.ApiGatewayRequestValidator,
+		resource.ApiGatewayDocumentationPart,
 	}
 }
 
@@ -182,6 +184,49 @@ func (l AWSApiGatewayRestApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 			if len(gwResponses) > 0 {
 				r.AddAttribute("GatewayResponse", gwResponses)
 			}
+
+			// Request Validators
+			err = Paginator(func(nt2 *string) (*string, error) {
+				rvRes, err := svc.GetRequestValidators(cfg.Context, &apigateway.GetRequestValidatorsInput{
+					RestApiId: restapi.Id,
+					Limit:     aws.Int32(100),
+					Position:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get request validators for restapi %s: %w", *restapi.Id, err)
+				}
+				for _, rv := range rvRes.Items {
+					rvR := resource.New(cfg, resource.ApiGatewayRequestValidator, rv.Id, rv.Name, rv)
+					rvR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
+					rg.AddResource(rvR)
+				}
+				return rvRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			// Documentation Parts
+			err = Paginator(func(nt2 *string) (*string, error) {
+				dpRes, err := svc.GetDocumentationParts(cfg.Context, &apigateway.GetDocumentationPartsInput{
+					RestApiId: restapi.Id,
+					Limit:     aws.Int32(100),
+					Position:  nt2,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get documentation parts for restapi %s: %w", *restapi.Id, err)
+				}
+				for _, dp := range dpRes.Items {
+					dpR := resource.New(cfg, resource.ApiGatewayDocumentationPart, dp.Id, dp.Id, dp)
+					dpR.AddRelation(resource.ApiGatewayRestApi, restapi.Id, "")
+					rg.AddResource(dpR)
+				}
+				return dpRes.Position, nil
+			})
+			if err != nil {
+				return nil, err
+			}
+
 			rg.AddResource(r)
 
 		}

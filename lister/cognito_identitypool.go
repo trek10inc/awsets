@@ -43,6 +43,15 @@ func (l AWSCognitoIdentityPool) List(cfg option.AWSetsConfig) (*resource.Group, 
 				return nil, fmt.Errorf("failed to describe identity pool %s: %w", *identityPool.IdentityPoolName, err)
 			}
 			r := resource.New(cfg, resource.CognitoIdentityPool, pool.IdentityPoolId, pool.IdentityPoolName, pool)
+
+			roles, err := svc.GetIdentityPoolRoles(cfg.Context, &cognitoidentity.GetIdentityPoolRolesInput{
+				IdentityPoolId: identityPool.IdentityPoolId,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to describe roles for identity pool %s: %w", *identityPool.IdentityPoolId, err)
+			}
+			r.AddAttribute("RoleAttachment", roles)
+
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

@@ -51,6 +51,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/fsx v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/glue v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/greengrass v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/guardduty v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/iam v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/imagebuilder v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/iot v0.29.0

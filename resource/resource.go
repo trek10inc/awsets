@@ -106,7 +106,11 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 func (r *Resource) AddAttribute(key string, value interface{}) {
 	if value != nil {
 		if structs.IsStruct(value) {
-			r.Attributes[key] = structs.Map(value)
+			asMap := structs.Map(value)
+			if _, ok := asMap["ResultMetadata"]; ok {
+				delete(asMap, "ResultMetadata")
+			}
+			r.Attributes[key] = asMap
 		} else {
 			r.Attributes[key] = value
 		}
