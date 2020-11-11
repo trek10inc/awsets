@@ -30,7 +30,7 @@ func (l AWSEc2VpnConnection) List(cfg option.AWSetsConfig) (*resource.Group, err
 		//VpnConnectionIds: nil,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vpn connections: %w, err")
+		return nil, fmt.Errorf("failed to get vpn connections: %w", err)
 	}
 	for _, v := range res.VpnConnections {
 		r := resource.New(cfg, resource.Ec2VpnConnection, v.VpnConnectionId, v.VpnConnectionId, v)
