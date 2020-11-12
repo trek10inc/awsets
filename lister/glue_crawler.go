@@ -35,7 +35,7 @@ func (l AWSGlueCrawler) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 		}
 		for _, v := range res.Crawlers {
 			r := resource.NewVersion(cfg, resource.GlueCrawler, v.Name, v.Name, v.Version, v)
-			r.AddARNRelation(resource.IamRole, v.Role)
+			r.AddRelation(resource.IamRole, v.Role, "")
 			r.AddRelation(resource.GlueDatabase, v.DatabaseName, "")
 			// TODO: review relationships to s3, ddb, jdbc
 

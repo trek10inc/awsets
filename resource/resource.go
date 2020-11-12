@@ -3,6 +3,7 @@ package resource
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -74,8 +75,8 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 		Attributes: asMap,
 		Tags:       make(map[string]string),
 	}
-	if strings.Contains(id, "arn:") {
-		fmt.Printf("new resource contains arn: %s - %s\n", kind.String(), id)
+	if strings.Contains(id, "arn:") && kind != SsmPatchBaseline {
+		fmt.Fprintf(os.Stderr, "new resource contains arn: %s - %s\n", kind.String(), id)
 	}
 	if tags, ok := asMap["Tags"]; ok {
 		switch t := tags.(type) {
@@ -97,7 +98,7 @@ func makeResource(account, region string, kind ResourceType, iId, iName, iVersio
 		case nil:
 			// no op
 		default:
-			fmt.Printf("Unknown tag type: %T\n", t)
+			fmt.Fprintf(os.Stderr, "Unknown tag type: %T\n", t)
 		}
 	}
 	return resource
@@ -127,7 +128,7 @@ func (r *Resource) AddARNRelation(kind ResourceType, iArn interface{}) {
 	}
 	if !strings.Contains(sArn, "arn:") {
 		// TODO: remove printing
-		fmt.Printf("resource %+v tried adding relationsip that was not an ARN: %s-%s", r.Identifier, kind.String(), sArn)
+		fmt.Fprintf(os.Stderr, "resource %+v tried adding relationsip that was not an ARN: %s - %s\n", r.Identifier, kind.String(), sArn)
 		return
 	}
 	parsedArn := arn.Parse(sArn)
@@ -156,7 +157,7 @@ func (r *Resource) addRelation(account string, region string, kind ResourceType,
 
 	if strings.Contains(id, "arn:") {
 		// TODO: remove printing
-		fmt.Printf("new relation with %s has arn: %s - %s\n", r.Type.String(), kind.String(), id)
+		fmt.Fprintf(os.Stderr, "new relation with %s has arn: %s - %s\n", r.Type.String(), kind.String(), id)
 	}
 	if strings.HasPrefix(kind.String(), "iam/") ||
 		strings.HasPrefix(kind.String(), "route53/") ||

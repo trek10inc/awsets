@@ -38,6 +38,10 @@ func (l AWSEc2VpcEndpointService) List(cfg option.AWSetsConfig) (*resource.Group
 			return nil, err
 		}
 		for _, v := range res.ServiceDetails {
+			if v.ServiceId == nil {
+				// some Amazon owned vpc service endpoints have null IDs
+				continue
+			}
 			r := resource.New(cfg, resource.Ec2VpcEndpointService, v.ServiceId, v.ServiceName, v)
 
 			configs := make([]*types.ServiceConfiguration, 0)

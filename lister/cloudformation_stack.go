@@ -55,6 +55,11 @@ func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, 
 					if rt == resource.Unnecessary {
 						continue
 					}
+					if rsum.PhysicalResourceId == nil {
+						// If stack is in certain statuses (like DELETE_FAILED) the physical id may be nil as this
+						// particular resource may have been deleted
+						continue
+					}
 					resourceId := *rsum.PhysicalResourceId
 					if strings.Contains(resourceId, "arn:") {
 						resourceArn := arn.Parse(resourceId)
