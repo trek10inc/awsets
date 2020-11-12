@@ -48,6 +48,8 @@ github.com/aws/aws-sdk-go-v2/service/codedeploy v0.29.0 h1:+PQiqn1ZrF6jWgNUIh3OM
 github.com/aws/aws-sdk-go-v2/service/codedeploy v0.29.0/go.mod h1:0BBh51IRnDnN5Vqbk7KsTVlfW+dZscLQCXGhSBfqTP0=
 github.com/aws/aws-sdk-go-v2/service/codepipeline v0.29.0 h1:uY8MpRO7be2hf0Qlv9FnPQsy+2Kxq9L/9KQeS9Qh0cE=
 github.com/aws/aws-sdk-go-v2/service/codepipeline v0.29.0/go.mod h1:sv8N5IZxRoaSIVniBHU+gihfGEdd3ceYFWH1JnbbFsM=
+github.com/aws/aws-sdk-go-v2/service/codestar v0.29.0 h1:4YMpTDN5ysiri9yzoKvCYWf1oMWlm//V2f8vFbwhRtk=
+github.com/aws/aws-sdk-go-v2/service/codestar v0.29.0/go.mod h1:N87iYOA570QCLW8NLvTUIsmpjcrYlqxAIM1RDkTvqn4=
 github.com/aws/aws-sdk-go-v2/service/cognitoidentity v0.29.0 h1:aWUBj/+MROVmru7cCtrhmG0Z0bOoslrhmE9Q6B/VfgQ=
 github.com/aws/aws-sdk-go-v2/service/cognitoidentity v0.29.0/go.mod h1:zlJ9LOH009grgICZbEZSEqTKL7ctNKyJpiLMftXYlvs=
 github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v0.29.0 h1:1syrk6KcKNKKxbzwbUZSJWd9rOm/Jh3EonUcLD3Hw54=
@@ -138,6 +140,8 @@ github.com/aws/aws-sdk-go-v2/service/secretsmanager v0.29.0 h1:5/eGi0Zow8NxuIW2Z
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v0.29.0/go.mod h1:c9RCJjDmEQ8U7tKR6ZLLkske/fwWc7g78++XEPzYGAg=
 github.com/aws/aws-sdk-go-v2/service/servicecatalog v0.29.0 h1:EipzuybFThr5wTiXxjhn/Fk2iI5+hh+vBwFiRIXJwBk=
 github.com/aws/aws-sdk-go-v2/service/servicecatalog v0.29.0/go.mod h1:rkQyNfdylNz3wrPJUam9b7F9JCfFUG6GvLEVlAOlRZs=
+github.com/aws/aws-sdk-go-v2/service/servicediscovery v0.29.0 h1:8AA1HK8pdjRCUUbajE/OV1ogZ94aiSoZfuNgo4qicKQ=
+github.com/aws/aws-sdk-go-v2/service/servicediscovery v0.29.0/go.mod h1:Jd4zAO+DqDLvaWGvsmt7E4CnnaMAWB0wrBy2kZ0DI+4=
 github.com/aws/aws-sdk-go-v2/service/ses v0.29.0 h1:ytUMd3eJNs7j8zBmKmRpsVFkE75KZ7KTicdIz1DL8y8=
 github.com/aws/aws-sdk-go-v2/service/ses v0.29.0/go.mod h1:F7uPgAARIG7nK5+lLzBOQfZ11lI2V38AsUQG84B6kCI=
 github.com/aws/aws-sdk-go-v2/service/sfn v0.29.0 h1:PIzooSmUAm6QLN8/9yAKKXSU7kT4ZjjXRKXuJ3bb0QU=

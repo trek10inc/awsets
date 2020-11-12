@@ -28,6 +28,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/codecommit v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/codedeploy v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/codepipeline v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/codestar v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentity v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/configservice v0.29.0
@@ -70,6 +71,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sagemaker v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/servicecatalog v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/servicediscovery v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ses v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sfn v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sns v0.29.0
