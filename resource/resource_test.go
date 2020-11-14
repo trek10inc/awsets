@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"context"
+	ctx2 "context"
 	"encoding/json"
 	"testing"
 
@@ -11,7 +11,7 @@ import (
 
 func Test_NewResourceWithTags(t *testing.T) {
 
-	ctx := getConfig()
+	ctx := getContext()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -20,7 +20,7 @@ func Test_NewResourceWithTags(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
 	if r.Region != "us-east-1" {
 		t.Fatalf("expected us-east-1, got %s\n", r.Region)
 	}
@@ -40,12 +40,12 @@ func Test_NewResourceWithTags(t *testing.T) {
 
 func Test_NewResourceWithoutTags(t *testing.T) {
 
-	ctx := getConfig()
+	ctx := getContext()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
 	}
-	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
 	if len(r.Tags) != 0 {
 		t.Fatalf("expected zero tags\n")
 	}
@@ -59,7 +59,7 @@ func Test_NewResourceWithoutTags(t *testing.T) {
 
 func Test_NewGlobalResource(t *testing.T) {
 
-	ctx := getConfig()
+	ctx := getContext()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -68,7 +68,7 @@ func Test_NewGlobalResource(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := NewGlobal(cfg, IamRole, "resource_id", "resource_name", object)
+	r := NewGlobal(ctx, IamRole, "resource_id", "resource_name", object)
 	if r.Region != "aws-global" {
 		t.Fatalf("expected aws-global, got %s", r.Region)
 	}
@@ -79,7 +79,7 @@ func Test_NewGlobalResource(t *testing.T) {
 
 func Test_NewResourceVersion(t *testing.T) {
 
-	ctx := getConfig()
+	ctx := getContext()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -88,7 +88,7 @@ func Test_NewResourceVersion(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := NewVersion(cfg, IamRole, "resource_id", "resource_name", "v1", object)
+	r := NewVersion(ctx, IamRole, "resource_id", "resource_name", "v1", object)
 	if r.Version != "v1" {
 		t.Fatalf("expected v1, got %s\n", r.Version)
 	}
@@ -99,7 +99,7 @@ func Test_NewResourceVersion(t *testing.T) {
 
 func Test_ResourceAddRelation(t *testing.T) {
 
-	ctx := getConfig()
+	ctx := getContext()
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{
@@ -107,7 +107,7 @@ func Test_ResourceAddRelation(t *testing.T) {
 			"tag2": "value2",
 		},
 	}
-	r := New(cfg, Ec2Instance, "resource_id", "resource_name", object)
+	r := New(ctx, Ec2Instance, "resource_id", "resource_name", object)
 	r.AddRelation(IamRole, "role1", "role1")
 	r.AddARNRelation(IamRole, "arn:aws:iam::123456789:role/role2")
 
@@ -122,14 +122,14 @@ func Test_ResourceAddRelation(t *testing.T) {
 	}
 }
 
-func getConfig() context.AWSetsConfig {
+func getContext() context.AWSetsCtx {
 	config := aws.Config{
 		Region: "us-east-1",
 	}
-	return context.AWSetsConfig{
+	return context.AWSetsCtx{
 		AWSCfg:    config,
 		AccountId: "123456789",
-		Context:   context.Background(),
+		Context:   ctx2.Background(),
 	}
 }
 
@@ -159,7 +159,7 @@ func Test_JSON(t *testing.T) {
 
 	rg := NewGroup()
 
-	cfgUsEast1 := getConfig()
+	cfgUsEast1 := getContext()
 	cfgUsEast2 := cfgUsEast1.Copy("us-east-2")
 	object := map[string]interface{}{
 		"Foo": "Bar",
