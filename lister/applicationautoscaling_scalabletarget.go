@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/applicationautoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/applicationautoscaling/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,8 +24,8 @@ func (l AWSApplicationAutoScalingScalableTarget) Types() []resource.ResourceType
 	}
 }
 
-func (l AWSApplicationAutoScalingScalableTarget) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := applicationautoscaling.NewFromConfig(cfg.AWSCfg)
+func (l AWSApplicationAutoScalingScalableTarget) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := applicationautoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	for _, namespace := range []types.ServiceNamespace{
@@ -42,7 +42,7 @@ func (l AWSApplicationAutoScalingScalableTarget) List(cfg option.AWSetsConfig) (
 		types.ServiceNamespaceSagemaker,
 	} {
 		err := Paginator(func(nt *string) (*string, error) {
-			res, err := svc.DescribeScalableTargets(cfg.Context, &applicationautoscaling.DescribeScalableTargetsInput{
+			res, err := svc.DescribeScalableTargets(ctx.Context, &applicationautoscaling.DescribeScalableTargetsInput{
 				MaxResults:       aws.Int32(50),
 				ServiceNamespace: namespace,
 				NextToken:        nt,
@@ -51,7 +51,7 @@ func (l AWSApplicationAutoScalingScalableTarget) List(cfg option.AWSetsConfig) (
 				return nil, fmt.Errorf("failed to list scalable targets for %s: %w", namespace, err)
 			}
 			for _, v := range res.ScalableTargets {
-				r := resource.New(cfg, resource.ApplicationAutoScalingScalableTarget, v.ResourceId, v.ResourceId, v)
+				r := resource.New(ctx, resource.ApplicationAutoScalingScalableTarget, v.ResourceId, v.ResourceId, v)
 				r.AddARNRelation(resource.IamRole, v.RoleARN)
 				rg.AddResource(r)
 			}

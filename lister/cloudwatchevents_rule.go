@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchevents"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,14 +22,14 @@ func (l AWSCloudwatchEventsRule) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.EventsRule}
 }
 
-func (l AWSCloudwatchEventsRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSCloudwatchEventsRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := cloudwatchevents.NewFromConfig(cfg.AWSCfg)
+	svc := cloudwatchevents.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListRules(cfg.Context, &cloudwatchevents.ListRulesInput{
+		res, err := svc.ListRules(ctx.Context, &cloudwatchevents.ListRulesInput{
 			Limit:     aws.Int32(100),
 			NextToken: nt,
 		})
@@ -37,7 +37,7 @@ func (l AWSCloudwatchEventsRule) List(cfg option.AWSetsConfig) (*resource.Group,
 			return nil, fmt.Errorf("failed to list cloudwatch event rules: %w", err)
 		}
 		for _, rule := range res.Rules {
-			r := resource.New(cfg, resource.EventsRule, rule.Name, rule.Name, rule)
+			r := resource.New(ctx, resource.EventsRule, rule.Name, rule.Name, rule)
 			r.AddRelation(resource.EventsBus, rule.EventBusName, "")
 			if rule.RoleArn != nil {
 				roleArn := arn.ParseP(rule.RoleArn)

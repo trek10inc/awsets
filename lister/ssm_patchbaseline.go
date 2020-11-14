@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSSsmPatchBaseline) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.SsmPatchBaseline}
 }
 
-func (l AWSSsmPatchBaseline) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ssm.NewFromConfig(cfg.AWSCfg)
+func (l AWSSsmPatchBaseline) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ssm.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribePatchBaselines(cfg.Context, &ssm.DescribePatchBaselinesInput{
+		res, err := svc.DescribePatchBaselines(ctx.Context, &ssm.DescribePatchBaselinesInput{
 			MaxResults: aws.Int32(50),
 			NextToken:  nt,
 		})
@@ -34,14 +34,14 @@ func (l AWSSsmPatchBaseline) List(cfg option.AWSetsConfig) (*resource.Group, err
 			return nil, err
 		}
 		for _, bl := range res.BaselineIdentities {
-			v, err := svc.GetPatchBaseline(cfg.Context, &ssm.GetPatchBaselineInput{
+			v, err := svc.GetPatchBaseline(ctx.Context, &ssm.GetPatchBaselineInput{
 				BaselineId: bl.BaselineId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get patch baseline %s: %w", *bl.BaselineId, err)
 			}
 
-			r := resource.New(cfg, resource.SsmPatchBaseline, v.BaselineId, v.Name, v)
+			r := resource.New(ctx, resource.SsmPatchBaseline, v.BaselineId, v.Name, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

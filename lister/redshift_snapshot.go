@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSRedshiftSnapshot) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.RedshiftSnapshot}
 }
 
-func (l AWSRedshiftSnapshot) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := redshift.NewFromConfig(cfg.AWSCfg)
+func (l AWSRedshiftSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeClusterSnapshots(cfg.Context, &redshift.DescribeClusterSnapshotsInput{
+		res, err := svc.DescribeClusterSnapshots(ctx.Context, &redshift.DescribeClusterSnapshotsInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSRedshiftSnapshot) List(cfg option.AWSetsConfig) (*resource.Group, err
 			return nil, err
 		}
 		for _, v := range res.Snapshots {
-			r := resource.New(cfg, resource.RedshiftSnapshot, v.SnapshotIdentifier, v.SnapshotIdentifier, v)
+			r := resource.New(ctx, resource.RedshiftSnapshot, v.SnapshotIdentifier, v.SnapshotIdentifier, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.RedshiftCluster, v.ClusterIdentifier, "")

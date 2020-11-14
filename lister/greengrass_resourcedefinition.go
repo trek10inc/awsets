@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSGreengrassResourceDefinition) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGreengrassResourceDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSGreengrassResourceDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := greengrass.NewFromConfig(cfg.AWSCfg)
+	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListResourceDefinitions(cfg.Context, &greengrass.ListResourceDefinitionsInput{
+		res, err := svc.ListResourceDefinitions(ctx.Context, &greengrass.ListResourceDefinitionsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nt,
 		})
@@ -43,11 +43,11 @@ func (l AWSGreengrassResourceDefinition) List(cfg option.AWSetsConfig) (*resourc
 			return nil, fmt.Errorf("failed to list greengrass resource definitions: %w", err)
 		}
 		for _, v := range res.Definitions {
-			r := resource.New(cfg, resource.GreengrassGroup, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.GreengrassGroup, v.Id, v.Name, v)
 
 			// Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				versions, err := svc.ListResourceDefinitionVersions(cfg.Context, &greengrass.ListResourceDefinitionVersionsInput{
+				versions, err := svc.ListResourceDefinitionVersions(ctx.Context, &greengrass.ListResourceDefinitionVersionsInput{
 					ResourceDefinitionId: v.Id,
 					MaxResults:           aws.String("100"),
 					NextToken:            nt2,
@@ -56,14 +56,14 @@ func (l AWSGreengrassResourceDefinition) List(cfg option.AWSetsConfig) (*resourc
 					return nil, fmt.Errorf("failed to list greengrass resource definition versions for %s: %w", *v.Id, err)
 				}
 				for _, rdId := range versions.Versions {
-					rd, err := svc.GetResourceDefinitionVersion(cfg.Context, &greengrass.GetResourceDefinitionVersionInput{
+					rd, err := svc.GetResourceDefinitionVersion(ctx.Context, &greengrass.GetResourceDefinitionVersionInput{
 						ResourceDefinitionId:        rdId.Id,
 						ResourceDefinitionVersionId: rdId.Version,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to list greengrass resource definition version for %s, %s: %w", *rdId.Id, *rdId.Version, err)
 					}
-					rdRes := resource.NewVersion(cfg, resource.GreengrassResourceDefinitionVersion, rd.Id, rd.Id, rd.Version, rd)
+					rdRes := resource.NewVersion(ctx, resource.GreengrassResourceDefinitionVersion, rd.Id, rd.Id, rd.Version, rd)
 					rdRes.AddRelation(resource.GreengrassResourceDefinition, v.Id, "")
 					// TODO relationships to resources
 					r.AddRelation(resource.GreengrassResourceDefinitionVersion, rd.Id, rd.Version)

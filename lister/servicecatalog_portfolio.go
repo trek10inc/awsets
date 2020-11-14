@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/servicecatalog"
 	"github.com/aws/aws-sdk-go-v2/service/servicecatalog/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSServiceCatalogPortfolio) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ServiceCatalogPortfolio}
 }
 
-func (l AWSServiceCatalogPortfolio) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := servicecatalog.NewFromConfig(cfg.AWSCfg)
+func (l AWSServiceCatalogPortfolio) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := servicecatalog.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListPortfolios(cfg.Context, &servicecatalog.ListPortfoliosInput{
+		res, err := svc.ListPortfolios(ctx.Context, &servicecatalog.ListPortfoliosInput{
 			PageSize:  aws.Int32(20),
 			PageToken: nt,
 		})
@@ -35,18 +35,18 @@ func (l AWSServiceCatalogPortfolio) List(cfg option.AWSetsConfig) (*resource.Gro
 			return nil, err
 		}
 		for _, v := range res.PortfolioDetails {
-			detail, err := svc.DescribePortfolio(cfg.Context, &servicecatalog.DescribePortfolioInput{
+			detail, err := svc.DescribePortfolio(ctx.Context, &servicecatalog.DescribePortfolioInput{
 				Id: v.Id,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe service catalog portfolio %s: %w", *v.Id, err)
 			}
-			r := resource.New(cfg, resource.ServiceCatalogPortfolio, v.Id, v.DisplayName, detail)
+			r := resource.New(ctx, resource.ServiceCatalogPortfolio, v.Id, v.DisplayName, detail)
 
 			// Principals
 			principals := make([]*types.Principal, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
-				pRes, err := svc.ListPrincipalsForPortfolio(cfg.Context, &servicecatalog.ListPrincipalsForPortfolioInput{
+				pRes, err := svc.ListPrincipalsForPortfolio(ctx.Context, &servicecatalog.ListPrincipalsForPortfolioInput{
 					PortfolioId: v.Id,
 					PageSize:    aws.Int32(20),
 					PageToken:   nt2,

@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSEc2VpcEndpointService) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSEc2VpcEndpointService) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(cfg.AWSCfg)
+func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeVpcEndpointServices(cfg.Context, &ec2.DescribeVpcEndpointServicesInput{
+		res, err := svc.DescribeVpcEndpointServices(ctx.Context, &ec2.DescribeVpcEndpointServicesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -42,11 +42,11 @@ func (l AWSEc2VpcEndpointService) List(cfg option.AWSetsConfig) (*resource.Group
 				// some Amazon owned vpc service endpoints have null IDs
 				continue
 			}
-			r := resource.New(cfg, resource.Ec2VpcEndpointService, v.ServiceId, v.ServiceName, v)
+			r := resource.New(ctx, resource.Ec2VpcEndpointService, v.ServiceId, v.ServiceName, v)
 
 			configs := make([]*types.ServiceConfiguration, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
-				scs, err := svc.DescribeVpcEndpointServiceConfigurations(cfg.Context, &ec2.DescribeVpcEndpointServiceConfigurationsInput{
+				scs, err := svc.DescribeVpcEndpointServiceConfigurations(ctx.Context, &ec2.DescribeVpcEndpointServiceConfigurationsInput{
 					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 					ServiceIds: []*string{v.ServiceId},
@@ -67,7 +67,7 @@ func (l AWSEc2VpcEndpointService) List(cfg option.AWSetsConfig) (*resource.Group
 
 			principals := make([]*types.AllowedPrincipal, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
-				perms, err := svc.DescribeVpcEndpointServicePermissions(cfg.Context, &ec2.DescribeVpcEndpointServicePermissionsInput{
+				perms, err := svc.DescribeVpcEndpointServicePermissions(ctx.Context, &ec2.DescribeVpcEndpointServicePermissionsInput{
 					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 					ServiceId:  v.ServiceId,

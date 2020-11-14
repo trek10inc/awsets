@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSEc2VpcEndpoint) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSEc2VpcEndpoint) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(cfg.AWSCfg)
+func (l AWSEc2VpcEndpoint) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeVpcEndpoints(cfg.Context, &ec2.DescribeVpcEndpointsInput{
+		res, err := svc.DescribeVpcEndpoints(ctx.Context, &ec2.DescribeVpcEndpointsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -38,7 +38,7 @@ func (l AWSEc2VpcEndpoint) List(cfg option.AWSetsConfig) (*resource.Group, error
 			return nil, err
 		}
 		for _, v := range res.VpcEndpoints {
-			r := resource.New(cfg, resource.Ec2VpcEndpoint, v.VpcEndpointId, v.VpcEndpointId, v)
+			r := resource.New(ctx, resource.Ec2VpcEndpoint, v.VpcEndpointId, v.VpcEndpointId, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			for _, dns := range v.DnsEntries {
 				r.AddRelation(resource.Route53HostedZone, dns.HostedZoneId, "")
@@ -57,7 +57,7 @@ func (l AWSEc2VpcEndpoint) List(cfg option.AWSetsConfig) (*resource.Group, error
 			}
 
 			err = Paginator(func(nt2 *string) (*string, error) {
-				ecns, err := svc.DescribeVpcEndpointConnectionNotifications(cfg.Context, &ec2.DescribeVpcEndpointConnectionNotificationsInput{
+				ecns, err := svc.DescribeVpcEndpointConnectionNotifications(ctx.Context, &ec2.DescribeVpcEndpointConnectionNotificationsInput{
 					ConnectionNotificationId: nil,
 					DryRun:                   nil,
 					Filters: []*types.Filter{{
@@ -72,7 +72,7 @@ func (l AWSEc2VpcEndpoint) List(cfg option.AWSetsConfig) (*resource.Group, error
 				}
 
 				for _, ecn := range ecns.ConnectionNotificationSet {
-					cnR := resource.New(cfg, resource.Ec2VpcEndpointConnectionNotification, ecn.ConnectionNotificationId, ecn.ConnectionNotificationId, ecn)
+					cnR := resource.New(ctx, resource.Ec2VpcEndpointConnectionNotification, ecn.ConnectionNotificationId, ecn.ConnectionNotificationId, ecn)
 					cnR.AddRelation(resource.Ec2VpcEndpoint, ecn.VpcEndpointId, "")
 					cnR.AddRelation(resource.Ec2VpcEndpointService, ecn.ServiceId, "")
 					rg.AddResource(cnR)

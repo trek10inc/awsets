@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,13 +22,13 @@ func (l AWSApiGatewayVpcLink) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ApiGatewayVpcLink}
 }
 
-func (l AWSApiGatewayVpcLink) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := apigateway.NewFromConfig(cfg.AWSCfg)
+func (l AWSApiGatewayVpcLink) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := apigateway.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetVpcLinks(cfg.Context, &apigateway.GetVpcLinksInput{
+		res, err := svc.GetVpcLinks(ctx.Context, &apigateway.GetVpcLinksInput{
 			Limit:    aws.Int32(500),
 			Position: nt,
 		})
@@ -40,7 +40,7 @@ func (l AWSApiGatewayVpcLink) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, fmt.Errorf("failed to get vpc links: %w", err)
 		}
 		for _, v := range res.Items {
-			r := resource.New(cfg, resource.ApiGatewayVpcLink, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.ApiGatewayVpcLink, v.Id, v.Name, v)
 			rg.AddResource(r)
 			// TODO: parse target ARNs to find relationships?
 		}

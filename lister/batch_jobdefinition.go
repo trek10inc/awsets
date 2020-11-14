@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/batch"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,12 +20,12 @@ func (l AWSBatchJobDefinition) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.BatchJobDefinition}
 }
 
-func (l AWSBatchJobDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := batch.NewFromConfig(cfg.AWSCfg)
+func (l AWSBatchJobDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := batch.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeJobDefinitions(cfg.Context, &batch.DescribeJobDefinitionsInput{
+		res, err := svc.DescribeJobDefinitions(ctx.Context, &batch.DescribeJobDefinitionsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -33,7 +33,7 @@ func (l AWSBatchJobDefinition) List(cfg option.AWSetsConfig) (*resource.Group, e
 			return nil, err
 		}
 		for _, v := range res.JobDefinitions {
-			r := resource.New(cfg, resource.BatchJobDefinition, v.JobDefinitionName, v.JobDefinitionName, v)
+			r := resource.New(ctx, resource.BatchJobDefinition, v.JobDefinitionName, v.JobDefinitionName, v)
 			rg.AddResource(r)
 		}
 

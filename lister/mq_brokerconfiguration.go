@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/mq"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,11 +21,11 @@ func (l AWSAmazonMQBrokerConfiguration) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AmazonMQBrokerConfiguration}
 }
 
-func (l AWSAmazonMQBrokerConfiguration) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := mq.NewFromConfig(cfg.AWSCfg)
+func (l AWSAmazonMQBrokerConfiguration) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := mq.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListConfigurations(cfg.Context, &mq.ListConfigurationsInput{
+		res, err := svc.ListConfigurations(ctx.Context, &mq.ListConfigurationsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -33,7 +33,7 @@ func (l AWSAmazonMQBrokerConfiguration) List(cfg option.AWSetsConfig) (*resource
 			return nil, fmt.Errorf("failed to list mq broker configurations: %w", err)
 		}
 		for _, v := range res.Configurations {
-			r := resource.New(cfg, resource.AmazonMQBrokerConfiguration, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.AmazonMQBrokerConfiguration, v.Id, v.Name, v)
 
 			rg.AddResource(r)
 		}

@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,10 +25,10 @@ func (l AWSWafv2WebACL) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Wafv2WebACL}
 }
 
-func (l AWSWafv2WebACL) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSWafv2WebACL) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 
-	rg, err := wafv2WebACLQuery(cfg, types.ScopeRegional)
+	rg, err := wafv2WebACLQuery(ctx, types.ScopeRegional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list web ACLs: %w", err)
 	}
@@ -36,7 +36,7 @@ func (l AWSWafv2WebACL) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	// Do global
 	var outerErr error
 	listWafv2WebACLOnce.Do(func() {
-		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		ctxUsEast := ctx.Copy("us-east-1")
 		rgNew, err := wafv2WebACLQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global web ACLs: %w", err)
@@ -47,11 +47,11 @@ func (l AWSWafv2WebACL) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 	return rg, outerErr
 }
 
-func wafv2WebACLQuery(cfg option.AWSetsConfig, scope types.Scope) (*resource.Group, error) {
-	svc := wafv2.NewFromConfig(cfg.AWSCfg)
+func wafv2WebACLQuery(ctx context.AWSetsCtx, scope types.Scope) (*resource.Group, error) {
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListWebACLs(cfg.Context, &wafv2.ListWebACLsInput{
+		res, err := svc.ListWebACLs(ctx.Context, &wafv2.ListWebACLsInput{
 			Limit:      aws.Int32(100),
 			NextMarker: nt,
 			Scope:      scope,
@@ -60,7 +60,7 @@ func wafv2WebACLQuery(cfg option.AWSetsConfig, scope types.Scope) (*resource.Gro
 			return nil, err
 		}
 		for _, waId := range res.WebACLs {
-			wa, err := svc.GetWebACL(cfg.Context, &wafv2.GetWebACLInput{
+			wa, err := svc.GetWebACL(ctx.Context, &wafv2.GetWebACLInput{
 				Id:    waId.Id,
 				Name:  waId.Name,
 				Scope: scope,
@@ -71,16 +71,16 @@ func wafv2WebACLQuery(cfg option.AWSetsConfig, scope types.Scope) (*resource.Gro
 			if v := wa.WebACL; v != nil {
 				var r resource.Resource
 				if scope == types.ScopeCloudfront {
-					r = resource.NewGlobal(cfg, resource.Wafv2WebACL, v.Id, v.Name, v)
+					r = resource.NewGlobal(ctx, resource.Wafv2WebACL, v.Id, v.Name, v)
 				} else {
-					r = resource.New(cfg, resource.Wafv2WebACL, v.Id, v.Name, v)
+					r = resource.New(ctx, resource.Wafv2WebACL, v.Id, v.Name, v)
 
 					allResources := make([]*string, 0)
 					for _, t := range []types.ResourceType{
 						types.ResourceTypeApiGateway,
 						types.ResourceTypeApplicationLoadBalancer,
 					} {
-						resources, err := svc.ListResourcesForWebACL(cfg.Context, &wafv2.ListResourcesForWebACLInput{
+						resources, err := svc.ListResourcesForWebACL(ctx.Context, &wafv2.ListResourcesForWebACLInput{
 							WebACLArn:    v.ARN,
 							ResourceType: t,
 						})

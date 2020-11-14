@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,11 +24,11 @@ func (l AWSSsmMaintenanceWindow) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSSsmMaintenanceWindow) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ssm.NewFromConfig(cfg.AWSCfg)
+func (l AWSSsmMaintenanceWindow) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ssm.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeMaintenanceWindows(cfg.Context, &ssm.DescribeMaintenanceWindowsInput{
+		res, err := svc.DescribeMaintenanceWindows(ctx.Context, &ssm.DescribeMaintenanceWindowsInput{
 			MaxResults: aws.Int32(50),
 			NextToken:  nt,
 		})
@@ -36,18 +36,18 @@ func (l AWSSsmMaintenanceWindow) List(cfg option.AWSetsConfig) (*resource.Group,
 			return nil, err
 		}
 		for _, wi := range res.WindowIdentities {
-			v, err := svc.GetMaintenanceWindow(cfg.Context, &ssm.GetMaintenanceWindowInput{
+			v, err := svc.GetMaintenanceWindow(ctx.Context, &ssm.GetMaintenanceWindowInput{
 				WindowId: wi.WindowId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get maintenance window %s: %w", *wi.WindowId, err)
 			}
 
-			r := resource.New(cfg, resource.SsmMaintenanceWindow, v.WindowId, v.Name, v)
+			r := resource.New(ctx, resource.SsmMaintenanceWindow, v.WindowId, v.Name, v)
 
 			// Tasks
 			err = Paginator(func(nt2 *string) (*string, error) {
-				tasks, err := svc.DescribeMaintenanceWindowTasks(cfg.Context, &ssm.DescribeMaintenanceWindowTasksInput{
+				tasks, err := svc.DescribeMaintenanceWindowTasks(ctx.Context, &ssm.DescribeMaintenanceWindowTasksInput{
 					WindowId:   wi.WindowId,
 					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
@@ -57,7 +57,7 @@ func (l AWSSsmMaintenanceWindow) List(cfg option.AWSetsConfig) (*resource.Group,
 				}
 
 				for _, task := range tasks.Tasks {
-					taskR := resource.New(cfg, resource.SsmMaintenanceWindowTask, task.WindowTaskId, task.Name, task)
+					taskR := resource.New(ctx, resource.SsmMaintenanceWindowTask, task.WindowTaskId, task.Name, task)
 					taskR.AddRelation(resource.SsmMaintenanceWindow, wi.WindowId, "")
 					taskR.AddARNRelation(resource.IamRole, task.ServiceRoleArn)
 					for _, t := range task.Targets {

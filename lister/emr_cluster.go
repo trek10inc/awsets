@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/emr"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,19 +25,19 @@ func (l AWSEMRCluster) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := emr.NewFromConfig(cfg.AWSCfg)
+func (l AWSEMRCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := emr.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListClusters(cfg.Context, &emr.ListClustersInput{
+		res, err := svc.ListClusters(ctx.Context, &emr.ListClustersInput{
 			Marker: nt,
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, id := range res.Clusters {
-			cluster, err := svc.DescribeCluster(cfg.Context, &emr.DescribeClusterInput{
+			cluster, err := svc.DescribeCluster(ctx.Context, &emr.DescribeClusterInput{
 				ClusterId: id.Id,
 			})
 			if err != nil {
@@ -47,12 +47,12 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 			if v == nil {
 				continue
 			}
-			r := resource.New(cfg, resource.EmrCluster, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.EmrCluster, v.Id, v.Name, v)
 			r.AddRelation(resource.EmrSecurityConfiguration, v.SecurityConfiguration, "")
 
 			// Instance Groups
 			err = Paginator(func(nt2 *string) (*string, error) {
-				groups, err := svc.ListInstanceGroups(cfg.Context, &emr.ListInstanceGroupsInput{
+				groups, err := svc.ListInstanceGroups(ctx.Context, &emr.ListInstanceGroupsInput{
 					ClusterId: id.Id,
 					Marker:    nt2,
 				})
@@ -63,7 +63,7 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 					return nil, fmt.Errorf("failed to list instance groups for %s: %w", *v.Id, err)
 				}
 				for _, ig := range groups.InstanceGroups {
-					igR := resource.New(cfg, resource.EmrInstanceGroupConfig, ig.Id, ig.Name, ig)
+					igR := resource.New(ctx, resource.EmrInstanceGroupConfig, ig.Id, ig.Name, ig)
 					igR.AddRelation(resource.EmrCluster, v.Id, "")
 					rg.AddResource(igR)
 				}
@@ -75,7 +75,7 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
 			// Instance Fleets
 			err = Paginator(func(nt2 *string) (*string, error) {
-				fleets, err := svc.ListInstanceFleets(cfg.Context, &emr.ListInstanceFleetsInput{
+				fleets, err := svc.ListInstanceFleets(ctx.Context, &emr.ListInstanceFleetsInput{
 					ClusterId: id.Id,
 					Marker:    nt2,
 				})
@@ -86,7 +86,7 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 					return nil, fmt.Errorf("failed to list instance fleets for %s: %w", *v.Id, err)
 				}
 				for _, fleet := range fleets.InstanceFleets {
-					fleetR := resource.New(cfg, resource.EmrInstanceFleetConfig, fleet.Id, fleet.Name, fleet)
+					fleetR := resource.New(ctx, resource.EmrInstanceFleetConfig, fleet.Id, fleet.Name, fleet)
 					fleetR.AddRelation(resource.EmrCluster, v.Id, "")
 
 					for _, typeSpec := range fleet.InstanceTypeSpecifications {
@@ -105,7 +105,7 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
 			// Steps
 			err = Paginator(func(nt2 *string) (*string, error) {
-				steps, err := svc.ListSteps(cfg.Context, &emr.ListStepsInput{
+				steps, err := svc.ListSteps(ctx.Context, &emr.ListStepsInput{
 					ClusterId: id.Id,
 					Marker:    nt2,
 				})
@@ -113,7 +113,7 @@ func (l AWSEMRCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 					return nil, fmt.Errorf("failed to list steps for %s: %w", *v.Id, err)
 				}
 				for _, ss := range steps.Steps {
-					stepR := resource.New(cfg, resource.EmrStep, ss.Id, ss.Name, ss)
+					stepR := resource.New(ctx, resource.EmrStep, ss.Id, ss.Name, ss)
 					stepR.AddRelation(resource.EmrCluster, v.Id, "")
 					rg.AddResource(stepR)
 				}

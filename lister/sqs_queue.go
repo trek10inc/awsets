@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSSqsQueue) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.SqsQueue}
 }
 
-func (l AWSSqsQueue) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := sqs.NewFromConfig(cfg.AWSCfg)
+func (l AWSSqsQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := sqs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListQueues(cfg.Context, &sqs.ListQueuesInput{
+		res, err := svc.ListQueues(ctx.Context, &sqs.ListQueuesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -36,7 +36,7 @@ func (l AWSSqsQueue) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, queue := range res.QueueUrls {
-			qRes, err := svc.GetQueueAttributes(cfg.Context, &sqs.GetQueueAttributesInput{
+			qRes, err := svc.GetQueueAttributes(ctx.Context, &sqs.GetQueueAttributesInput{
 				AttributeNames: []types.QueueAttributeName{types.QueueAttributeNameAll},
 				QueueUrl:       queue,
 			})
@@ -48,14 +48,14 @@ func (l AWSSqsQueue) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 			for k, v := range qRes.Attributes {
 				asMap[k] = v
 			}
-			tagRes, err := svc.ListQueueTags(cfg.Context, &sqs.ListQueueTagsInput{
+			tagRes, err := svc.ListQueueTags(ctx.Context, &sqs.ListQueueTagsInput{
 				QueueUrl: queue,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get queue tags %s: %w", *queue, err)
 			}
 			asMap["Tags"] = tagRes.Tags
-			r := resource.New(cfg, resource.SqsQueue, queue, queueArn.ResourceId, asMap)
+			r := resource.New(ctx, resource.SqsQueue, queue, queueArn.ResourceId, asMap)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

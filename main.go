@@ -1,7 +1,7 @@
 package awsets
 
 import (
-	"context"
+	ctx2 "context"
 	"fmt"
 	"reflect"
 	"runtime/debug"
@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/lister"
-	"github.com/trek10inc/awsets/option"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -117,7 +117,7 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 	// have access to
 	cfg.Region = "us-east-1"
 	ec2svc := ec2.NewFromConfig(cfg)
-	regionsRes, err := ec2svc.DescribeRegions(context.Background(), &ec2.DescribeRegionsInput{
+	regionsRes, err := ec2svc.DescribeRegions(ctx2.Background(), &ec2.DescribeRegionsInput{
 		AllRegions: aws.Bool(true),
 	})
 	if err != nil {
@@ -152,8 +152,10 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 // results together before returning them. If a cache is provided, each
 // Lister/Region combination will first check for an existing result before
 // querying AWS. Any new results will be updated in the cache.
-func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, options ...option.Option) (*resource.Group, error) {
-	awsetsCfg, err := option.NewConfig(cfg)
+func List(cfg aws.Config, options ...Option) (*resource.Group, error) {
+
+	// Create config struct, execute options
+	awsetsCfg, err := newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +165,8 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	}
 	defer awsetsCfg.Close()
 
+	// Get Cache, default to NoOp if none is specified
+	cache := awsetsCfg.Cache
 	if cache == nil {
 		cache = NoOpCache{}
 	}
@@ -171,6 +175,23 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	err = cache.Initialize(awsetsCfg.AccountId)
 	if err != nil {
 		return nil, err
+	}
+
+	// Get regions, query all available if none are specified
+	regions := awsetsCfg.Regions
+	if len(regions) == 0 {
+		regions, err = Regions(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get regions: %w", err)
+		}
+		awsetsCfg.Regions = regions
+	}
+
+	// Get listers, default to all if none are specified
+	listers := awsetsCfg.Listers
+	if len(listers) == 0 {
+		listers = Listers(nil, nil)
+		awsetsCfg.Listers = listers
 	}
 
 	// Creates a work queue
@@ -192,17 +213,17 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 						return
 					}
 
-					// Copies the AWSets context - this also configures the region in the AWS config
-					workerCfg := awsetsCfg.Copy(id, totalJobs, job.region, string(job.lister))
+					// Creates the AWSets context - this also configures the region in the AWS config
+					workerCtx := makeContext(awsetsCfg, id, job, totalJobs)
 
-					workerCfg.SendStatus(option.StatusProcessing, "processing")
-					group, err := processJob(workerCfg, id, job, cache)
+					workerCtx.SendStatus(context.StatusProcessing, "processing")
+					group, err := processJob(workerCtx, id, job, cache)
 					if err != nil {
-						workerCfg.SendStatus(option.StatusCompleteWithError, err.Error())
+						workerCtx.SendStatus(context.StatusCompleteWithError, err.Error())
 					} else {
 						// Merge the new results in with the rest
 						rg.Merge(group)
-						workerCfg.SendStatus(option.StatusComplete, "")
+						workerCtx.SendStatus(context.StatusComplete, "")
 					}
 				}
 			}
@@ -226,24 +247,26 @@ func List(cfg aws.Config, regions []string, listers []ListerName, cache Cacher, 
 	return rg, nil
 }
 
-func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cacher) (rg *resource.Group, jobError error) {
+// processJob does the actual querying of a particular resource type in a particular region. It catches panics caused by
+// both the AWS SDK and also any other issues so that the full processing always completes.
+func processJob(awsetsCtx *context.AWSetsCtx, id int, job listjob, cache Cacher) (rg *resource.Group, jobError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			jobError = fmt.Errorf("panicked: %v", r)
-			awsetsCfg.SendStatus(option.StatusLogError, fmt.Sprintf("%d: stacktrace from panic: %v\n", id, string(debug.Stack())))
+			awsetsCtx.SendStatus(context.StatusLogError, fmt.Sprintf("%d: stacktrace from panic: %v\n", id, string(debug.Stack())))
 		}
 	}()
 
 	rg = resource.NewGroup()
 	// If listing is cached, return it
 	if cache.IsCached(job.region, job.lister) {
-		awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: cached: %s - %s", id, job.region, job.lister))
+		awsetsCtx.SendStatus(context.StatusLogDebug, fmt.Sprintf("%d: cached: %s - %s", id, job.region, job.lister))
 		rg, jobError = cache.LoadGroup(job.region, job.lister)
 		if jobError != nil {
 			jobError = fmt.Errorf("failed to load group from cache: %w", jobError)
 		}
 	} else {
-		awsetsCfg.SendStatus(option.StatusLogDebug, fmt.Sprintf("%d: not cached: %s - %s", id, job.region, job.lister))
+		awsetsCtx.SendStatus(context.StatusLogDebug, fmt.Sprintf("%d: not cached: %s - %s", id, job.region, job.lister))
 
 		// Find the appropriate Lister
 		l, err := GetByName(job.lister)
@@ -252,7 +275,7 @@ func processJob(awsetsCfg *option.AWSetsConfig, id int, job listjob, cache Cache
 		}
 
 		// Execute listing
-		rg, jobError = l.List(*awsetsCfg)
+		rg, jobError = l.List(*awsetsCtx)
 		if jobError != nil {
 			// indicates service is not supported in a region
 			if strings.Contains(jobError.Error(), "no such host") {
@@ -275,32 +298,16 @@ type listjob struct {
 	region string
 }
 
-// Cacher is an interface that defines the necessary functions for an AWSets
-// cache.
-type Cacher interface {
-	Initialize(accountId string) error
-	IsCached(region string, kind ListerName) bool
-	SaveGroup(kind ListerName, group *resource.Group) error
-	LoadGroup(region string, kind ListerName) (*resource.Group, error)
-}
-
-// NoOpCache is the default cache provided by AWSets. It does nothing, and
-// will never load nor save any data.
-type NoOpCache struct {
-}
-
-func (c NoOpCache) Initialize(accountId string) error {
-	return nil
-}
-
-func (c NoOpCache) IsCached(region string, kind ListerName) bool {
-	return false
-}
-
-func (c NoOpCache) SaveGroup(kind ListerName, group *resource.Group) error {
-	return nil
-}
-
-func (c NoOpCache) LoadGroup(region string, kind ListerName) (*resource.Group, error) {
-	return resource.NewGroup(), nil
+func makeContext(o *config, id int, job listjob, totalJobs int) *context.AWSetsCtx {
+	ctx := &context.AWSetsCtx{
+		AWSCfg:     o.AWSCfg.Copy(),
+		AccountId:  o.AccountId,
+		WorkerId:   id,
+		Context:    o.Context,
+		Lister:     string(job.lister),
+		StatusChan: o.StatusChan,
+		TotalJobs:  totalJobs,
+	}
+	ctx.AWSCfg.Region = job.region
+	return ctx
 }

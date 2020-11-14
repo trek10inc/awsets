@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,10 +25,10 @@ func (l AWSWafv2RegexPatternSet) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Wafv2RegexPatternSet}
 }
 
-func (l AWSWafv2RegexPatternSet) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSWafv2RegexPatternSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 
-	rg, err := wafv2RegexPatternSetQuery(cfg, types.ScopeRegional)
+	rg, err := wafv2RegexPatternSetQuery(ctx, types.ScopeRegional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ipsets: %w", err)
 	}
@@ -36,7 +36,7 @@ func (l AWSWafv2RegexPatternSet) List(cfg option.AWSetsConfig) (*resource.Group,
 	// Do global
 	var outerErr error
 	listWafv2RegexPatternSetOnce.Do(func() {
-		ctxUsEast := cfg.CopyWithRegion("us-east-1")
+		ctxUsEast := ctx.Copy("us-east-1")
 		rgNew, err := wafv2RegexPatternSetQuery(*ctxUsEast, types.ScopeCloudfront)
 		if err != nil {
 			outerErr = fmt.Errorf("failed to list global regex pattern sets: %w", err)
@@ -47,11 +47,11 @@ func (l AWSWafv2RegexPatternSet) List(cfg option.AWSetsConfig) (*resource.Group,
 	return rg, outerErr
 }
 
-func wafv2RegexPatternSetQuery(cfg option.AWSetsConfig, scope types.Scope) (*resource.Group, error) {
-	svc := wafv2.NewFromConfig(cfg.AWSCfg)
+func wafv2RegexPatternSetQuery(ctx context.AWSetsCtx, scope types.Scope) (*resource.Group, error) {
+	svc := wafv2.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListRegexPatternSets(cfg.Context, &wafv2.ListRegexPatternSetsInput{
+		res, err := svc.ListRegexPatternSets(ctx.Context, &wafv2.ListRegexPatternSetsInput{
 			Limit:      aws.Int32(100),
 			NextMarker: nt,
 			Scope:      scope,
@@ -60,7 +60,7 @@ func wafv2RegexPatternSetQuery(cfg option.AWSetsConfig, scope types.Scope) (*res
 			return nil, err
 		}
 		for _, rpsId := range res.RegexPatternSets {
-			rps, err := svc.GetRegexPatternSet(cfg.Context, &wafv2.GetRegexPatternSetInput{
+			rps, err := svc.GetRegexPatternSet(ctx.Context, &wafv2.GetRegexPatternSetInput{
 				Id:    rpsId.Id,
 				Name:  rpsId.Name,
 				Scope: scope,
@@ -71,9 +71,9 @@ func wafv2RegexPatternSetQuery(cfg option.AWSetsConfig, scope types.Scope) (*res
 			if v := rps.RegexPatternSet; v != nil {
 				var r resource.Resource
 				if scope == types.ScopeCloudfront {
-					r = resource.NewGlobal(cfg, resource.Wafv2RegexPatternSet, v.Id, v.Name, v)
+					r = resource.NewGlobal(ctx, resource.Wafv2RegexPatternSet, v.Id, v.Name, v)
 				} else {
-					r = resource.New(cfg, resource.Wafv2RegexPatternSet, v.Id, v.Name, v)
+					r = resource.New(ctx, resource.Wafv2RegexPatternSet, v.Id, v.Name, v)
 				}
 				rg.AddResource(r)
 			}

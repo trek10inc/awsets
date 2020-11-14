@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 )
 
 func Test_NewResourceWithTags(t *testing.T) {
 
-	cfg := getConfig()
+	ctx := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -40,7 +40,7 @@ func Test_NewResourceWithTags(t *testing.T) {
 
 func Test_NewResourceWithoutTags(t *testing.T) {
 
-	cfg := getConfig()
+	ctx := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -59,7 +59,7 @@ func Test_NewResourceWithoutTags(t *testing.T) {
 
 func Test_NewGlobalResource(t *testing.T) {
 
-	cfg := getConfig()
+	ctx := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -79,7 +79,7 @@ func Test_NewGlobalResource(t *testing.T) {
 
 func Test_NewResourceVersion(t *testing.T) {
 
-	cfg := getConfig()
+	ctx := getConfig()
 
 	object := map[string]interface{}{
 		"Foo": "Bar",
@@ -99,7 +99,7 @@ func Test_NewResourceVersion(t *testing.T) {
 
 func Test_ResourceAddRelation(t *testing.T) {
 
-	cfg := getConfig()
+	ctx := getConfig()
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{
@@ -122,11 +122,11 @@ func Test_ResourceAddRelation(t *testing.T) {
 	}
 }
 
-func getConfig() option.AWSetsConfig {
+func getConfig() context.AWSetsConfig {
 	config := aws.Config{
 		Region: "us-east-1",
 	}
-	return option.AWSetsConfig{
+	return context.AWSetsConfig{
 		AWSCfg:    config,
 		AccountId: "123456789",
 		Context:   context.Background(),
@@ -160,7 +160,7 @@ func Test_JSON(t *testing.T) {
 	rg := NewGroup()
 
 	cfgUsEast1 := getConfig()
-	cfgUsEast2 := cfgUsEast1.CopyWithRegion("us-east-2")
+	cfgUsEast2 := cfgUsEast1.Copy("us-east-2")
 	object := map[string]interface{}{
 		"Foo": "Bar",
 		"Tags": map[string]string{

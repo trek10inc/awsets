@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dax"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSDAXCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.DAXCluster}
 }
 
-func (l AWSDAXCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSDAXCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := dax.NewFromConfig(cfg.AWSCfg)
+	svc := dax.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeClusters(cfg.Context, &dax.DescribeClustersInput{
+		res, err := svc.DescribeClusters(ctx.Context, &dax.DescribeClustersInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -41,7 +41,7 @@ func (l AWSDAXCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 		}
 		for _, v := range res.Clusters {
 			clusterArn := arn.ParseP(v.ClusterArn)
-			r := resource.New(cfg, resource.DAXCluster, clusterArn.ResourceId, v.ClusterName, v)
+			r := resource.New(ctx, resource.DAXCluster, clusterArn.ResourceId, v.ClusterName, v)
 			r.AddRelation(resource.DAXParameterGroup, v.ParameterGroup.ParameterGroupName, "")
 			r.AddRelation(resource.DAXSubnetGroup, v.SubnetGroup, "")
 			for _, sg := range v.SecurityGroups {

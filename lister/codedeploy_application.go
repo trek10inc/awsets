@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/codedeploy"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,20 +23,20 @@ func (l AWSCodeDeployApplication) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCodeDeployApplication) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := codedeploy.NewFromConfig(cfg.AWSCfg)
+func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := codedeploy.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListApplications(cfg.Context, &codedeploy.ListApplicationsInput{
+		res, err := svc.ListApplications(ctx.Context, &codedeploy.ListApplicationsInput{
 			NextToken: nt,
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, app := range res.Applications {
-			appRes, err := svc.GetApplication(cfg.Context, &codedeploy.GetApplicationInput{
+			appRes, err := svc.GetApplication(ctx.Context, &codedeploy.GetApplicationInput{
 				ApplicationName: app,
 			})
 			if err != nil {
@@ -46,11 +46,11 @@ func (l AWSCodeDeployApplication) List(cfg option.AWSetsConfig) (*resource.Group
 			if v == nil {
 				continue
 			}
-			r := resource.New(cfg, resource.CodeDeployApplication, v.ApplicationId, v.ApplicationName, v)
+			r := resource.New(ctx, resource.CodeDeployApplication, v.ApplicationId, v.ApplicationName, v)
 
 			// CodeDeploy Deployment Groups
 			err = Paginator(func(nt2 *string) (*string, error) {
-				depGroups, err := svc.ListDeploymentGroups(cfg.Context, &codedeploy.ListDeploymentGroupsInput{
+				depGroups, err := svc.ListDeploymentGroups(ctx.Context, &codedeploy.ListDeploymentGroupsInput{
 					ApplicationName: app,
 					NextToken:       nt2,
 				})
@@ -59,7 +59,7 @@ func (l AWSCodeDeployApplication) List(cfg option.AWSetsConfig) (*resource.Group
 				}
 				groups := depGroups.DeploymentGroups
 				if len(groups) > 0 {
-					groupsRes, err := svc.BatchGetDeploymentGroups(cfg.Context, &codedeploy.BatchGetDeploymentGroupsInput{
+					groupsRes, err := svc.BatchGetDeploymentGroups(ctx.Context, &codedeploy.BatchGetDeploymentGroupsInput{
 						ApplicationName:      app,
 						DeploymentGroupNames: groups,
 					})
@@ -67,7 +67,7 @@ func (l AWSCodeDeployApplication) List(cfg option.AWSetsConfig) (*resource.Group
 						return nil, fmt.Errorf("failed to get codedeploy deployment groups for app %s: %w", *app, err)
 					}
 					for _, group := range groupsRes.DeploymentGroupsInfo {
-						groupR := resource.New(cfg, resource.CodeDeployDeploymentGroup, group.DeploymentGroupId, group.DeploymentGroupName, group)
+						groupR := resource.New(ctx, resource.CodeDeployDeploymentGroup, group.DeploymentGroupId, group.DeploymentGroupName, group)
 						groupR.AddRelation(resource.CodeDeployApplication, app, "")
 						groupR.AddARNRelation(resource.IamRole, group.ServiceRoleArn)
 						groupR.AddRelation(resource.CodeDeployDeploymentConfig, group.DeploymentConfigName, "")

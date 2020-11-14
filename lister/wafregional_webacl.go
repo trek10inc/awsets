@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,11 +22,11 @@ func (l AWSWafRegionalWebAcl) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.WafRegionalWebACL}
 }
 
-func (l AWSWafRegionalWebAcl) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := wafregional.NewFromConfig(cfg.AWSCfg)
+func (l AWSWafRegionalWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := wafregional.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListWebACLs(cfg.Context, &wafregional.ListWebACLsInput{
+		res, err := svc.ListWebACLs(ctx.Context, &wafregional.ListWebACLsInput{
 			Limit:      aws.Int32(100),
 			NextMarker: nt,
 		})
@@ -34,20 +34,20 @@ func (l AWSWafRegionalWebAcl) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, fmt.Errorf("failed to list webacls: %w", err)
 		}
 		for _, webaclId := range res.WebACLs {
-			webacl, err := svc.GetWebACL(cfg.Context, &wafregional.GetWebACLInput{WebACLId: webaclId.WebACLId})
+			webacl, err := svc.GetWebACL(ctx.Context, &wafregional.GetWebACLInput{WebACLId: webaclId.WebACLId})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get webacl %s: %w", *webaclId.WebACLId, err)
 			}
 			if v := webacl.WebACL; v != nil {
 				//webaclArn := arn.ParseP(webacl.WebACL.WebACLArn)
-				r := resource.New(cfg, resource.WafRegionalWebACL, v.WebACLId, v.Name, v)
+				r := resource.New(ctx, resource.WafRegionalWebACL, v.WebACLId, v.Name, v)
 
 				allResources := make([]*string, 0)
 				for _, t := range []types.ResourceType{
 					types.ResourceTypeApiGateway,
 					types.ResourceTypeApplicationLoadBalancer,
 				} {
-					resources, err := svc.ListResourcesForWebACL(cfg.Context, &wafregional.ListResourcesForWebACLInput{
+					resources, err := svc.ListResourcesForWebACL(ctx.Context, &wafregional.ListResourcesForWebACLInput{
 						WebACLId:     v.WebACLId,
 						ResourceType: t,
 					})

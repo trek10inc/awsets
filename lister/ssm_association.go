@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSSsmAssociation) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSSsmAssociation) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ssm.NewFromConfig(cfg.AWSCfg)
+func (l AWSSsmAssociation) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ssm.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListAssociations(cfg.Context, &ssm.ListAssociationsInput{
+		res, err := svc.ListAssociations(ctx.Context, &ssm.ListAssociationsInput{
 			MaxResults: aws.Int32(50),
 			NextToken:  nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSSsmAssociation) List(cfg option.AWSetsConfig) (*resource.Group, error
 			return nil, err
 		}
 		for _, v := range res.Associations {
-			r := resource.New(cfg, resource.SsmAssociation, v.AssociationId, v.AssociationName, v)
+			r := resource.New(ctx, resource.SsmAssociation, v.AssociationId, v.AssociationName, v)
 			r.AddRelation(resource.Ec2Instance, v.InstanceId, "")
 			rg.AddResource(r)
 		}

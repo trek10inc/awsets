@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/imagebuilder"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSImageBuilderImage) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSImageBuilderImage) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSImageBuilderImage) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := imagebuilder.NewFromConfig(cfg.AWSCfg)
+	svc := imagebuilder.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListImages(cfg.Context, &imagebuilder.ListImagesInput{
+		res, err := svc.ListImages(ctx.Context, &imagebuilder.ListImagesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,14 +37,14 @@ func (l AWSImageBuilderImage) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, fmt.Errorf("failed to list imagebuilder images: %w", err)
 		}
 		for _, ivl := range res.ImageVersionList {
-			v, err := svc.GetImage(cfg.Context, &imagebuilder.GetImageInput{
+			v, err := svc.GetImage(ctx.Context, &imagebuilder.GetImageInput{
 				ImageBuildVersionArn: ivl.Arn,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get imagebuilder image %s: %w", *ivl.Name, err)
 			}
 			imArn := arn.ParseP(v.Image.Arn)
-			r := resource.New(cfg, resource.ImageBuilderImage, imArn.ResourceId, v.Image.Name, v.Image)
+			r := resource.New(ctx, resource.ImageBuilderImage, imArn.ResourceId, v.Image.Name, v.Image)
 			r.AddARNRelation(resource.ImageBuilderImagePipeline, v.Image.SourcePipelineArn)
 
 			// This response includes the full recipe, but only building the relationship to the ARN, then querying

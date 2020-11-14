@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,12 +20,12 @@ func (l AWSAutoscalingLaunchConfiguration) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AutoscalingLaunchConfig}
 }
 
-func (l AWSAutoscalingLaunchConfiguration) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := autoscaling.NewFromConfig(cfg.AWSCfg)
+func (l AWSAutoscalingLaunchConfiguration) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := autoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeLaunchConfigurations(cfg.Context, &autoscaling.DescribeLaunchConfigurationsInput{
+		res, err := svc.DescribeLaunchConfigurations(ctx.Context, &autoscaling.DescribeLaunchConfigurationsInput{
 			MaxRecords: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -35,7 +35,7 @@ func (l AWSAutoscalingLaunchConfiguration) List(cfg option.AWSetsConfig) (*resou
 		for _, v := range res.LaunchConfigurations {
 
 			configArn := arn.ParseP(v.LaunchConfigurationARN)
-			r := resource.New(cfg, resource.AutoscalingLaunchConfig, configArn.ResourceId, v.LaunchConfigurationName, v)
+			r := resource.New(ctx, resource.AutoscalingLaunchConfig, configArn.ResourceId, v.LaunchConfigurationName, v)
 
 			for _, sg := range v.SecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, sg, "")

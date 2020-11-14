@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/imagebuilder"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSImageBuilderImageRecipe) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSImageBuilderImageRecipe) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSImageBuilderImageRecipe) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := imagebuilder.NewFromConfig(cfg.AWSCfg)
+	svc := imagebuilder.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListImageRecipes(cfg.Context, &imagebuilder.ListImageRecipesInput{
+		res, err := svc.ListImageRecipes(ctx.Context, &imagebuilder.ListImageRecipesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,14 +37,14 @@ func (l AWSImageBuilderImageRecipe) List(cfg option.AWSetsConfig) (*resource.Gro
 			return nil, fmt.Errorf("failed to list imagebuilder image recipes: %w", err)
 		}
 		for _, recipeSummary := range res.ImageRecipeSummaryList {
-			v, err := svc.GetImageRecipe(cfg.Context, &imagebuilder.GetImageRecipeInput{
+			v, err := svc.GetImageRecipe(ctx.Context, &imagebuilder.GetImageRecipeInput{
 				ImageRecipeArn: recipeSummary.Arn,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get imagebuilder image recipe %s: %w", *recipeSummary.Name, err)
 			}
 			recipeArn := arn.ParseP(v.ImageRecipe.Arn)
-			r := resource.New(cfg, resource.ImageBuilderImageRecipe, recipeArn.ResourceId, v.ImageRecipe.Name, v.ImageRecipe)
+			r := resource.New(ctx, resource.ImageBuilderImageRecipe, recipeArn.ResourceId, v.ImageRecipe.Name, v.ImageRecipe)
 			if v.ImageRecipe.BlockDeviceMappings != nil {
 				for _, bdm := range v.ImageRecipe.BlockDeviceMappings {
 					if bdm.Ebs != nil {

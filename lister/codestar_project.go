@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/codestar"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSCodestarProject) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCodestarProject) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSCodestarProject) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := codestar.NewFromConfig(cfg.AWSCfg)
+	svc := codestar.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListProjects(cfg.Context, &codestar.ListProjectsInput{
+		res, err := svc.ListProjects(ctx.Context, &codestar.ListProjectsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -39,13 +39,13 @@ func (l AWSCodestarProject) List(cfg option.AWSetsConfig) (*resource.Group, erro
 			return nil, nil
 		}
 		for _, project := range res.Projects {
-			v, err := svc.DescribeProject(cfg.Context, &codestar.DescribeProjectInput{
+			v, err := svc.DescribeProject(ctx.Context, &codestar.DescribeProjectInput{
 				Id: project.ProjectId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get project %s: %w", *project.ProjectId, err)
 			}
-			r := resource.New(cfg, resource.CodeStarProject, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.CodeStarProject, v.Id, v.Name, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

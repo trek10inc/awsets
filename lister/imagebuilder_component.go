@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/imagebuilder"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSImageBuilderComponent) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSImageBuilderComponent) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSImageBuilderComponent) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := imagebuilder.NewFromConfig(cfg.AWSCfg)
+	svc := imagebuilder.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListComponents(cfg.Context, &imagebuilder.ListComponentsInput{
+		res, err := svc.ListComponents(ctx.Context, &imagebuilder.ListComponentsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,14 +37,14 @@ func (l AWSImageBuilderComponent) List(cfg option.AWSetsConfig) (*resource.Group
 			return nil, fmt.Errorf("failed to list imagebuilder components: %w", err)
 		}
 		for _, cv := range res.ComponentVersionList {
-			v, err := svc.GetComponent(cfg.Context, &imagebuilder.GetComponentInput{
+			v, err := svc.GetComponent(ctx.Context, &imagebuilder.GetComponentInput{
 				ComponentBuildVersionArn: cv.Arn,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get imagebuilder component %s: %w", *cv.Name, err)
 			}
 			cArn := arn.ParseP(v.Component.Arn)
-			r := resource.NewVersion(cfg, resource.ImageBuilderComponent, cArn.ResourceId, cArn.ResourceVersion, v.Component.Name, v.Component)
+			r := resource.NewVersion(ctx, resource.ImageBuilderComponent, cArn.ResourceId, cArn.ResourceVersion, v.Component.Name, v.Component)
 			r.AddARNRelation(resource.KmsKey, v.Component.KmsKeyId)
 			rg.AddResource(r)
 		}

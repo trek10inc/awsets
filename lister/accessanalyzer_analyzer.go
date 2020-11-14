@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/accessanalyzer"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSAccessAnalyzerAnalyzer) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AccessAnalyzerAnalyzer}
 }
 
-func (l AWSAccessAnalyzerAnalyzer) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := accessanalyzer.NewFromConfig(cfg.AWSCfg)
+func (l AWSAccessAnalyzerAnalyzer) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := accessanalyzer.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		req, err := svc.ListAnalyzers(cfg.Context, &accessanalyzer.ListAnalyzersInput{
+		req, err := svc.ListAnalyzers(ctx.Context, &accessanalyzer.ListAnalyzersInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSAccessAnalyzerAnalyzer) List(cfg option.AWSetsConfig) (*resource.Grou
 			return nil, err
 		}
 		for _, v := range req.Analyzers {
-			r := resource.New(cfg, resource.AccessAnalyzerAnalyzer, v.Name, v.Name, v)
+			r := resource.New(ctx, resource.AccessAnalyzerAnalyzer, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
 		return req.NextToken, nil

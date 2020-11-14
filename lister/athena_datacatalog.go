@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/athena"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,13 +19,13 @@ func (l AWSAthenaDataCatalog) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.AthenaDataCatalog}
 }
 
-func (l AWSAthenaDataCatalog) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := athena.NewFromConfig(cfg.AWSCfg)
+func (l AWSAthenaDataCatalog) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := athena.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListDataCatalogs(cfg.Context, &athena.ListDataCatalogsInput{
+		res, err := svc.ListDataCatalogs(ctx.Context, &athena.ListDataCatalogsInput{
 			MaxResults: aws.Int32(50),
 			NextToken:  nt,
 		})
@@ -33,13 +33,13 @@ func (l AWSAthenaDataCatalog) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, err
 		}
 		for _, dcSummary := range res.DataCatalogsSummary {
-			r := resource.New(cfg, resource.AthenaDataCatalog, dcSummary.CatalogName, dcSummary.CatalogName, dcSummary)
+			r := resource.New(ctx, resource.AthenaDataCatalog, dcSummary.CatalogName, dcSummary.CatalogName, dcSummary)
 
-			dc, err := svc.GetDataCatalog(cfg.Context, &athena.GetDataCatalogInput{
+			dc, err := svc.GetDataCatalog(ctx.Context, &athena.GetDataCatalogInput{
 				Name: dcSummary.CatalogName,
 			})
 			if err != nil {
-				//cfg.SendStatus(option.StatusLogError, fmt.Sprintf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err))
+				//ctx.SendStatus(context.StatusLogError, fmt.Sprintf("failed to get data catalog %s of type %v: %v\n", *dcSummary.CatalogName, dcSummary.Type, err))
 			} else if v := dc.DataCatalog; v != nil {
 				r.AddAttribute("Description", v.Description)
 				r.AddAttribute("Parameters", v.Parameters)

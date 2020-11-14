@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSCloudFormationStackSet) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CloudFormationStackSet}
 }
 
-func (l AWSCloudFormationStackSet) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cloudformation.NewFromConfig(cfg.AWSCfg)
+func (l AWSCloudFormationStackSet) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cloudformation.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListStackSets(cfg.Context, &cloudformation.ListStackSetsInput{
+		res, err := svc.ListStackSets(ctx.Context, &cloudformation.ListStackSetsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -39,13 +39,13 @@ func (l AWSCloudFormationStackSet) List(cfg option.AWSetsConfig) (*resource.Grou
 			return nil, err
 		}
 		for _, summary := range res.Summaries {
-			v, err := svc.DescribeStackSet(cfg.Context, &cloudformation.DescribeStackSetInput{
+			v, err := svc.DescribeStackSet(ctx.Context, &cloudformation.DescribeStackSetInput{
 				StackSetName: summary.StackSetName,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe stack set %s: %w", *summary.StackSetName, err)
 			}
-			r := resource.New(cfg, resource.CloudFormationStackSet, v.StackSet.StackSetId, v.StackSet.StackSetName, v.StackSet)
+			r := resource.New(ctx, resource.CloudFormationStackSet, v.StackSet.StackSetId, v.StackSet.StackSetName, v.StackSet)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil

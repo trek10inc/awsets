@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSRedshiftCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.RedshiftCluster}
 }
 
-func (l AWSRedshiftCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := redshift.NewFromConfig(cfg.AWSCfg)
+func (l AWSRedshiftCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := redshift.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeClusters(cfg.Context, &redshift.DescribeClustersInput{
+		res, err := svc.DescribeClusters(ctx.Context, &redshift.DescribeClustersInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSRedshiftCluster) List(cfg option.AWSetsConfig) (*resource.Group, erro
 			return nil, err
 		}
 		for _, cluster := range res.Clusters {
-			r := resource.New(cfg, resource.RedshiftCluster, cluster.ClusterIdentifier, cluster.ClusterIdentifier, cluster)
+			r := resource.New(ctx, resource.RedshiftCluster, cluster.ClusterIdentifier, cluster.ClusterIdentifier, cluster)
 			r.AddRelation(resource.Ec2Vpc, cluster.VpcId, "")
 			r.AddRelation(resource.RedshiftSubnetGroup, cluster.ClusterSubnetGroupName, "")
 			for _, sg := range cluster.ClusterSecurityGroups {

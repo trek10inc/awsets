@@ -11,7 +11,7 @@ import (
 	"github.com/cheggaaa/pb/v3"
 	"github.com/trek10inc/awsets"
 	"github.com/trek10inc/awsets/cmd/awsets/cache"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/urfave/cli/v2"
 )
 
@@ -111,9 +111,12 @@ var listCmd = &cli.Command{
 			log.Fatalf("failed to open cache: %v", err)
 		}
 
-		statusChan := make(chan option.StatusUpdate)
-		options := []option.Option{
-			option.WithStatus(statusChan),
+		statusChan := make(chan context.StatusUpdate)
+		options := []awsets.Option{
+			awsets.WithStatus(statusChan),
+			awsets.WithRegions(regions),
+			awsets.WithListers(listers),
+			awsets.WithCache(bc),
 		}
 		verbose := c.Bool("verbose")
 		showProgress := c.Bool("show-progress")
@@ -132,20 +135,20 @@ var listCmd = &cli.Command{
 						bar = pb.StartNew(update.TotalJobs)
 					}
 					switch update.Type {
-					case option.StatusLogInfo:
+					case context.StatusLogInfo:
 						if verbose {
 							fmt.Fprintf(os.Stdout, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 						}
-					case option.StatusLogDebug:
+					case context.StatusLogDebug:
 						if verbose {
 							fmt.Fprintf(os.Stdout, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 						}
-					case option.StatusLogError:
+					case context.StatusLogError:
 						fmt.Fprintf(os.Stderr, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
-					case option.StatusProcessing:
-					case option.StatusComplete:
+					case context.StatusProcessing:
+					case context.StatusComplete:
 						fallthrough
-					case option.StatusCompleteWithError:
+					case context.StatusCompleteWithError:
 						if bar != nil {
 							bar.Increment()
 						}
@@ -154,7 +157,7 @@ var listCmd = &cli.Command{
 			}
 		}()
 
-		rg, err := awsets.List(awscfg, regions, listers, bc, options...)
+		rg, err := awsets.List(awscfg, options...)
 		if err != nil {
 			return fmt.Errorf("failed to list resources: %w", err)
 		}

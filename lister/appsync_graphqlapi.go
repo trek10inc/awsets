@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/appsync"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -30,13 +30,13 @@ func (l AWSAppsyncGraphqlApi) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := appsync.NewFromConfig(cfg.AWSCfg)
+func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := appsync.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		apis, err := svc.ListGraphqlApis(cfg.Context, &appsync.ListGraphqlApisInput{
+		apis, err := svc.ListGraphqlApis(ctx.Context, &appsync.ListGraphqlApisInput{
 			MaxResults: aws.Int32(25),
 			NextToken:  nt,
 		})
@@ -48,13 +48,13 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, fmt.Errorf("failed to list graphql apis: %w", err)
 		}
 		for _, api := range apis.GraphqlApis {
-			r := resource.New(cfg, resource.AppSyncGraphQLApi, api.ApiId, api.Name, api)
+			r := resource.New(ctx, resource.AppSyncGraphQLApi, api.ApiId, api.Name, api)
 			// TODO: relation to user pool?
 			rg.AddResource(r)
 
 			// DataSources
 			err = Paginator(func(nt2 *string) (*string, error) {
-				datasources, err := svc.ListDataSources(cfg.Context, &appsync.ListDataSourcesInput{
+				datasources, err := svc.ListDataSources(ctx.Context, &appsync.ListDataSourcesInput{
 					ApiId:      api.ApiId,
 					MaxResults: aws.Int32(25),
 					NextToken:  nt2,
@@ -64,7 +64,7 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 				}
 				for _, ds := range datasources.DataSources {
 					dsArn := arn.ParseP(ds.DataSourceArn)
-					dsRes := resource.New(cfg, resource.AppSyncDataSource, dsArn.ResourceId, "", ds)
+					dsRes := resource.New(ctx, resource.AppSyncDataSource, dsArn.ResourceId, "", ds)
 					dsRes.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 					if ds.ServiceRoleArn != nil {
 						srArn := arn.ParseP(ds.ServiceRoleArn)
@@ -80,7 +80,7 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 
 			// Functions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				functions, err := svc.ListFunctions(cfg.Context, &appsync.ListFunctionsInput{
+				functions, err := svc.ListFunctions(ctx.Context, &appsync.ListFunctionsInput{
 					ApiId:      api.ApiId,
 					MaxResults: aws.Int32(25),
 					NextToken:  nt2,
@@ -89,11 +89,11 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 					return nil, fmt.Errorf("failed to get functions for %s: %w", *api.ApiId, err)
 				}
 				for _, function := range functions.Functions {
-					funcR := resource.New(cfg, resource.AppSyncFunction, function.FunctionId, function.Name, function)
+					funcR := resource.New(ctx, resource.AppSyncFunction, function.FunctionId, function.Name, function)
 					funcR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 
 					err = Paginator(func(nt3 *string) (*string, error) {
-						resolvers, err := svc.ListResolversByFunction(cfg.Context, &appsync.ListResolversByFunctionInput{
+						resolvers, err := svc.ListResolversByFunction(ctx.Context, &appsync.ListResolversByFunctionInput{
 							ApiId:      api.ApiId,
 							FunctionId: function.FunctionId,
 							MaxResults: aws.Int32(25),
@@ -104,7 +104,7 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 						}
 						for _, resolver := range resolvers.Resolvers {
 							resolverArn := arn.ParseP(resolver.ResolverArn)
-							resolverR := resource.New(cfg, resource.AppSyncResolver, resolverArn.ResourceId, resolverArn.ResourceId, resolver)
+							resolverR := resource.New(ctx, resource.AppSyncResolver, resolverArn.ResourceId, resolverArn.ResourceId, resolver)
 							resolverR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 							resolverR.AddRelation(resource.AppSyncFunction, function.FunctionId, "")
 							rg.AddResource(resolverR)
@@ -125,7 +125,7 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 
 			// API Keys
 			err = Paginator(func(nt2 *string) (*string, error) {
-				apiKeys, err := svc.ListApiKeys(cfg.Context, &appsync.ListApiKeysInput{
+				apiKeys, err := svc.ListApiKeys(ctx.Context, &appsync.ListApiKeysInput{
 					ApiId:      api.ApiId,
 					MaxResults: aws.Int32(25),
 					NextToken:  nt2,
@@ -134,7 +134,7 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 					return nil, fmt.Errorf("failed to get api keys for %s: %w", *api.ApiId, err)
 				}
 				for _, apiKey := range apiKeys.ApiKeys {
-					keyR := resource.New(cfg, resource.AppSyncApiKey, apiKey.Id, apiKey.Id, apiKey)
+					keyR := resource.New(ctx, resource.AppSyncApiKey, apiKey.Id, apiKey.Id, apiKey)
 					keyR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 					rg.AddResource(keyR)
 				}
@@ -145,14 +145,14 @@ func (l AWSAppsyncGraphqlApi) List(cfg option.AWSetsConfig) (*resource.Group, er
 			}
 
 			// Cache
-			apiCache, err := svc.GetApiCache(cfg.Context, &appsync.GetApiCacheInput{
+			apiCache, err := svc.GetApiCache(ctx.Context, &appsync.GetApiCacheInput{
 				ApiId: api.ApiId,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get api cache for %s: %w", *api.ApiId, err)
 			}
 			if v := apiCache.ApiCache; v != nil {
-				cacheR := resource.New(cfg, resource.AppSyncApiCache, fmt.Sprintf("%s-cache", *api.ApiId), fmt.Sprintf("%s-cache", *api.ApiId), v)
+				cacheR := resource.New(ctx, resource.AppSyncApiCache, fmt.Sprintf("%s-cache", *api.ApiId), fmt.Sprintf("%s-cache", *api.ApiId), v)
 				cacheR.AddRelation(resource.AppSyncGraphQLApi, api.ApiId, "")
 				rg.AddResource(cacheR)
 			}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iot"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSIoTCACertificate) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.IoTCACertificate}
 }
 
-func (l AWSIoTCACertificate) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSIoTCACertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := iot.NewFromConfig(cfg.AWSCfg)
+	svc := iot.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListCACertificates(cfg.Context, &iot.ListCACertificatesInput{
+		res, err := svc.ListCACertificates(ctx.Context, &iot.ListCACertificatesInput{
 			PageSize: aws.Int32(100),
 			Marker:   nt,
 		})
@@ -34,11 +34,11 @@ func (l AWSIoTCACertificate) List(cfg option.AWSetsConfig) (*resource.Group, err
 			return nil, fmt.Errorf("failed to list iot ca certificates: %w", err)
 		}
 		for _, cacert := range res.Certificates {
-			r := resource.New(cfg, resource.IoTCACertificate, cacert.CertificateId, cacert.CertificateId, cacert)
+			r := resource.New(ctx, resource.IoTCACertificate, cacert.CertificateId, cacert.CertificateId, cacert)
 
 			// Certs by CA
 			err = Paginator(func(nt2 *string) (*string, error) {
-				certs, err := svc.ListCertificatesByCA(cfg.Context, &iot.ListCertificatesByCAInput{
+				certs, err := svc.ListCertificatesByCA(ctx.Context, &iot.ListCertificatesByCAInput{
 					CaCertificateId: cacert.CertificateId,
 					Marker:          nt2,
 					PageSize:        aws.Int32(100),

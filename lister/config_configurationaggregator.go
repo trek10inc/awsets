@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,13 +21,13 @@ func (l AWSConfigConfigurationAggregator) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ConfigConfigurationAggregator}
 }
 
-func (l AWSConfigConfigurationAggregator) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSConfigConfigurationAggregator) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.NewFromConfig(cfg.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeConfigurationAggregators(cfg.Context, &configservice.DescribeConfigurationAggregatorsInput{
+		res, err := svc.DescribeConfigurationAggregators(ctx.Context, &configservice.DescribeConfigurationAggregatorsInput{
 			Limit:     aws.Int32(100),
 			NextToken: nt,
 		})
@@ -35,7 +35,7 @@ func (l AWSConfigConfigurationAggregator) List(cfg option.AWSetsConfig) (*resour
 			return nil, fmt.Errorf("failed to list config aggregators: %w", err)
 		}
 		for _, v := range res.ConfigurationAggregators {
-			r := resource.New(cfg, resource.ConfigConfigurationAggregator, v.ConfigurationAggregatorName, v.ConfigurationAggregatorName, v)
+			r := resource.New(ctx, resource.ConfigConfigurationAggregator, v.ConfigurationAggregatorName, v.ConfigurationAggregatorName, v)
 			rg.AddResource(r)
 		}
 		return res.NextToken, nil
