@@ -1,8 +1,8 @@
 package awsets
 
 import (
-	"io/ioutil"
-	"strings"
+	"bufio"
+	"os"
 	"testing"
 
 	"github.com/trek10inc/awsets/resource"
@@ -11,14 +11,19 @@ import (
 // Tests to make sure the documentation is up to date with the current list of supported resource types
 func Test_SupportResources(t *testing.T) {
 	// Read documented list of resource types
-	b, err := ioutil.ReadFile("supported_resources.txt")
+	f, err := os.Open("supported_resources.txt")
 	if err != nil {
 		t.Fatalf("failed to load file: %v", err)
 	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Split(bufio.ScanLines)
+
 	// Build map of types
 	supported := make(map[resource.ResourceType]struct{})
-	for _, l := range strings.Split(string(b), "\n") {
-		supported[resource.ResourceType(l)] = struct{}{}
+	for scanner.Scan() {
+		supported[resource.ResourceType(scanner.Text())] = struct{}{}
 	}
 
 	// Iterate through resource types supported in code. For each. check if it is in the documentation
