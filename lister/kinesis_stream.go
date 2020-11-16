@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSKinesisStream) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.KinesisStream}
 }
 
-func (l AWSKinesisStream) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := kinesis.NewFromConfig(cfg.AWSCfg)
+func (l AWSKinesisStream) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := kinesis.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListStreams(cfg.Context, &kinesis.ListStreamsInput{
+		res, err := svc.ListStreams(ctx.Context, &kinesis.ListStreamsInput{
 			Limit:                    aws.Int32(100),
 			ExclusiveStartStreamName: nt,
 		})
@@ -37,7 +37,7 @@ func (l AWSKinesisStream) List(cfg option.AWSetsConfig) (*resource.Group, error)
 		var lastName *string
 		for i, stream := range res.StreamNames {
 			lastName = res.StreamNames[i]
-			res, err := svc.DescribeStream(cfg.Context, &kinesis.DescribeStreamInput{
+			res, err := svc.DescribeStream(ctx.Context, &kinesis.DescribeStreamInput{
 				Limit:      aws.Int32(100),
 				StreamName: stream,
 			})
@@ -45,7 +45,7 @@ func (l AWSKinesisStream) List(cfg option.AWSetsConfig) (*resource.Group, error)
 				return nil, fmt.Errorf("failed to describe kinesis streams %s: %w", *stream, err)
 			}
 			streamArn := arn.ParseP(res.StreamDescription.StreamARN)
-			r := resource.New(cfg, resource.KinesisStream, streamArn.ResourceId, res.StreamDescription.StreamName, res.StreamDescription)
+			r := resource.New(ctx, resource.KinesisStream, streamArn.ResourceId, res.StreamDescription.StreamName, res.StreamDescription)
 			rg.AddResource(r)
 			// TODO the rest of this... relationships to shards and whatnot
 		}

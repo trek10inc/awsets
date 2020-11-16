@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSSESReceiptFilter) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSSESReceiptFilter) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ses.NewFromConfig(cfg.AWSCfg)
+func (l AWSSESReceiptFilter) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ses.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
-	filters, err := svc.ListReceiptFilters(cfg.Context, &ses.ListReceiptFiltersInput{})
+	filters, err := svc.ListReceiptFilters(ctx.Context, &ses.ListReceiptFiltersInput{})
 	if err != nil {
 		if strings.Contains(err.Error(), "Unavailable Operation") {
 			// If SES isn't available in a region, returns Unavailable Operation error
@@ -36,7 +36,7 @@ func (l AWSSESReceiptFilter) List(cfg option.AWSetsConfig) (*resource.Group, err
 		return rg, err
 	}
 	for _, v := range filters.Filters {
-		r := resource.New(cfg, resource.SesReceiptFilter, v.Name, v.Name, v)
+		r := resource.New(ctx, resource.SesReceiptFilter, v.Name, v.Name, v)
 		rg.AddResource(r)
 	}
 	return rg, err

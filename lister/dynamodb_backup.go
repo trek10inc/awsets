@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSDynamoDBBackup) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSDynamoDBBackup) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := dynamodb.NewFromConfig(cfg.AWSCfg)
+func (l AWSDynamoDBBackup) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := dynamodb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListBackups(cfg.Context, &dynamodb.ListBackupsInput{
+		res, err := svc.ListBackups(ctx.Context, &dynamodb.ListBackupsInput{
 			BackupType:              types.BackupTypeFilterAll,
 			Limit:                   aws.Int32(100),
 			ExclusiveStartBackupArn: nt,
@@ -37,7 +37,7 @@ func (l AWSDynamoDBBackup) List(cfg option.AWSetsConfig) (*resource.Group, error
 			return nil, err
 		}
 		for _, bk := range res.BackupSummaries {
-			bkr := resource.New(cfg, resource.DynamoDbBackup, bk.BackupName, bk.BackupName, bk)
+			bkr := resource.New(ctx, resource.DynamoDbBackup, bk.BackupName, bk.BackupName, bk)
 			bkr.AddRelation(resource.DynamoDbTable, bk.TableName, "")
 			rg.AddResource(bkr)
 		}

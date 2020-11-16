@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/aws/aws-sdk-go-v2 v0.29.0
+	github.com/aws/aws-sdk-go-v2/config v0.2.0
 	github.com/aws/aws-sdk-go-v2/service/accessanalyzer v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/acm v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/amplify v0.29.0

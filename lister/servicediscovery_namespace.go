@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/servicediscovery"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,12 +23,12 @@ func (l AWSServiceDiscoveryNamespace) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSServiceDiscoveryNamespace) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := servicediscovery.NewFromConfig(cfg.AWSCfg)
+func (l AWSServiceDiscoveryNamespace) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := servicediscovery.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListNamespaces(cfg.Context, &servicediscovery.ListNamespacesInput{
+		res, err := svc.ListNamespaces(ctx.Context, &servicediscovery.ListNamespacesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -36,13 +36,13 @@ func (l AWSServiceDiscoveryNamespace) List(cfg option.AWSetsConfig) (*resource.G
 			return nil, err
 		}
 		for _, ns := range res.Namespaces {
-			v, err := svc.GetNamespace(cfg.Context, &servicediscovery.GetNamespaceInput{
+			v, err := svc.GetNamespace(ctx.Context, &servicediscovery.GetNamespaceInput{
 				Id: ns.Id,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe service discovery namespace %s: %w", *ns.Id, err)
 			}
-			r := resource.New(cfg, resource.ServiceDiscoveryNamespace, v.Namespace.Id, v.Namespace.Name, v.Namespace)
+			r := resource.New(ctx, resource.ServiceDiscoveryNamespace, v.Namespace.Id, v.Namespace.Name, v.Namespace)
 			if v.Namespace.Properties != nil {
 				if v.Namespace.Properties.DnsProperties != nil {
 					r.AddRelation(resource.Route53HostedZone, *v.Namespace.Properties.DnsProperties.HostedZoneId, "")

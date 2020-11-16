@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/greengrass"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,12 +25,12 @@ func (l AWSGreengrassConnectorDefinition) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSGreengrassConnectorDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSGreengrassConnectorDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := greengrass.NewFromConfig(cfg.AWSCfg)
+	svc := greengrass.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListConnectorDefinitions(cfg.Context, &greengrass.ListConnectorDefinitionsInput{
+		res, err := svc.ListConnectorDefinitions(ctx.Context, &greengrass.ListConnectorDefinitionsInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nt,
 		})
@@ -43,11 +43,11 @@ func (l AWSGreengrassConnectorDefinition) List(cfg option.AWSetsConfig) (*resour
 			return nil, fmt.Errorf("failed to list greengrass connector definitions: %w", err)
 		}
 		for _, v := range res.Definitions {
-			r := resource.New(cfg, resource.GreengrassConnectorDefinition, v.Id, v.Name, v)
+			r := resource.New(ctx, resource.GreengrassConnectorDefinition, v.Id, v.Name, v)
 
 			// Versions
 			err = Paginator(func(nt2 *string) (*string, error) {
-				versions, err := svc.ListConnectorDefinitionVersions(cfg.Context, &greengrass.ListConnectorDefinitionVersionsInput{
+				versions, err := svc.ListConnectorDefinitionVersions(ctx.Context, &greengrass.ListConnectorDefinitionVersionsInput{
 					ConnectorDefinitionId: v.Id,
 					MaxResults:            aws.String("100"),
 					NextToken:             nt2,
@@ -56,14 +56,14 @@ func (l AWSGreengrassConnectorDefinition) List(cfg option.AWSetsConfig) (*resour
 					return nil, fmt.Errorf("failed to list greengrass connector definition versions for %s: %w", *v.Id, err)
 				}
 				for _, cdId := range versions.Versions {
-					cd, err := svc.GetConnectorDefinitionVersion(cfg.Context, &greengrass.GetConnectorDefinitionVersionInput{
+					cd, err := svc.GetConnectorDefinitionVersion(ctx.Context, &greengrass.GetConnectorDefinitionVersionInput{
 						ConnectorDefinitionId:        cdId.Id,
 						ConnectorDefinitionVersionId: cdId.Version,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to list greengrass connector definition version for %s, %s: %w", *cdId.Id, *cdId.Version, err)
 					}
-					cdRes := resource.NewVersion(cfg, resource.GreengrassConnectorDefinitionVersion, cd.Id, cd.Id, cd.Version, cd)
+					cdRes := resource.NewVersion(ctx, resource.GreengrassConnectorDefinitionVersion, cd.Id, cd.Id, cd.Version, cd)
 					cdRes.AddRelation(resource.GreengrassConnectorDefinition, v.Id, "")
 					// TODO relationships to connectors
 					r.AddRelation(resource.GreengrassConnectorDefinitionVersion, cd.Id, cd.Version)

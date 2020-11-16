@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/waf"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,15 +24,15 @@ func (l AWSWafRule) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.WafRule}
 }
 
-func (l AWSWafRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := waf.NewFromConfig(cfg.AWSCfg)
+func (l AWSWafRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := waf.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
 	var outerErr error
 
 	listWafRulesOnce.Do(func() {
 		outerErr = Paginator(func(nt *string) (*string, error) {
-			res, err := svc.ListRules(cfg.Context, &waf.ListRulesInput{
+			res, err := svc.ListRules(ctx.Context, &waf.ListRulesInput{
 				Limit:      aws.Int32(100),
 				NextMarker: nt,
 			})
@@ -40,14 +40,14 @@ func (l AWSWafRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 				return nil, fmt.Errorf("failed to list rules: %w", err)
 			}
 			for _, ruleId := range res.Rules {
-				rule, err := svc.GetRule(cfg.Context, &waf.GetRuleInput{RuleId: ruleId.RuleId})
+				rule, err := svc.GetRule(ctx.Context, &waf.GetRuleInput{RuleId: ruleId.RuleId})
 				if err != nil {
 					return nil, fmt.Errorf("failed to get rule %s: %w", *ruleId.RuleId, err)
 				}
 				if rule.Rule == nil {
 					continue
 				}
-				r := resource.NewGlobal(cfg, resource.WafRule, rule.Rule.RuleId, rule.Rule.Name, rule.Rule)
+				r := resource.NewGlobal(ctx, resource.WafRule, rule.Rule.RuleId, rule.Rule.Name, rule.Rule)
 				rg.AddResource(r)
 			}
 			return res.NextMarker, nil

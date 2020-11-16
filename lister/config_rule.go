@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSConfigRule) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSConfigRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSConfigRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.NewFromConfig(cfg.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeConfigRules(cfg.Context, &configservice.DescribeConfigRulesInput{
+		res, err := svc.DescribeConfigRules(ctx.Context, &configservice.DescribeConfigRulesInput{
 			NextToken: nt,
 		})
 		if err != nil {
@@ -38,13 +38,13 @@ func (l AWSConfigRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 
 		ruleNames := make([]*string, 0)
 		for _, rule := range res.ConfigRules {
-			r := resource.New(cfg, resource.ConfigRule, rule.ConfigRuleId, rule.ConfigRuleName, rule)
+			r := resource.New(ctx, resource.ConfigRule, rule.ConfigRuleId, rule.ConfigRuleName, rule)
 			rg.AddResource(r)
 			ruleNames = append(ruleNames, rule.ConfigRuleName)
 		}
 
 		// Remediation Configs for the rules
-		remediationConfigs, err := svc.DescribeRemediationConfigurations(cfg.Context, &configservice.DescribeRemediationConfigurationsInput{
+		remediationConfigs, err := svc.DescribeRemediationConfigurations(ctx.Context, &configservice.DescribeRemediationConfigurationsInput{
 			ConfigRuleNames: ruleNames,
 		})
 		if err != nil {
@@ -52,7 +52,7 @@ func (l AWSConfigRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 		}
 		for _, v := range remediationConfigs.RemediationConfigurations {
 			configArn := arn.ParseP(v.Arn)
-			r := resource.New(cfg, resource.ConfigRemediationConfiguration, configArn.ResourceId, configArn.ResourceId, v)
+			r := resource.New(ctx, resource.ConfigRemediationConfiguration, configArn.ResourceId, configArn.ResourceId, v)
 			r.AddRelation(resource.ConfigRule, v.ConfigRuleName, "")
 			rg.AddResource(r)
 		}

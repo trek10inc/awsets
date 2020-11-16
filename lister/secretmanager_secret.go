@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSSecretManagerSecret) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.SecretManagerSecret}
 }
 
-func (l AWSSecretManagerSecret) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := secretsmanager.NewFromConfig(cfg.AWSCfg)
+func (l AWSSecretManagerSecret) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := secretsmanager.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListSecrets(cfg.Context, &secretsmanager.ListSecretsInput{
+		res, err := svc.ListSecrets(ctx.Context, &secretsmanager.ListSecretsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -34,9 +34,9 @@ func (l AWSSecretManagerSecret) List(cfg option.AWSetsConfig) (*resource.Group, 
 			return nil, err
 		}
 		for _, v := range res.SecretList {
-			r := resource.New(cfg, resource.SecretManagerSecret, v.Name, v.Name, v)
+			r := resource.New(ctx, resource.SecretManagerSecret, v.Name, v.Name, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
-			policy, err := svc.GetResourcePolicy(cfg.Context, &secretsmanager.GetResourcePolicyInput{
+			policy, err := svc.GetResourcePolicy(ctx.Context, &secretsmanager.GetResourcePolicyInput{
 				SecretId: v.Name,
 			})
 			if err != nil {

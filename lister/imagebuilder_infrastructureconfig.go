@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/imagebuilder"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSImageBuilderInfrastructureConfig) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSImageBuilderInfrastructureConfig) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSImageBuilderInfrastructureConfig) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := imagebuilder.NewFromConfig(cfg.AWSCfg)
+	svc := imagebuilder.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListInfrastructureConfigurations(cfg.Context, &imagebuilder.ListInfrastructureConfigurationsInput{
+		res, err := svc.ListInfrastructureConfigurations(ctx.Context, &imagebuilder.ListInfrastructureConfigurationsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,7 +37,7 @@ func (l AWSImageBuilderInfrastructureConfig) List(cfg option.AWSetsConfig) (*res
 			return nil, fmt.Errorf("failed to list imagebuilder infrastructure configs: %w", err)
 		}
 		for _, config := range res.InfrastructureConfigurationSummaryList {
-			configRes, err := svc.GetInfrastructureConfiguration(cfg.Context, &imagebuilder.GetInfrastructureConfigurationInput{
+			configRes, err := svc.GetInfrastructureConfiguration(ctx.Context, &imagebuilder.GetInfrastructureConfigurationInput{
 				InfrastructureConfigurationArn: config.Arn,
 			})
 			if err != nil {
@@ -45,7 +45,7 @@ func (l AWSImageBuilderInfrastructureConfig) List(cfg option.AWSetsConfig) (*res
 			}
 			v := configRes.InfrastructureConfiguration
 			configArn := arn.ParseP(v.Arn)
-			r := resource.New(cfg, resource.ImageBuilderInfrastructureConfiguration, configArn.ResourceId, v.Name, v)
+			r := resource.New(ctx, resource.ImageBuilderInfrastructureConfiguration, configArn.ResourceId, v.Name, v)
 			for _, sg := range v.SecurityGroupIds {
 				r.AddRelation(resource.Ec2SecurityGroup, sg, "")
 			}

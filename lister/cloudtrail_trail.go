@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,18 +22,18 @@ func (l AWSCloudtrailTrail) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CloudtrailTrail}
 }
 
-func (l AWSCloudtrailTrail) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cloudtrail.NewFromConfig(cfg.AWSCfg)
+func (l AWSCloudtrailTrail) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cloudtrail.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
-	trails, err := svc.DescribeTrails(cfg.Context, &cloudtrail.DescribeTrailsInput{
+	trails, err := svc.DescribeTrails(ctx.Context, &cloudtrail.DescribeTrailsInput{
 		IncludeShadowTrails: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cloudtrail trails: %w", err)
 	}
 	for _, trail := range trails.TrailList {
-		r := resource.New(cfg, resource.CloudtrailTrail, trail.Name, trail.Name, trail)
+		r := resource.New(ctx, resource.CloudtrailTrail, trail.Name, trail.Name, trail)
 		r.AddARNRelation(resource.KmsKey, trail.KmsKeyId)
 		if trail.S3BucketName != nil {
 			r.AddRelation(resource.S3Bucket, trail.S3BucketName, "")
@@ -52,9 +52,9 @@ func (l AWSCloudtrailTrail) List(cfg option.AWSetsConfig) (*resource.Group, erro
 		}
 
 		trailArn := arn.ParseP(trail.TrailARN)
-		if trailArn.Account == cfg.AccountId {
-			if trail.HomeRegion != nil && *trail.HomeRegion == cfg.Region() {
-				statusRes, err := svc.GetTrailStatus(cfg.Context, &cloudtrail.GetTrailStatusInput{
+		if trailArn.Account == ctx.AccountId {
+			if trail.HomeRegion != nil && *trail.HomeRegion == ctx.Region() {
+				statusRes, err := svc.GetTrailStatus(ctx.Context, &cloudtrail.GetTrailStatusInput{
 					Name: trail.Name,
 				})
 				if err != nil {

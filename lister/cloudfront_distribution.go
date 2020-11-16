@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,15 +24,15 @@ func (l AWSCloudfrontDistribution) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CloudFrontDistribution}
 }
 
-func (l AWSCloudfrontDistribution) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cloudfront.NewFromConfig(cfg.AWSCfg)
+func (l AWSCloudfrontDistribution) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cloudfront.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listCloudfrontDistributionsOnce.Do(func() {
 		err := Paginator(func(nt *string) (*string, error) {
-			res, err := svc.ListDistributions(cfg.Context, &cloudfront.ListDistributionsInput{
+			res, err := svc.ListDistributions(ctx.Context, &cloudfront.ListDistributionsInput{
 				MaxItems: aws.String("100"),
 				Marker:   nt,
 			})
@@ -43,7 +43,7 @@ func (l AWSCloudfrontDistribution) List(cfg option.AWSetsConfig) (*resource.Grou
 				return nil, nil
 			}
 			for _, item := range res.DistributionList.Items {
-				r := resource.NewGlobal(cfg, resource.CloudFrontDistribution, item.Id, item.Id, item)
+				r := resource.NewGlobal(ctx, resource.CloudFrontDistribution, item.Id, item.Id, item)
 				if item.Origins != nil {
 					for _, origin := range item.Origins.Items {
 						if origin.S3OriginConfig != nil && origin.S3OriginConfig.OriginAccessIdentity != nil {

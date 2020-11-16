@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,13 +25,13 @@ func (l AWSApiGatewayV2DomainName) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSApiGatewayV2DomainName) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := apigatewayv2.NewFromConfig(cfg.AWSCfg)
+func (l AWSApiGatewayV2DomainName) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := apigatewayv2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.GetDomainNames(cfg.Context, &apigatewayv2.GetDomainNamesInput{
+		res, err := svc.GetDomainNames(ctx.Context, &apigatewayv2.GetDomainNamesInput{
 			MaxResults: aws.String("100"),
 			NextToken:  nt,
 		})
@@ -43,7 +43,7 @@ func (l AWSApiGatewayV2DomainName) List(cfg option.AWSetsConfig) (*resource.Grou
 			return nil, fmt.Errorf("failed to list apigatewayv2 domain names: %w", err)
 		}
 		for _, v := range res.Items {
-			r := resource.New(cfg, resource.ApiGatewayV2DomainName, v.DomainName, v.DomainName, v)
+			r := resource.New(ctx, resource.ApiGatewayV2DomainName, v.DomainName, v.DomainName, v)
 			for _, dnc := range v.DomainNameConfigurations {
 				r.AddRelation(resource.Route53HostedZone, dnc.HostedZoneId, "")
 				r.AddARNRelation(resource.AcmCertificate, dnc.CertificateArn)
@@ -51,7 +51,7 @@ func (l AWSApiGatewayV2DomainName) List(cfg option.AWSetsConfig) (*resource.Grou
 
 			// Mappings
 			err = Paginator(func(nt2 *string) (*string, error) {
-				mappingRes, err := svc.GetApiMappings(cfg.Context, &apigatewayv2.GetApiMappingsInput{
+				mappingRes, err := svc.GetApiMappings(ctx.Context, &apigatewayv2.GetApiMappingsInput{
 					DomainName: v.DomainName,
 					MaxResults: aws.String("100"),
 					NextToken:  nt2,
@@ -60,7 +60,7 @@ func (l AWSApiGatewayV2DomainName) List(cfg option.AWSetsConfig) (*resource.Grou
 					return nil, fmt.Errorf("failed to list apigatewayv2 api mappings: %w", err)
 				}
 				for _, mapping := range mappingRes.Items {
-					mappingR := resource.New(cfg, resource.ApiGatewayV2ApiMapping, mapping.ApiMappingId, mapping.ApiMappingId, mapping)
+					mappingR := resource.New(ctx, resource.ApiGatewayV2ApiMapping, mapping.ApiMappingId, mapping.ApiMappingId, mapping)
 					mappingR.AddRelation(resource.ApiGatewayV2DomainName, v.DomainName, "")
 					mappingR.AddRelation(resource.ApiGatewayV2Api, mapping.ApiId, "")
 					rg.AddResource(mappingR)

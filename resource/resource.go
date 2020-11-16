@@ -10,7 +10,7 @@ import (
 
 	"github.com/fatih/structs"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"gopkg.in/yaml.v2"
 )
 
@@ -35,16 +35,16 @@ type Group struct {
 	Resources map[Identifier]Resource
 }
 
-func NewGlobal(cfg option.AWSetsConfig, kind ResourceType, id, name, rawObject interface{}) Resource {
-	return makeResource(cfg.AccountId, "aws-global", kind, id, name, "", rawObject)
+func NewGlobal(ctx context.AWSetsCtx, kind ResourceType, id, name, rawObject interface{}) Resource {
+	return makeResource(ctx.AccountId, "aws-global", kind, id, name, "", rawObject)
 }
 
-func New(cfg option.AWSetsConfig, kind ResourceType, id, name, rawObject interface{}) Resource {
-	return makeResource(cfg.AccountId, cfg.Region(), kind, id, name, "", rawObject)
+func New(ctx context.AWSetsCtx, kind ResourceType, id, name, rawObject interface{}) Resource {
+	return makeResource(ctx.AccountId, ctx.Region(), kind, id, name, "", rawObject)
 }
 
-func NewVersion(cfg option.AWSetsConfig, kind ResourceType, id, name, version, rawObject interface{}) Resource {
-	return makeResource(cfg.AccountId, cfg.Region(), kind, id, name, version, rawObject)
+func NewVersion(ctx context.AWSetsCtx, kind ResourceType, id, name, version, rawObject interface{}) Resource {
+	return makeResource(ctx.AccountId, ctx.Region(), kind, id, name, version, rawObject)
 }
 
 func makeResource(account, region string, kind ResourceType, iId, iName, iVersion, rawObject interface{}) Resource {
@@ -243,14 +243,3 @@ func (g *Group) JSON() (string, error) {
 	b, err := json.MarshalIndent(res, "", "  ")
 	return string(b), err
 }
-
-//
-//func (g *Group) Print() {
-//	table := tablewriter.NewWriter(os.Stdout)
-//	table.SetHeader([]string{"Type", "Region", "Id", "Name"})
-//	for _, res := range g.Resources {
-//		table.Append([]string{res.Type.String(), res.Region, res.Id, res.Name})
-//	}
-//	table.SetRowLine(true)
-//	table.Render()
-//}

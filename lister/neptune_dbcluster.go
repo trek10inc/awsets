@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,12 +22,12 @@ func (l AWSNeptuneDbCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.NeptuneDbCluster}
 }
 
-func (l AWSNeptuneDbCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := neptune.NewFromConfig(cfg.AWSCfg)
+func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusters(cfg.Context, &neptune.DescribeDBClustersInput{
+		res, err := svc.DescribeDBClusters(ctx.Context, &neptune.DescribeDBClustersInput{
 			Marker:     nt,
 			MaxRecords: aws.Int32(100),
 		})
@@ -36,7 +36,7 @@ func (l AWSNeptuneDbCluster) List(cfg option.AWSetsConfig) (*resource.Group, err
 		}
 		for _, cluster := range res.DBClusters {
 			clusterArn := arn.ParseP(cluster.DBClusterArn)
-			r := resource.New(cfg, resource.NeptuneDbCluster, clusterArn.ResourceId, "", cluster)
+			r := resource.New(ctx, resource.NeptuneDbCluster, clusterArn.ResourceId, "", cluster)
 
 			r.AddRelation(resource.NeptuneDbClusterParameterGroup, cluster.DBClusterParameterGroup, "")
 			r.AddRelation(resource.NeptuneDbSubnetGroup, cluster.DBSubnetGroup, "")

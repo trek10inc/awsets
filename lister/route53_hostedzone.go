@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/route53"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,15 +23,15 @@ func (l AWSRoute53HostedZone) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.Route53HostedZone, resource.Route53RecordSet}
 }
 
-func (l AWSRoute53HostedZone) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := route53.NewFromConfig(cfg.AWSCfg)
+func (l AWSRoute53HostedZone) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := route53.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 
 	listRoute53HostedZonesOnce.Do(func() {
 		outerErr = Paginator(func(nt *string) (*string, error) {
-			res, err := svc.ListHostedZones(cfg.Context, &route53.ListHostedZonesInput{
+			res, err := svc.ListHostedZones(ctx.Context, &route53.ListHostedZonesInput{
 				Marker: nt,
 			})
 			if err != nil {
@@ -39,11 +39,11 @@ func (l AWSRoute53HostedZone) List(cfg option.AWSetsConfig) (*resource.Group, er
 			}
 			for _, hostedZone := range res.HostedZones {
 
-				r := resource.NewGlobal(cfg, resource.Route53HostedZone, hostedZone.Id, hostedZone.Name, hostedZone)
+				r := resource.NewGlobal(ctx, resource.Route53HostedZone, hostedZone.Id, hostedZone.Name, hostedZone)
 
 				// Record Sets
 				err = Paginator(func(nt2 *string) (*string, error) {
-					sets, err := svc.ListResourceRecordSets(cfg.Context, &route53.ListResourceRecordSetsInput{
+					sets, err := svc.ListResourceRecordSets(ctx.Context, &route53.ListResourceRecordSetsInput{
 						HostedZoneId:          hostedZone.Id,
 						StartRecordIdentifier: nt,
 					})
@@ -51,7 +51,7 @@ func (l AWSRoute53HostedZone) List(cfg option.AWSetsConfig) (*resource.Group, er
 						return nil, fmt.Errorf("failed to list record sets for hosted zone %s: %w", *hostedZone.Name, err)
 					}
 					for _, rs := range sets.ResourceRecordSets {
-						rsRes := resource.NewGlobal(cfg, resource.Route53RecordSet, rs.Name, rs.Name, rs)
+						rsRes := resource.NewGlobal(ctx, resource.Route53RecordSet, rs.Name, rs.Name, rs)
 						rsRes.AddRelation(resource.Route53HostedZone, hostedZone.Id, "")
 						rsRes.AddRelation(resource.Route53HealthCheck, rs.HealthCheckId, "")
 						rg.AddResource(rsRes)

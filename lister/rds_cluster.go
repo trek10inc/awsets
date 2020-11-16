@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,12 +20,12 @@ func (l AWSRdsDbCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.RdsDbCluster}
 }
 
-func (l AWSRdsDbCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := rds.NewFromConfig(cfg.AWSCfg)
+func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusters(cfg.Context, &rds.DescribeDBClustersInput{
+		res, err := svc.DescribeDBClusters(ctx.Context, &rds.DescribeDBClustersInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSRdsDbCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) 
 		}
 		for _, cluster := range res.DBClusters {
 			clusterArn := arn.ParseP(cluster.DBClusterArn)
-			r := resource.New(cfg, resource.RdsDbCluster, clusterArn.ResourceId, "", cluster)
+			r := resource.New(ctx, resource.RdsDbCluster, clusterArn.ResourceId, "", cluster)
 
 			if cluster.DBClusterParameterGroup != nil {
 				r.AddRelation(resource.RdsDbParameterGroup, cluster.DBClusterParameterGroup, "")

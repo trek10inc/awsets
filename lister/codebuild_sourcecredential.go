@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/codebuild"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,18 +23,18 @@ func (l AWSCodebuildSourceCredential) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCodebuildSourceCredential) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSCodebuildSourceCredential) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := codebuild.NewFromConfig(cfg.AWSCfg)
+	svc := codebuild.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 
-	res, err := svc.ListSourceCredentials(cfg.Context, &codebuild.ListSourceCredentialsInput{})
+	res, err := svc.ListSourceCredentials(ctx.Context, &codebuild.ListSourceCredentialsInput{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list codebuild source credentials: %w", err)
 	}
 	for _, sc := range res.SourceCredentialsInfos {
 		credArn := arn.ParseP(sc.Arn)
-		r := resource.New(cfg, resource.CodeBuildProject, credArn.ResourceId, credArn.ResourceType, sc)
+		r := resource.New(ctx, resource.CodeBuildProject, credArn.ResourceId, credArn.ResourceType, sc)
 		rg.AddResource(r)
 	}
 	return rg, err

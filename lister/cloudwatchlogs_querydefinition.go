@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,13 +21,13 @@ func (l AWSCloudwatchLogsQueryDefinition) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCloudwatchLogsQueryDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cloudwatchlogs.NewFromConfig(cfg.AWSCfg)
+func (l AWSCloudwatchLogsQueryDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cloudwatchlogs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeQueryDefinitions(cfg.Context, &cloudwatchlogs.DescribeQueryDefinitionsInput{
+		res, err := svc.DescribeQueryDefinitions(ctx.Context, &cloudwatchlogs.DescribeQueryDefinitionsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -35,7 +35,7 @@ func (l AWSCloudwatchLogsQueryDefinition) List(cfg option.AWSetsConfig) (*resour
 			return nil, err
 		}
 		for _, v := range res.QueryDefinitions {
-			r := resource.New(cfg, resource.LogQueryDefinition, v.QueryDefinitionId, v.Name, v)
+			r := resource.New(ctx, resource.LogQueryDefinition, v.QueryDefinitionId, v.Name, v)
 			for _, lg := range v.LogGroupNames {
 				r.AddRelation(resource.LogGroup, lg, "")
 			}

@@ -173,6 +173,6 @@ OPTIONS:
 ## Future Work
 
 Although AWSets is in a place where it provides solid resource coverage and works well for a lot of use cases, there is more work to be done:
-* Supporting more AWS resources and relationships - 200+ is a good start, but there are many more to go
+* Supporting more AWS resources and relationships - 300+ is a good start, but there are many more to go
 * In addition to supporting more resources, existing resources may have some gaps. For example, some resources require secondary calls to get Tags
 * Improve relationship building - AWSets should be able to match a DynamoDB table to a Lambda Function when the DDB table is passed in via environment variable

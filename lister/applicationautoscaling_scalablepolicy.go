@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/applicationautoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/applicationautoscaling/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -25,8 +25,8 @@ func (l AWSApplicationAutoScalingScalablePolicy) Types() []resource.ResourceType
 	}
 }
 
-func (l AWSApplicationAutoScalingScalablePolicy) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := applicationautoscaling.NewFromConfig(cfg.AWSCfg)
+func (l AWSApplicationAutoScalingScalablePolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := applicationautoscaling.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	for _, namespace := range []types.ServiceNamespace{
@@ -43,7 +43,7 @@ func (l AWSApplicationAutoScalingScalablePolicy) List(cfg option.AWSetsConfig) (
 		types.ServiceNamespaceSagemaker,
 	} {
 		err := Paginator(func(nt *string) (*string, error) {
-			res, err := svc.DescribeScalingPolicies(cfg.Context, &applicationautoscaling.DescribeScalingPoliciesInput{
+			res, err := svc.DescribeScalingPolicies(ctx.Context, &applicationautoscaling.DescribeScalingPoliciesInput{
 				MaxResults:       aws.Int32(50),
 				ServiceNamespace: namespace,
 				NextToken:        nt,
@@ -53,7 +53,7 @@ func (l AWSApplicationAutoScalingScalablePolicy) List(cfg option.AWSetsConfig) (
 			}
 			for _, v := range res.ScalingPolicies {
 				policyArn := arn.ParseP(v.PolicyARN)
-				r := resource.New(cfg, resource.ApplicationAutoScalingScalablePolicy, policyArn.ResourceId, v.PolicyName, v)
+				r := resource.New(ctx, resource.ApplicationAutoScalingScalablePolicy, policyArn.ResourceId, v.PolicyName, v)
 				rg.AddResource(r)
 			}
 			return res.NextToken, nil

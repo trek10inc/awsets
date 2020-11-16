@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -22,14 +22,14 @@ func (l AWSCloudFormationStack) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CloudFormationStack}
 }
 
-func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSCloudFormationStack) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	unmapped := make(map[string]int)
-	svc := cloudformation.NewFromConfig(cfg.AWSCfg)
+	svc := cloudformation.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeStacks(cfg.Context, &cloudformation.DescribeStacksInput{
+		res, err := svc.DescribeStacks(ctx.Context, &cloudformation.DescribeStacksInput{
 			NextToken: nt,
 		})
 		if err != nil {
@@ -37,10 +37,10 @@ func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, 
 		}
 		for _, v := range res.Stacks {
 			stackArn := arn.ParseP(v.StackId)
-			r := resource.New(cfg, resource.CloudFormationStack, stackArn.ResourceId, v.StackName, v)
+			r := resource.New(ctx, resource.CloudFormationStack, stackArn.ResourceId, v.StackName, v)
 
 			err = Paginator(func(nt2 *string) (*string, error) {
-				resourcesRes, err := svc.ListStackResources(cfg.Context, &cloudformation.ListStackResourcesInput{
+				resourcesRes, err := svc.ListStackResources(ctx.Context, &cloudformation.ListStackResourcesInput{
 					StackName: v.StackName,
 					NextToken: nt2,
 				})
@@ -79,7 +79,7 @@ func (l AWSCloudFormationStack) List(cfg option.AWSetsConfig) (*resource.Group, 
 		for k, v := range unmapped {
 			stacksMsg += fmt.Sprintf("%s,%03d\n", k, v)
 		}
-		cfg.SendStatus(option.StatusLogInfo, stacksMsg)
+		ctx.SendStatus(context.StatusLogInfo, stacksMsg)
 	}
 	return rg, err
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,14 +24,14 @@ func (l AWSCloudfrontOriginRequestPolicy) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CloudFrontOriginRequestPolicy}
 }
 
-func (l AWSCloudfrontOriginRequestPolicy) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cloudfront.NewFromConfig(cfg.AWSCfg)
+func (l AWSCloudfrontOriginRequestPolicy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cloudfront.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	var outerErr error
 	listCloudfrontOriginRequestPolicyOnce.Do(func() {
 		err := Paginator(func(nt *string) (*string, error) {
-			res, err := svc.ListOriginRequestPolicies(cfg.Context, &cloudfront.ListOriginRequestPoliciesInput{
+			res, err := svc.ListOriginRequestPolicies(ctx.Context, &cloudfront.ListOriginRequestPoliciesInput{
 				Marker:   nt,
 				MaxItems: aws.String("100"),
 			})
@@ -40,7 +40,7 @@ func (l AWSCloudfrontOriginRequestPolicy) List(cfg option.AWSetsConfig) (*resour
 			}
 			if policies := res.OriginRequestPolicyList; policies != nil {
 				for _, v := range policies.Items {
-					r := resource.NewGlobal(cfg, resource.CloudFrontOriginRequestPolicy, v.OriginRequestPolicy.Id, v.OriginRequestPolicy.Id, v)
+					r := resource.NewGlobal(ctx, resource.CloudFrontOriginRequestPolicy, v.OriginRequestPolicy.Id, v.OriginRequestPolicy.Id, v)
 					rg.AddResource(r)
 				}
 				return policies.NextMarker, nil

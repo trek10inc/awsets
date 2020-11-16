@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/fsx"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSFSxFileSystem) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.FSxFileSystem}
 }
 
-func (l AWSFSxFileSystem) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := fsx.NewFromConfig(cfg.AWSCfg)
+func (l AWSFSxFileSystem) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := fsx.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeFileSystems(cfg.Context, &fsx.DescribeFileSystemsInput{
+		res, err := svc.DescribeFileSystems(ctx.Context, &fsx.DescribeFileSystemsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -32,7 +32,7 @@ func (l AWSFSxFileSystem) List(cfg option.AWSetsConfig) (*resource.Group, error)
 			return nil, err
 		}
 		for _, v := range res.FileSystems {
-			r := resource.New(cfg, resource.FSxFileSystem, v.FileSystemId, v.FileSystemId, v)
+			r := resource.New(ctx, resource.FSxFileSystem, v.FileSystemId, v.FileSystemId, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			for _, sn := range v.SubnetIds {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSConfigOrganizationConformancePack) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ConfigOrganizationConformancePack}
 }
 
-func (l AWSConfigOrganizationConformancePack) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSConfigOrganizationConformancePack) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := configservice.NewFromConfig(cfg.AWSCfg)
+	svc := configservice.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeOrganizationConformancePacks(cfg.Context, &configservice.DescribeOrganizationConformancePacksInput{
+		res, err := svc.DescribeOrganizationConformancePacks(ctx.Context, &configservice.DescribeOrganizationConformancePacksInput{
 			NextToken: nt,
 		})
 		if err != nil {
@@ -34,7 +34,7 @@ func (l AWSConfigOrganizationConformancePack) List(cfg option.AWSetsConfig) (*re
 		}
 		for _, v := range res.OrganizationConformancePacks {
 			packArn := arn.ParseP(v.OrganizationConformancePackArn)
-			r := resource.New(cfg, resource.ConfigOrganizationConformancePack, packArn.ResourceId, v.OrganizationConformancePackName, v)
+			r := resource.New(ctx, resource.ConfigOrganizationConformancePack, packArn.ResourceId, v.OrganizationConformancePackName, v)
 			r.AddRelation(resource.S3Bucket, v.DeliveryS3Bucket, "")
 			rg.AddResource(r)
 		}

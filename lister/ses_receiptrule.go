@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/ses"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,11 +24,11 @@ func (l AWSSESReceiptRule) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSSESReceiptRule) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ses.NewFromConfig(cfg.AWSCfg)
+func (l AWSSESReceiptRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ses.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListReceiptRuleSets(cfg.Context, &ses.ListReceiptRuleSetsInput{
+		res, err := svc.ListReceiptRuleSets(ctx.Context, &ses.ListReceiptRuleSetsInput{
 			NextToken: nt,
 		})
 		if err != nil {
@@ -39,16 +39,16 @@ func (l AWSSESReceiptRule) List(cfg option.AWSetsConfig) (*resource.Group, error
 			return nil, err
 		}
 		for _, rs := range res.RuleSets {
-			v, err := svc.DescribeReceiptRuleSet(cfg.Context, &ses.DescribeReceiptRuleSetInput{
+			v, err := svc.DescribeReceiptRuleSet(ctx.Context, &ses.DescribeReceiptRuleSetInput{
 				RuleSetName: rs.Name,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get receipt rule set %s: %w", *rs.Name, err)
 			}
-			r := resource.New(cfg, resource.SesReceiptRuleSet, v.Metadata.Name, v.Metadata.Name, v.Metadata)
+			r := resource.New(ctx, resource.SesReceiptRuleSet, v.Metadata.Name, v.Metadata.Name, v.Metadata)
 
 			for _, rule := range v.Rules {
-				rr := resource.New(cfg, resource.SesReceiptRule, rule.Name, rule.Name, rule)
+				rr := resource.New(ctx, resource.SesReceiptRule, rule.Name, rule.Name, rule)
 				rr.AddRelation(resource.SesReceiptRuleSet, v.Metadata.Name, "")
 				for _, action := range rule.Actions {
 					if action.BounceAction != nil {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -27,12 +27,12 @@ func (l AWSCognitoUserpool) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := cognitoidentityprovider.NewFromConfig(cfg.AWSCfg)
+func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := cognitoidentityprovider.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListUserPools(cfg.Context, &cognitoidentityprovider.ListUserPoolsInput{
+		res, err := svc.ListUserPools(ctx.Context, &cognitoidentityprovider.ListUserPoolsInput{
 			MaxResults: aws.Int32(60),
 			NextToken:  nt,
 		})
@@ -40,21 +40,21 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 			return nil, err
 		}
 		for _, v := range res.UserPools {
-			userPoolResponse, err := svc.DescribeUserPool(cfg.Context, &cognitoidentityprovider.DescribeUserPoolInput{
+			userPoolResponse, err := svc.DescribeUserPool(ctx.Context, &cognitoidentityprovider.DescribeUserPoolInput{
 				UserPoolId: v.Id,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get user pool %s: %w", *v.Id, err)
 			}
 			up := userPoolResponse.UserPool
-			r := resource.New(cfg, resource.CognitoUserPool, up.Id, up.Name, up)
+			r := resource.New(ctx, resource.CognitoUserPool, up.Id, up.Name, up)
 			for tagName, tagValue := range up.UserPoolTags {
 				r.Tags[tagName] = aws.ToString(tagValue)
 			}
 
 			// Clients
 			err = Paginator(func(nt2 *string) (*string, error) {
-				clients, err := svc.ListUserPoolClients(cfg.Context, &cognitoidentityprovider.ListUserPoolClientsInput{
+				clients, err := svc.ListUserPoolClients(ctx.Context, &cognitoidentityprovider.ListUserPoolClientsInput{
 					UserPoolId: v.Id,
 					NextToken:  nt2,
 				})
@@ -63,7 +63,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 				}
 				for _, client := range clients.UserPoolClients {
 
-					clientResponse, err := svc.DescribeUserPoolClient(cfg.Context, &cognitoidentityprovider.DescribeUserPoolClientInput{
+					clientResponse, err := svc.DescribeUserPoolClient(ctx.Context, &cognitoidentityprovider.DescribeUserPoolClientInput{
 						ClientId:   client.ClientId,
 						UserPoolId: client.UserPoolId,
 					})
@@ -71,7 +71,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 						return nil, fmt.Errorf("failed to get client %s for pool %s: %w", *client.ClientId, *v.Id, err)
 					}
 					c := clientResponse.UserPoolClient
-					clientR := resource.New(cfg, resource.CognitoUserPoolClient, c.ClientId, c.ClientName, c)
+					clientR := resource.New(ctx, resource.CognitoUserPoolClient, c.ClientId, c.ClientName, c)
 					clientR.AddRelation(resource.CognitoUserPool, client.UserPoolId, "")
 					r.AddRelation(resource.CognitoUserPoolClient, c.ClientId, "")
 					rg.AddResource(clientR)
@@ -84,7 +84,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 
 			// Groups
 			err = Paginator(func(nt2 *string) (*string, error) {
-				groups, err := svc.ListGroups(cfg.Context, &cognitoidentityprovider.ListGroupsInput{
+				groups, err := svc.ListGroups(ctx.Context, &cognitoidentityprovider.ListGroupsInput{
 					Limit:      aws.Int32(60),
 					UserPoolId: v.Id,
 					NextToken:  nt2,
@@ -93,7 +93,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to list groups for user pool %s: %w", *up.Id, err)
 				}
 				for _, group := range groups.Groups {
-					groupR := resource.New(cfg, resource.CognitoUserPoolGroup, group.GroupName, group.GroupName, group)
+					groupR := resource.New(ctx, resource.CognitoUserPoolGroup, group.GroupName, group.GroupName, group)
 					groupR.AddRelation(resource.CognitoUserPool, group.UserPoolId, "")
 					groupR.AddARNRelation(resource.IamRole, group.RoleArn)
 					rg.AddResource(groupR)
@@ -106,7 +106,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 
 			// Identity Providers
 			err = Paginator(func(nt2 *string) (*string, error) {
-				identityProviders, err := svc.ListIdentityProviders(cfg.Context, &cognitoidentityprovider.ListIdentityProvidersInput{
+				identityProviders, err := svc.ListIdentityProviders(ctx.Context, &cognitoidentityprovider.ListIdentityProvidersInput{
 					MaxResults: aws.Int32(60),
 					UserPoolId: up.Id,
 					NextToken:  nt2,
@@ -115,7 +115,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to list identity providers for user pool %s: %w", *up.Id, err)
 				}
 				for _, ip := range identityProviders.Providers {
-					ipR := resource.New(cfg, resource.CognitoUserPoolGroup, ip.ProviderName, ip.ProviderName, ip)
+					ipR := resource.New(ctx, resource.CognitoUserPoolGroup, ip.ProviderName, ip.ProviderName, ip)
 					ipR.AddRelation(resource.CognitoUserPool, up.Id, "")
 					rg.AddResource(ipR)
 					r.AddRelation(resource.CognitoUserPoolIdentityProvider, ip.ProviderName, "")
@@ -129,7 +129,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 
 			// Resource Servers
 			err = Paginator(func(nt2 *string) (*string, error) {
-				resourceProviders, err := svc.ListResourceServers(cfg.Context, &cognitoidentityprovider.ListResourceServersInput{
+				resourceProviders, err := svc.ListResourceServers(ctx.Context, &cognitoidentityprovider.ListResourceServersInput{
 					MaxResults: aws.Int32(50),
 					UserPoolId: up.Id,
 					NextToken:  nt2,
@@ -138,7 +138,7 @@ func (l AWSCognitoUserpool) List(cfg option.AWSetsConfig) (*resource.Group, erro
 					return nil, fmt.Errorf("failed to list resource servers for user pool %s: %w", *up.Id, err)
 				}
 				for _, rs := range resourceProviders.ResourceServers {
-					rsR := resource.New(cfg, resource.CognitoUserPoolResourceServer, rs.Identifier, rs.Name, rs)
+					rsR := resource.New(ctx, resource.CognitoUserPoolResourceServer, rs.Identifier, rs.Name, rs)
 					rsR.AddRelation(resource.CognitoUserPool, up.Id, "")
 					rg.AddResource(rsR)
 					r.AddRelation(resource.CognitoUserPoolResourceServer, rs.Identifier, "")

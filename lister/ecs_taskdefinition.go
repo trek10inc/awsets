@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -23,17 +23,17 @@ func (l AWSEcsTaskDefinition) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.EcsTaskDefinition}
 }
 
-func (l AWSEcsTaskDefinition) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ecs.NewFromConfig(cfg.AWSCfg)
+func (l AWSEcsTaskDefinition) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ecs.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListTaskDefinitions(cfg.Context, &ecs.ListTaskDefinitionsInput{
+		res, err := svc.ListTaskDefinitions(ctx.Context, &ecs.ListTaskDefinitionsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
 		for _, taskDefArn := range res.TaskDefinitionArns {
-			task, err := svc.DescribeTaskDefinition(cfg.Context, &ecs.DescribeTaskDefinitionInput{
+			task, err := svc.DescribeTaskDefinition(ctx.Context, &ecs.DescribeTaskDefinitionInput{
 				Include:        []types.TaskDefinitionField{types.TaskDefinitionFieldTags},
 				TaskDefinition: taskDefArn,
 			})
@@ -41,7 +41,7 @@ func (l AWSEcsTaskDefinition) List(cfg option.AWSetsConfig) (*resource.Group, er
 				return nil, fmt.Errorf("failed to describe task def %s: %w", *taskDefArn, err)
 			}
 			parsedArn := arn.ParseP(task.TaskDefinition.TaskDefinitionArn)
-			taskDefResource := resource.New(cfg, resource.EcsTaskDefinition, parsedArn.ResourceId, "", task.TaskDefinition)
+			taskDefResource := resource.New(ctx, resource.EcsTaskDefinition, parsedArn.ResourceId, "", task.TaskDefinition)
 			for _, v := range task.Tags {
 				taskDefResource.Tags[aws.ToString(v.Key)] = aws.ToString(v.Value)
 			}

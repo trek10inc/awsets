@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSSagemakerNotebookInstanceLifecycleConfig) Types() []resource.Resource
 	}
 }
 
-func (l AWSSagemakerNotebookInstanceLifecycleConfig) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := sagemaker.NewFromConfig(cfg.AWSCfg)
+func (l AWSSagemakerNotebookInstanceLifecycleConfig) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := sagemaker.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListNotebookInstanceLifecycleConfigs(cfg.Context, &sagemaker.ListNotebookInstanceLifecycleConfigsInput{
+		res, err := svc.ListNotebookInstanceLifecycleConfigs(ctx.Context, &sagemaker.ListNotebookInstanceLifecycleConfigsInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,14 +37,14 @@ func (l AWSSagemakerNotebookInstanceLifecycleConfig) List(cfg option.AWSetsConfi
 			return nil, err
 		}
 		for _, config := range res.NotebookInstanceLifecycleConfigs {
-			v, err := svc.DescribeNotebookInstanceLifecycleConfig(cfg.Context, &sagemaker.DescribeNotebookInstanceLifecycleConfigInput{
+			v, err := svc.DescribeNotebookInstanceLifecycleConfig(ctx.Context, &sagemaker.DescribeNotebookInstanceLifecycleConfigInput{
 				NotebookInstanceLifecycleConfigName: config.NotebookInstanceLifecycleConfigName,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe sagemaker notebook instance lifecycle name %s: %w", *config.NotebookInstanceLifecycleConfigName, err)
 			}
 			configArn := arn.ParseP(v.NotebookInstanceLifecycleConfigArn)
-			r := resource.New(cfg, resource.SagemakerNotebookInstanceLifecycleConfig, configArn.ResourceId, v.NotebookInstanceLifecycleConfigName, v)
+			r := resource.New(ctx, resource.SagemakerNotebookInstanceLifecycleConfig, configArn.ResourceId, v.NotebookInstanceLifecycleConfigName, v)
 
 			rg.AddResource(r)
 		}

@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -26,12 +26,12 @@ func (l AWSEc2TransitGateway) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := ec2.NewFromConfig(cfg.AWSCfg)
+func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := ec2.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeTransitGateways(cfg.Context, &ec2.DescribeTransitGatewaysInput{
+		res, err := svc.DescribeTransitGateways(ctx.Context, &ec2.DescribeTransitGatewaysInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -43,12 +43,12 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 			return nil, err
 		}
 		for _, v := range res.TransitGateways {
-			r := resource.New(cfg, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
+			r := resource.New(ctx, resource.Ec2TransitGateway, v.TransitGatewayId, v.TransitGatewayId, v)
 			// TODO lots of additional info to query here
 
 			// Attachments
 			err = Paginator(func(nt2 *string) (*string, error) {
-				attachments, err := svc.DescribeTransitGatewayAttachments(cfg.Context, &ec2.DescribeTransitGatewayAttachmentsInput{
+				attachments, err := svc.DescribeTransitGatewayAttachments(ctx.Context, &ec2.DescribeTransitGatewayAttachmentsInput{
 					Filters: []*types.Filter{
 						{
 							Name:   aws.String("transit-gateway-id"),
@@ -62,7 +62,7 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 					return nil, fmt.Errorf("failed to get transit gateway attachments for %s: %w", *v.TransitGatewayId, err)
 				}
 				for _, a := range attachments.TransitGatewayAttachments {
-					attachmentR := resource.New(cfg, resource.Ec2TransitGatewayAttachment, a.TransitGatewayAttachmentId, a.TransitGatewayAttachmentId, a)
+					attachmentR := resource.New(ctx, resource.Ec2TransitGatewayAttachment, a.TransitGatewayAttachmentId, a.TransitGatewayAttachmentId, a)
 					attachmentR.AddRelation(resource.Ec2TransitGateway, v.TransitGatewayId, "")
 					switch a.ResourceType {
 					case types.TransitGatewayAttachmentResourceTypeVpc:
@@ -86,7 +86,7 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 
 			// Routes
 			err = Paginator(func(nt2 *string) (*string, error) {
-				routeTables, err := svc.DescribeTransitGatewayRouteTables(cfg.Context, &ec2.DescribeTransitGatewayRouteTablesInput{
+				routeTables, err := svc.DescribeTransitGatewayRouteTables(ctx.Context, &ec2.DescribeTransitGatewayRouteTablesInput{
 					Filters: []*types.Filter{
 						{
 							Name:   aws.String("transit-gateway-id"),
@@ -101,12 +101,12 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 				}
 
 				for _, rt := range routeTables.TransitGatewayRouteTables {
-					rtR := resource.New(cfg, resource.Ec2TransitGatewayRouteTable, rt.TransitGatewayRouteTableId, rt.TransitGatewayRouteTableId, rt)
+					rtR := resource.New(ctx, resource.Ec2TransitGatewayRouteTable, rt.TransitGatewayRouteTableId, rt.TransitGatewayRouteTableId, rt)
 					rtR.AddRelation(resource.Ec2TransitGateway, v.TransitGatewayId, "")
 					// Route Table Associations
 					allAssociations := make([]*types.TransitGatewayRouteTableAssociation, 0)
 					err = Paginator(func(nt3 *string) (*string, error) {
-						associations, err := svc.GetTransitGatewayRouteTableAssociations(cfg.Context, &ec2.GetTransitGatewayRouteTableAssociationsInput{
+						associations, err := svc.GetTransitGatewayRouteTableAssociations(ctx.Context, &ec2.GetTransitGatewayRouteTableAssociationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
 							MaxResults:                 aws.Int32(100),
 							NextToken:                  nt3,
@@ -142,7 +142,7 @@ func (l AWSEc2TransitGateway) List(cfg option.AWSetsConfig) (*resource.Group, er
 					// Route Table Propagations
 					allPropagations := make([]*types.TransitGatewayRouteTablePropagation, 0)
 					err = Paginator(func(nt3 *string) (*string, error) {
-						propagations, err := svc.GetTransitGatewayRouteTablePropagations(cfg.Context, &ec2.GetTransitGatewayRouteTablePropagationsInput{
+						propagations, err := svc.GetTransitGatewayRouteTablePropagations(ctx.Context, &ec2.GetTransitGatewayRouteTablePropagationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
 							MaxResults:                 aws.Int32(100),
 							NextToken:                  nt3,

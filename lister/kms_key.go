@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSKmsKey) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.KmsKey}
 }
 
-func (l AWSKmsKey) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := kms.NewFromConfig(cfg.AWSCfg)
+func (l AWSKmsKey) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := kms.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListKeys(cfg.Context, &kms.ListKeysInput{
+		res, err := svc.ListKeys(ctx.Context, &kms.ListKeysInput{
 			Limit:  aws.Int32(100),
 			Marker: nt,
 		})
@@ -34,7 +34,7 @@ func (l AWSKmsKey) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 			return nil, err
 		}
 		for _, key := range res.Keys {
-			keyDetail, err := svc.DescribeKey(cfg.Context, &kms.DescribeKeyInput{
+			keyDetail, err := svc.DescribeKey(ctx.Context, &kms.DescribeKeyInput{
 				GrantTokens: nil,
 				KeyId:       key.KeyId,
 			})
@@ -42,7 +42,7 @@ func (l AWSKmsKey) List(cfg option.AWSetsConfig) (*resource.Group, error) {
 				return nil, fmt.Errorf("failed to describe key %s: %w", *key.KeyId, err)
 			}
 			if v := keyDetail.KeyMetadata; v != nil {
-				r := resource.New(cfg, resource.KmsKey, v.KeyId, v.KeyId, v)
+				r := resource.New(ctx, resource.KmsKey, v.KeyId, v.KeyId, v)
 				// TODO: relationshio to HSM?
 				rg.AddResource(r)
 			}

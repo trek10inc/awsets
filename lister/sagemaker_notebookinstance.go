@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -24,12 +24,12 @@ func (l AWSSagemakerNotebookInstance) Types() []resource.ResourceType {
 	}
 }
 
-func (l AWSSagemakerNotebookInstance) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := sagemaker.NewFromConfig(cfg.AWSCfg)
+func (l AWSSagemakerNotebookInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := sagemaker.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListNotebookInstances(cfg.Context, &sagemaker.ListNotebookInstancesInput{
+		res, err := svc.ListNotebookInstances(ctx.Context, &sagemaker.ListNotebookInstancesInput{
 			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
@@ -37,14 +37,14 @@ func (l AWSSagemakerNotebookInstance) List(cfg option.AWSetsConfig) (*resource.G
 			return nil, err
 		}
 		for _, ni := range res.NotebookInstances {
-			v, err := svc.DescribeNotebookInstance(cfg.Context, &sagemaker.DescribeNotebookInstanceInput{
+			v, err := svc.DescribeNotebookInstance(ctx.Context, &sagemaker.DescribeNotebookInstanceInput{
 				NotebookInstanceName: ni.NotebookInstanceName,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe sagemaker notebook instance %s: %w", *ni.NotebookInstanceName, err)
 			}
 			niArn := arn.ParseP(v.NotebookInstanceArn)
-			r := resource.New(cfg, resource.SagemakerNotebookInstance, niArn.ResourceId, v.NotebookInstanceName, v)
+			r := resource.New(ctx, resource.SagemakerNotebookInstance, niArn.ResourceId, v.NotebookInstanceName, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.Ec2Subnet, v.SubnetId, "")
 			r.AddARNRelation(resource.IamRole, v.RoleArn)

@@ -3,7 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -19,12 +19,12 @@ func (l AWSElasticacheSnapshot) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.ElasticacheSnapshot}
 }
 
-func (l AWSElasticacheSnapshot) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := elasticache.NewFromConfig(cfg.AWSCfg)
+func (l AWSElasticacheSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := elasticache.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeSnapshots(cfg.Context, &elasticache.DescribeSnapshotsInput{
+		res, err := svc.DescribeSnapshots(ctx.Context, &elasticache.DescribeSnapshotsInput{
 			MaxRecords: aws.Int32(50),
 			Marker:     nt,
 		})
@@ -33,7 +33,7 @@ func (l AWSElasticacheSnapshot) List(cfg option.AWSetsConfig) (*resource.Group, 
 			return nil, err
 		}
 		for _, v := range res.Snapshots {
-			r := resource.New(cfg, resource.ElasticacheSnapshot, v.SnapshotName, v.SnapshotName, v)
+			r := resource.New(ctx, resource.ElasticacheSnapshot, v.SnapshotName, v.SnapshotName, v)
 			r.AddRelation(resource.Ec2Vpc, v.VpcId, "")
 			r.AddRelation(resource.KmsKey, v.KmsKeyId, "")
 			r.AddRelation(resource.ElasticacheParameterGroup, v.CacheParameterGroupName, "")

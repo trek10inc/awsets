@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/docdb"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -20,12 +20,12 @@ func (l AWSDocDBCluster) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.DocDBCluster}
 }
 
-func (l AWSDocDBCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) {
-	svc := docdb.NewFromConfig(cfg.AWSCfg)
+func (l AWSDocDBCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
+	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusters(cfg.Context, &docdb.DescribeDBClustersInput{
+		res, err := svc.DescribeDBClusters(ctx.Context, &docdb.DescribeDBClustersInput{
 			MaxRecords: aws.Int32(100),
 			Marker:     nt,
 		})
@@ -33,7 +33,7 @@ func (l AWSDocDBCluster) List(cfg option.AWSetsConfig) (*resource.Group, error) 
 			return nil, err
 		}
 		for _, cluster := range res.DBClusters {
-			r := resource.New(cfg, resource.DocDBCluster, cluster.DBClusterIdentifier, cluster.DBClusterIdentifier, cluster)
+			r := resource.New(ctx, resource.DocDBCluster, cluster.DBClusterIdentifier, cluster.DBClusterIdentifier, cluster)
 			r.AddRelation(resource.DocDBSubnetGroup, cluster.DBSubnetGroup, "")
 			r.AddRelation(resource.DocDBParameterGroup, cluster.DBClusterParameterGroup, "")
 			for _, sg := range cluster.VpcSecurityGroups {

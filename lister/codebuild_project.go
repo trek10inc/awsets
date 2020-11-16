@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/codebuild"
 	"github.com/trek10inc/awsets/arn"
-	"github.com/trek10inc/awsets/option"
+	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
 
@@ -21,12 +21,12 @@ func (l AWSCodebuildProject) Types() []resource.ResourceType {
 	return []resource.ResourceType{resource.CodeBuildProject}
 }
 
-func (l AWSCodebuildProject) List(cfg option.AWSetsConfig) (*resource.Group, error) {
+func (l AWSCodebuildProject) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
-	svc := codebuild.NewFromConfig(cfg.AWSCfg)
+	svc := codebuild.NewFromConfig(ctx.AWSCfg)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListProjects(cfg.Context, &codebuild.ListProjectsInput{
+		res, err := svc.ListProjects(ctx.Context, &codebuild.ListProjectsInput{
 			NextToken: nt,
 		})
 		if err != nil {
@@ -35,7 +35,7 @@ func (l AWSCodebuildProject) List(cfg option.AWSetsConfig) (*resource.Group, err
 		if len(res.Projects) == 0 {
 			return nil, nil
 		}
-		projects, err := svc.BatchGetProjects(cfg.Context, &codebuild.BatchGetProjectsInput{
+		projects, err := svc.BatchGetProjects(ctx.Context, &codebuild.BatchGetProjectsInput{
 			Names: res.Projects,
 		})
 		if err != nil {
@@ -43,7 +43,7 @@ func (l AWSCodebuildProject) List(cfg option.AWSetsConfig) (*resource.Group, err
 		}
 		for _, p := range projects.Projects {
 			projectArn := arn.ParseP(p.Arn)
-			r := resource.New(cfg, resource.CodeBuildProject, projectArn.ResourceId, p.Name, p)
+			r := resource.New(ctx, resource.CodeBuildProject, projectArn.ResourceId, p.Name, p)
 			if p.VpcConfig != nil {
 				r.AddRelation(resource.Ec2Vpc, p.VpcConfig.VpcId, "")
 				for _, sn := range p.VpcConfig.Subnets {
