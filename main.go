@@ -152,51 +152,24 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 // results together before returning them. If a cache is provided, each
 // Lister/Region combination will first check for an existing result before
 // querying AWS. Any new results will be updated in the cache.
-func List(cfg aws.Config, options ...Option) (*resource.Group, error) {
+func List(options ...Option) (*resource.Group, error) {
 
-	// Create config struct, execute options
-	awsetsCfg, err := newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
+	// Create config struct, apply options
+	awsetsCfg := &config{}
 	for _, opt := range options {
 		opt(awsetsCfg)
 	}
-	defer awsetsCfg.Close()
+	defer awsetsCfg.close()
 
-	// Get Cache, default to NoOp if none is specified
-	cache := awsetsCfg.Cache
-	if cache == nil {
-		cache = NoOpCache{}
-	}
-
-	// Initialize cache
-	err = cache.Initialize(awsetsCfg.AccountId)
+	// Validates config values, defaults them if they are not specified
+	err := awsetsCfg.validate()
 	if err != nil {
-		return nil, err
-	}
-
-	// Get regions, query all available if none are specified
-	regions := awsetsCfg.Regions
-	if len(regions) == 0 {
-		regions, err = Regions(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get regions: %w", err)
-		}
-		awsetsCfg.Regions = regions
-	}
-
-	// Get listers, default to all if none are specified
-	listers := awsetsCfg.Listers
-	if len(listers) == 0 {
-		listers = Listers(nil, nil)
-		awsetsCfg.Listers = listers
+		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
 	// Creates a work queue
 	jobs := make(chan listjob, 0)
-	totalJobs := len(regions) * len(listers)
+	totalJobs := len(awsetsCfg.Regions) * len(awsetsCfg.Listers)
 
 	rg := resource.NewGroup()
 
@@ -214,10 +187,10 @@ func List(cfg aws.Config, options ...Option) (*resource.Group, error) {
 					}
 
 					// Creates the AWSets context - this also configures the region in the AWS config
-					workerCtx := makeContext(awsetsCfg, id, job, totalJobs)
+					workerCtx := createContext(awsetsCfg, id, job, totalJobs)
 
 					workerCtx.SendStatus(context.StatusProcessing, "processing")
-					group, err := processJob(workerCtx, id, job, cache)
+					group, err := processJob(workerCtx, id, job, awsetsCfg.Cache)
 					if err != nil {
 						workerCtx.SendStatus(context.StatusCompleteWithError, err.Error())
 					} else {
@@ -231,8 +204,8 @@ func List(cfg aws.Config, options ...Option) (*resource.Group, error) {
 	}
 
 	// Populate work queue with all Region/ListerName combinations
-	for _, k := range listers {
-		for _, r := range regions {
+	for _, k := range awsetsCfg.Listers {
+		for _, r := range awsetsCfg.Regions {
 			jobs <- listjob{
 				lister: k,
 				region: r,
@@ -298,7 +271,7 @@ type listjob struct {
 	region string
 }
 
-func makeContext(o *config, id int, job listjob, totalJobs int) *context.AWSetsCtx {
+func createContext(o *config, id int, job listjob, totalJobs int) *context.AWSetsCtx {
 	ctx := &context.AWSetsCtx{
 		AWSCfg:     o.AWSCfg.Copy(),
 		AccountId:  o.AccountId,

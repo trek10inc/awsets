@@ -113,6 +113,7 @@ var listCmd = &cli.Command{
 
 		statusChan := make(chan context.StatusUpdate)
 		options := []awsets.Option{
+			awsets.WithAWSConfig(awscfg),
 			awsets.WithStatus(statusChan),
 			awsets.WithRegions(regions),
 			awsets.WithListers(listers),
@@ -157,7 +158,7 @@ var listCmd = &cli.Command{
 			}
 		}()
 
-		rg, err := awsets.List(awscfg, options...)
+		rg, err := awsets.List(options...)
 		if err != nil {
 			return fmt.Errorf("failed to list resources: %w", err)
 		}
