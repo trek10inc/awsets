@@ -166,7 +166,7 @@ USAGE:
 OPTIONS:
    --input value, -i value   input file containing data to process
    --output value, -o value  output file to save results
-   --hide-unrelated          remove unrelated resources from dot file (default: false)
+   --show-all                include all unrelated items (default: false)
    --help, -h                show help (default: false)
 ```
 

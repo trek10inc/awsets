@@ -39,6 +39,11 @@ func (l AWSCloudwatchAlarm) List(ctx context.AWSetsCtx) (*resource.Group, error)
 			r := resource.New(ctx, resource.CloudwatchAlarm, alarmArn.ResourceId, alarm.AlarmName, alarm)
 			rg.AddResource(r)
 		}
+		for _, alarm := range res.MetricAlarms {
+			alarmArn := arn.ParseP(alarm.AlarmArn)
+			r := resource.New(ctx, resource.CloudwatchAlarm, alarmArn.ResourceId, alarm.AlarmName, alarm)
+			rg.AddResource(r)
+		}
 		return res.NextToken, nil
 	})
 	return rg, err

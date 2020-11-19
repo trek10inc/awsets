@@ -97,7 +97,7 @@ var toCsv = &cli.Command{
 				for _, f := range fields {
 					v, err := jmespath.Search(f, r)
 					if err != nil {
-						fmt.Printf("jmespath error! %w\n", err)
+						fmt.Printf("jmespath error! %v\n", err)
 						continue
 					}
 					row = append(row, fmt.Sprintf("%s", v))
@@ -182,9 +182,9 @@ var dotGenerator = &cli.Command{
 			TakesFile: true,
 		},
 		&cli.BoolFlag{
-			Name:  "hide-unrelated",
+			Name:  "show-all",
 			Value: false,
-			Usage: "remove unrelated resources from dot file",
+			Usage: "include all unrelated items",
 		},
 	},
 	Action: func(c *cli.Context) error {
@@ -267,9 +267,9 @@ var dotGenerator = &cli.Command{
 			}
 		}
 
-		if !c.Bool("hide-unrelated") {
-			// write unrelated items
-			for k, r := range resources {
+		// write unrelated items
+		for k, r := range resources {
+			if c.Bool("show-all") || !isAWSDefault(r) {
 				regionGraph, ok := subgraphs[k.Region]
 				if !ok {
 					regionGraph = graph.Subgraph(k.Region, dot.ClusterOption{})
@@ -365,6 +365,47 @@ var cfn = &cli.Command{
 		}
 		return nil
 	},
+}
+
+func isAWSDefault(r resource.Resource) bool {
+	switch r.Type {
+	case resource.CodeDeployDeploymentConfig:
+		return strings.Contains(r.Name, "Default.")
+	case resource.DAXParameterGroup:
+		return strings.HasPrefix(r.Id, "default.")
+	case resource.DocDBParameterGroup:
+		return strings.HasPrefix(r.Id, "default.")
+	case resource.ElasticacheParameterGroup:
+		return strings.HasPrefix(r.Id, "default.")
+	case resource.IamPolicy:
+		exclude := []string{"Alexa", "Amazon", "APIGateway", "AutoScaling", "AWS", "Aws", "CloudFront", "CloudSearch",
+			"CloudWatch", "DAX", "EC2", "Ec2", "Elastic", "IAM", "LakeFormation", "Lex", "Neptune", "Translate", "WAF"}
+		for _, ex := range exclude {
+			if strings.HasPrefix(r.Name, ex) {
+				return true
+			}
+		}
+	case resource.IamRole:
+		exclude := []string{"Amazon", "AWS"}
+		for _, ex := range exclude {
+			if strings.HasPrefix(r.Name, ex) {
+				return true
+			}
+		}
+	case resource.KmsAlias:
+		return strings.HasPrefix(r.Name, "alias/aws/")
+	case resource.NeptuneDbParameterGroup:
+		return strings.HasPrefix(r.Id, "default.")
+	case resource.NeptuneDbClusterParameterGroup:
+		return strings.HasPrefix(r.Id, "default.")
+	case resource.RdsDbParameterGroup:
+		return strings.HasPrefix(r.Id, "default")
+	case resource.RdsDbClusterParameterGroup:
+		return strings.HasPrefix(r.Id, "default")
+	case resource.SsmPatchBaseline:
+		return strings.Contains(r.Name, "Default") || strings.Contains(r.Name, "WindowsPredefined")
+	}
+	return false
 }
 
 func makeLabel(i interface{}) string {
