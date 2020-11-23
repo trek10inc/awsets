@@ -2,6 +2,7 @@ package awsets
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"testing"
 
@@ -41,10 +42,18 @@ func Test_SupportResources(t *testing.T) {
 
 	// If resources are missing from documentation, fail test & print them
 	if len(needsAdded) > 0 {
-		t.Fatalf("the following resource types needed added to supported_types.txt: %v\n", needsAdded)
+		fmt.Printf("The following resource types need added to supported_types.txt:\n")
+		for _, v := range needsAdded {
+			fmt.Printf("%s\n", v)
+		}
+		t.Fail()
 	}
 	// If resources are in documentation that are NOT supported in code, fail test and print them
 	if len(supported) > 0 {
-		t.Fatalf("the following resource types need removed from supported_types.txt: %v\n", supported)
+		fmt.Printf("The following resource types need removed from supported_types.txt:\n")
+		for _, v := range supported {
+			fmt.Printf("%s\n", v)
+		}
+		t.Fail()
 	}
 }

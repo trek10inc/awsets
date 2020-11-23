@@ -75,6 +75,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/servicediscovery v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ses v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sfn v0.29.0
+	github.com/aws/aws-sdk-go-v2/service/signer v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sns v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v0.29.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v0.29.0

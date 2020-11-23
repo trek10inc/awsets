@@ -153,6 +153,8 @@ github.com/aws/aws-sdk-go-v2/service/ses v0.29.0 h1:ytUMd3eJNs7j8zBmKmRpsVFkE75K
 github.com/aws/aws-sdk-go-v2/service/ses v0.29.0/go.mod h1:F7uPgAARIG7nK5+lLzBOQfZ11lI2V38AsUQG84B6kCI=
 github.com/aws/aws-sdk-go-v2/service/sfn v0.29.0 h1:PIzooSmUAm6QLN8/9yAKKXSU7kT4ZjjXRKXuJ3bb0QU=
 github.com/aws/aws-sdk-go-v2/service/sfn v0.29.0/go.mod h1:JjiXTPhJgaaD+iKT7qv2KczbNuasqulYfStT03jX9Gg=
+github.com/aws/aws-sdk-go-v2/service/signer v0.29.0 h1:EokOEM1ET0voYMfVs5g+dT+f/pWrP+JJvA/ruooyXPU=
+github.com/aws/aws-sdk-go-v2/service/signer v0.29.0/go.mod h1:QzLpdTzhBazJz529b51MRVaWg7MS108yyYMSrhk/2Rk=
 github.com/aws/aws-sdk-go-v2/service/sns v0.29.0 h1:NyCT8xzu8qwFIbcgA3jBzHlwn6sxGMPJRpvW6G0k8do=
 github.com/aws/aws-sdk-go-v2/service/sns v0.29.0/go.mod h1:HTOOkUYXzZMwOkqc8KRYOKLmg8laYB9Tv7/KgXMNsLo=
 github.com/aws/aws-sdk-go-v2/service/sqs v0.29.0 h1:tNUvLwVXDkJB6esfAcYhW68P/q12Vt8B0GgjbmpWubQ=
@@ -192,6 +194,7 @@ github.com/stretchr/objx v0.1.0 h1:4G4v2dO3VZwixGIRoQ5Lfboy6nUhCyYzaqnIAPPhYs4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

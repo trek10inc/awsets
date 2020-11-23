@@ -58,8 +58,10 @@ cloudformation/stack
 cloudformation/stackset
 cloudfront/cachepolicy
 cloudfront/distribution
+cloudfront/keygroup
 cloudfront/originaccessidentity
 cloudfront/originrequestpolicy
+cloudfront/publickey
 cloudfront/streamingdistribution
 cloudtrail/trail
 cloudwatch/alarm
@@ -206,6 +208,7 @@ iot/thing
 iot/thinggroup
 iot/thingtype
 iot/topicrule
+iot/topicruledestination
 iotsitewise/asset
 iotsitewise/assetmodel
 iotsitewise/gateway
@@ -266,6 +269,7 @@ ses/receiptfilter
 ses/receiptrule
 ses/receiptruleset
 ses/template
+signer/signingprofile
 sns/subscription
 sns/topic
 sqs/queue
