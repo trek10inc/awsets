@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -28,7 +27,7 @@ func (l AWSConfigConfigurationAggregator) List(ctx context.AWSetsCtx) (*resource
 
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeConfigurationAggregators(ctx.Context, &configservice.DescribeConfigurationAggregatorsInput{
-			Limit:     aws.Int32(100),
+			Limit:     100,
 			NextToken: nt,
 		})
 		if err != nil {

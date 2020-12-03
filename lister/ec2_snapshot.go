@@ -26,11 +26,11 @@ func (l AWSEc2Snapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeSnapshots(ctx.Context, &ec2.DescribeSnapshotsInput{
-			Filters: []*types.Filter{{
+			Filters: []types.Filter{{
 				Name:   aws.String("owner-id"),
-				Values: []*string{&ctx.AccountId},
+				Values: []string{ctx.AccountId},
 			}},
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {

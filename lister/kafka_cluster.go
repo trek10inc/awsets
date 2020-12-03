@@ -1,7 +1,6 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kafka"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
@@ -26,7 +25,7 @@ func (l AWSKafkaCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListClusters(ctx.Context, &kafka.ListClustersInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {

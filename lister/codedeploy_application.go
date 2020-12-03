@@ -37,10 +37,10 @@ func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, 
 		}
 		for _, app := range res.Applications {
 			appRes, err := svc.GetApplication(ctx.Context, &codedeploy.GetApplicationInput{
-				ApplicationName: app,
+				ApplicationName: &app,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get codedeploy application %s: %w", *app, err)
+				return nil, fmt.Errorf("failed to get codedeploy application %s: %w", app, err)
 			}
 			v := appRes.Application
 			if v == nil {
@@ -51,20 +51,20 @@ func (l AWSCodeDeployApplication) List(ctx context.AWSetsCtx) (*resource.Group, 
 			// CodeDeploy Deployment Groups
 			err = Paginator(func(nt2 *string) (*string, error) {
 				depGroups, err := svc.ListDeploymentGroups(ctx.Context, &codedeploy.ListDeploymentGroupsInput{
-					ApplicationName: app,
+					ApplicationName: &app,
 					NextToken:       nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to list codedeploy deployment groups for app %s: %w", *app, err)
+					return nil, fmt.Errorf("failed to list codedeploy deployment groups for app %s: %w", app, err)
 				}
 				groups := depGroups.DeploymentGroups
 				if len(groups) > 0 {
 					groupsRes, err := svc.BatchGetDeploymentGroups(ctx.Context, &codedeploy.BatchGetDeploymentGroupsInput{
-						ApplicationName:      app,
+						ApplicationName:      &app,
 						DeploymentGroupNames: groups,
 					})
 					if err != nil {
-						return nil, fmt.Errorf("failed to get codedeploy deployment groups for app %s: %w", *app, err)
+						return nil, fmt.Errorf("failed to get codedeploy deployment groups for app %s: %w", app, err)
 					}
 					for _, group := range groupsRes.DeploymentGroupsInfo {
 						groupR := resource.New(ctx, resource.CodeDeployDeploymentGroup, group.DeploymentGroupId, group.DeploymentGroupName, group)

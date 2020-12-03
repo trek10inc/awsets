@@ -13,7 +13,7 @@ import (
 )
 
 var listBucketsOnce sync.Once
-var bucketsByRegion = make(map[string][]*types.Bucket)
+var bucketsByRegion = make(map[string][]types.Bucket)
 
 type AWSS3Bucket struct {
 }

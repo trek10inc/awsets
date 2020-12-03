@@ -5,7 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -31,7 +30,7 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeVpcEndpointServices(ctx.Context, &ec2.DescribeVpcEndpointServicesInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -44,12 +43,12 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 			}
 			r := resource.New(ctx, resource.Ec2VpcEndpointService, v.ServiceId, v.ServiceName, v)
 
-			configs := make([]*types.ServiceConfiguration, 0)
+			configs := make([]types.ServiceConfiguration, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				scs, err := svc.DescribeVpcEndpointServiceConfigurations(ctx.Context, &ec2.DescribeVpcEndpointServiceConfigurationsInput{
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
-					ServiceIds: []*string{v.ServiceId},
+					ServiceIds: []string{*v.ServiceId},
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to get vpc endpoint service configs for %s: %w", *v.ServiceId, err)
@@ -65,10 +64,10 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 				r.AddAttribute("Configurations", configs)
 			}
 
-			principals := make([]*types.AllowedPrincipal, 0)
+			principals := make([]types.AllowedPrincipal, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				perms, err := svc.DescribeVpcEndpointServicePermissions(ctx.Context, &ec2.DescribeVpcEndpointServicePermissionsInput{
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
 					ServiceId:  v.ServiceId,
 				})

@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -27,7 +26,7 @@ func (l AWSSsmPatchBaseline) List(ctx context.AWSetsCtx) (*resource.Group, error
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribePatchBaselines(ctx.Context, &ssm.DescribePatchBaselinesInput{
-			MaxResults: aws.Int32(50),
+			MaxResults: 50,
 			NextToken:  nt,
 		})
 		if err != nil {

@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
@@ -29,7 +28,7 @@ func (l AWSStepFunctionStateMachine) List(ctx context.AWSetsCtx) (*resource.Grou
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListStateMachines(ctx.Context, &sfn.ListStateMachinesInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {

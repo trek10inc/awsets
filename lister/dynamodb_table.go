@@ -37,10 +37,10 @@ func (l AWSDynamoDBTable) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, table := range res.TableNames {
 			tableRes, err := svc.DescribeTable(ctx.Context, &dynamodb.DescribeTableInput{
-				TableName: table,
+				TableName: &table,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe table %s: %w", *table, err)
+				return nil, fmt.Errorf("failed to describe table %s: %w", table, err)
 			}
 			r := resource.New(ctx, resource.DynamoDbTable, tableRes.Table.TableName, tableRes.Table.TableName, tableRes.Table)
 			rg.AddResource(r)

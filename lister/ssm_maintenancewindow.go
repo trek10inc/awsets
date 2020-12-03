@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -29,7 +28,7 @@ func (l AWSSsmMaintenanceWindow) List(ctx context.AWSetsCtx) (*resource.Group, e
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeMaintenanceWindows(ctx.Context, &ssm.DescribeMaintenanceWindowsInput{
-			MaxResults: aws.Int32(50),
+			MaxResults: 50,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -49,7 +48,7 @@ func (l AWSSsmMaintenanceWindow) List(ctx context.AWSetsCtx) (*resource.Group, e
 			err = Paginator(func(nt2 *string) (*string, error) {
 				tasks, err := svc.DescribeMaintenanceWindowTasks(ctx.Context, &ssm.DescribeMaintenanceWindowTasksInput{
 					WindowId:   wi.WindowId,
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
 				})
 				if err != nil {

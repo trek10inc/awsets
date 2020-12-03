@@ -3,7 +3,6 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/service/batch"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -26,7 +25,7 @@ func (l AWSBatchJobDefinition) List(ctx context.AWSetsCtx) (*resource.Group, err
 
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeJobDefinitions(ctx.Context, &batch.DescribeJobDefinitionsInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {

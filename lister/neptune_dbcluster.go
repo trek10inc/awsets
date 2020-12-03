@@ -48,7 +48,7 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 			}
 			for _, replica := range cluster.ReadReplicaIdentifiers {
 				//TODO: cluster vs instance based on type?
-				replicaArn := arn.ParseP(replica)
+				replicaArn := arn.Parse(replica)
 				r.AddRelation(resource.NeptuneDbCluster, replicaArn.ResourceId, replicaArn.ResourceVersion)
 			}
 			for _, role := range cluster.AssociatedRoles {

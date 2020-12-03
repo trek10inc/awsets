@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/appsync"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
@@ -37,7 +36,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 	err := Paginator(func(nt *string) (*string, error) {
 		apis, err := svc.ListGraphqlApis(ctx.Context, &appsync.ListGraphqlApisInput{
-			MaxResults: aws.Int32(25),
+			MaxResults: 25,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -56,7 +55,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			err = Paginator(func(nt2 *string) (*string, error) {
 				datasources, err := svc.ListDataSources(ctx.Context, &appsync.ListDataSourcesInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int32(25),
+					MaxResults: 25,
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -82,7 +81,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			err = Paginator(func(nt2 *string) (*string, error) {
 				functions, err := svc.ListFunctions(ctx.Context, &appsync.ListFunctionsInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int32(25),
+					MaxResults: 25,
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -96,7 +95,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 						resolvers, err := svc.ListResolversByFunction(ctx.Context, &appsync.ListResolversByFunctionInput{
 							ApiId:      api.ApiId,
 							FunctionId: function.FunctionId,
-							MaxResults: aws.Int32(25),
+							MaxResults: 25,
 							NextToken:  nt3,
 						})
 						if err != nil {
@@ -127,7 +126,7 @@ func (l AWSAppsyncGraphqlApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			err = Paginator(func(nt2 *string) (*string, error) {
 				apiKeys, err := svc.ListApiKeys(ctx.Context, &appsync.ListApiKeysInput{
 					ApiId:      api.ApiId,
-					MaxResults: aws.Int32(25),
+					MaxResults: 25,
 					NextToken:  nt2,
 				})
 				if err != nil {

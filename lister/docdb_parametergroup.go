@@ -39,7 +39,7 @@ func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 			r := resource.New(ctx, resource.DocDBParameterGroup, group.DBClusterParameterGroupName, group.DBClusterParameterGroupName, group)
 
 			var paramMarker *string
-			parameterList := make([]*types.Parameter, 0)
+			parameterList := make([]types.Parameter, 0)
 			for {
 				params, err := svc.DescribeDBClusterParameters(ctx.Context, &docdb.DescribeDBClusterParametersInput{
 					DBClusterParameterGroupName: group.DBClusterParameterGroupName,

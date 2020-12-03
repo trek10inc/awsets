@@ -33,7 +33,7 @@ func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error)
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListUserPools(ctx.Context, &cognitoidentityprovider.ListUserPoolsInput{
-			MaxResults: aws.Int32(60),
+			MaxResults: 60,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -49,7 +49,7 @@ func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error)
 			up := userPoolResponse.UserPool
 			r := resource.New(ctx, resource.CognitoUserPool, up.Id, up.Name, up)
 			for tagName, tagValue := range up.UserPoolTags {
-				r.Tags[tagName] = aws.ToString(tagValue)
+				r.Tags[tagName] = tagValue
 			}
 
 			// Clients
@@ -130,7 +130,7 @@ func (l AWSCognitoUserpool) List(ctx context.AWSetsCtx) (*resource.Group, error)
 			// Resource Servers
 			err = Paginator(func(nt2 *string) (*string, error) {
 				resourceProviders, err := svc.ListResourceServers(ctx.Context, &cognitoidentityprovider.ListResourceServersInput{
-					MaxResults: aws.Int32(50),
+					MaxResults: 50,
 					UserPoolId: up.Id,
 					NextToken:  nt2,
 				})

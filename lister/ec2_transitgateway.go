@@ -32,7 +32,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeTransitGateways(ctx.Context, &ec2.DescribeTransitGatewaysInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -49,13 +49,13 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			// Attachments
 			err = Paginator(func(nt2 *string) (*string, error) {
 				attachments, err := svc.DescribeTransitGatewayAttachments(ctx.Context, &ec2.DescribeTransitGatewayAttachmentsInput{
-					Filters: []*types.Filter{
+					Filters: []types.Filter{
 						{
 							Name:   aws.String("transit-gateway-id"),
-							Values: []*string{v.TransitGatewayId},
+							Values: []string{*v.TransitGatewayId},
 						},
 					},
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -87,13 +87,13 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			// Routes
 			err = Paginator(func(nt2 *string) (*string, error) {
 				routeTables, err := svc.DescribeTransitGatewayRouteTables(ctx.Context, &ec2.DescribeTransitGatewayRouteTablesInput{
-					Filters: []*types.Filter{
+					Filters: []types.Filter{
 						{
 							Name:   aws.String("transit-gateway-id"),
-							Values: []*string{v.TransitGatewayId},
+							Values: []string{*v.TransitGatewayId},
 						},
 					},
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -104,11 +104,11 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					rtR := resource.New(ctx, resource.Ec2TransitGatewayRouteTable, rt.TransitGatewayRouteTableId, rt.TransitGatewayRouteTableId, rt)
 					rtR.AddRelation(resource.Ec2TransitGateway, v.TransitGatewayId, "")
 					// Route Table Associations
-					allAssociations := make([]*types.TransitGatewayRouteTableAssociation, 0)
+					allAssociations := make([]types.TransitGatewayRouteTableAssociation, 0)
 					err = Paginator(func(nt3 *string) (*string, error) {
 						associations, err := svc.GetTransitGatewayRouteTableAssociations(ctx.Context, &ec2.GetTransitGatewayRouteTableAssociationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
-							MaxResults:                 aws.Int32(100),
+							MaxResults:                 100,
 							NextToken:                  nt3,
 						})
 						if err != nil {
@@ -140,11 +140,11 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					}
 
 					// Route Table Propagations
-					allPropagations := make([]*types.TransitGatewayRouteTablePropagation, 0)
+					allPropagations := make([]types.TransitGatewayRouteTablePropagation, 0)
 					err = Paginator(func(nt3 *string) (*string, error) {
 						propagations, err := svc.GetTransitGatewayRouteTablePropagations(ctx.Context, &ec2.GetTransitGatewayRouteTablePropagationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
-							MaxResults:                 aws.Int32(100),
+							MaxResults:                 100,
 							NextToken:                  nt3,
 						})
 						if err != nil {

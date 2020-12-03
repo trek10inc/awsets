@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -30,7 +29,7 @@ func (l AWSGuardDutyDetector) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListDetectors(ctx.Context, &guardduty.ListDetectorsInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -38,23 +37,23 @@ func (l AWSGuardDutyDetector) List(ctx context.AWSetsCtx) (*resource.Group, erro
 		}
 		for _, id := range res.DetectorIds {
 			v, err := svc.GetDetector(ctx.Context, &guardduty.GetDetectorInput{
-				DetectorId: id,
+				DetectorId: &id,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get guard duty detector %s: %w", *id, err)
+				return nil, fmt.Errorf("failed to get guard duty detector %s: %w", id, err)
 			}
 			r := resource.New(ctx, resource.GuardDutyDetector, id, id, v)
 
 			// Members
 			err = Paginator(func(nt2 *string) (*string, error) {
 				members, err := svc.ListMembers(ctx.Context, &guardduty.ListMembersInput{
-					DetectorId:     id,
-					MaxResults:     aws.Int32(100),
+					DetectorId:     &id,
+					MaxResults:     100,
 					NextToken:      nt2,
 					OnlyAssociated: nil,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to get members for guard duty detector %s: %w", *id, err)
+					return nil, fmt.Errorf("failed to get members for guard duty detector %s: %w", id, err)
 				}
 
 				for _, m := range members.Members {

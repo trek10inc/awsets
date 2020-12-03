@@ -35,10 +35,10 @@ func (l AWSEcsTaskDefinition) List(ctx context.AWSetsCtx) (*resource.Group, erro
 		for _, taskDefArn := range res.TaskDefinitionArns {
 			task, err := svc.DescribeTaskDefinition(ctx.Context, &ecs.DescribeTaskDefinitionInput{
 				Include:        []types.TaskDefinitionField{types.TaskDefinitionFieldTags},
-				TaskDefinition: taskDefArn,
+				TaskDefinition: &taskDefArn,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe task def %s: %w", *taskDefArn, err)
+				return nil, fmt.Errorf("failed to describe task def %s: %w", taskDefArn, err)
 			}
 			parsedArn := arn.ParseP(task.TaskDefinition.TaskDefinitionArn)
 			taskDefResource := resource.New(ctx, resource.EcsTaskDefinition, parsedArn.ResourceId, "", task.TaskDefinition)

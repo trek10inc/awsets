@@ -1,7 +1,6 @@
 package lister
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -25,7 +24,7 @@ func (l AWSEc2FlowLog) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeFlowLogs(ctx.Context, &ec2.DescribeFlowLogsInput{
-			MaxResults: aws.Int32(1000),
+			MaxResults: 1000,
 			NextToken:  nt,
 		})
 		if err != nil {

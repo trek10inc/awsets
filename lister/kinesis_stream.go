@@ -34,22 +34,22 @@ func (l AWSKinesisStream) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		if err != nil {
 			return nil, err
 		}
-		var lastName *string
+		var lastName string
 		for i, stream := range res.StreamNames {
 			lastName = res.StreamNames[i]
 			res, err := svc.DescribeStream(ctx.Context, &kinesis.DescribeStreamInput{
 				Limit:      aws.Int32(100),
-				StreamName: stream,
+				StreamName: &stream,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe kinesis streams %s: %w", *stream, err)
+				return nil, fmt.Errorf("failed to describe kinesis streams %s: %w", stream, err)
 			}
 			streamArn := arn.ParseP(res.StreamDescription.StreamARN)
 			r := resource.New(ctx, resource.KinesisStream, streamArn.ResourceId, res.StreamDescription.StreamName, res.StreamDescription)
 			rg.AddResource(r)
 			// TODO the rest of this... relationships to shards and whatnot
 		}
-		return lastName, nil
+		return &lastName, nil
 	})
 	return rg, err
 }

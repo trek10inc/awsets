@@ -38,21 +38,21 @@ func (l AWSSqsQueue) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		for _, queue := range res.QueueUrls {
 			qRes, err := svc.GetQueueAttributes(ctx.Context, &sqs.GetQueueAttributesInput{
 				AttributeNames: []types.QueueAttributeName{types.QueueAttributeNameAll},
-				QueueUrl:       queue,
+				QueueUrl:       &queue,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get queue attributes %s: %w", *queue, err)
+				return nil, fmt.Errorf("failed to get queue attributes %s: %w", queue, err)
 			}
-			queueArn := arn.ParseP(qRes.Attributes["QueueArn"])
+			queueArn := arn.Parse(qRes.Attributes["QueueArn"])
 			asMap := make(map[string]interface{})
 			for k, v := range qRes.Attributes {
 				asMap[k] = v
 			}
 			tagRes, err := svc.ListQueueTags(ctx.Context, &sqs.ListQueueTagsInput{
-				QueueUrl: queue,
+				QueueUrl: &queue,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get queue tags %s: %w", *queue, err)
+				return nil, fmt.Errorf("failed to get queue tags %s: %w", queue, err)
 			}
 			asMap["Tags"] = tagRes.Tags
 			r := resource.New(ctx, resource.SqsQueue, queue, queueArn.ResourceId, asMap)

@@ -48,10 +48,10 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 		}
 		for _, clusterName := range res.Clusters {
 			clusterRes, err := svc.DescribeCluster(ctx.Context, &eks.DescribeClusterInput{
-				Name: clusterName,
+				Name: &clusterName,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe cluster %s: %w", *clusterName, err)
+				return nil, fmt.Errorf("failed to describe cluster %s: %w", clusterName, err)
 			}
 			cluster := clusterRes.Cluster
 			r := resource.New(ctx, resource.EksCluster, cluster.Name, cluster.Name, cluster)
@@ -60,20 +60,20 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			// Node groups
 			err = Paginator(func(nt2 *string) (*string, error) {
 				nodeGroups, err := svc.ListNodegroups(ctx.Context, &eks.ListNodegroupsInput{
-					ClusterName: clusterName,
+					ClusterName: &clusterName,
 					MaxResults:  aws.Int32(100),
 					NextToken:   nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to list node groups for cluster %s: %w", *clusterName, err)
+					return nil, fmt.Errorf("failed to list node groups for cluster %s: %w", clusterName, err)
 				}
 				for _, ngName := range nodeGroups.Nodegroups {
 					ngRes, err := svc.DescribeNodegroup(ctx.Context, &eks.DescribeNodegroupInput{
-						ClusterName:   clusterName,
-						NodegroupName: ngName,
+						ClusterName:   &clusterName,
+						NodegroupName: &ngName,
 					})
 					if err != nil {
-						return nil, fmt.Errorf("failed to describe node group %s for cluster %s: %w", *ngName, *clusterName, err)
+						return nil, fmt.Errorf("failed to describe node group %s for cluster %s: %w", ngName, clusterName, err)
 					}
 					ng := ngRes.Nodegroup
 					ngArn := arn.ParseP(ng.NodegroupArn)
@@ -93,22 +93,22 @@ func (l AWSEksCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			// Fargate profiles
 			err = Paginator(func(nt2 *string) (*string, error) {
 				profiles, err := svc.ListFargateProfiles(ctx.Context, &eks.ListFargateProfilesInput{
-					ClusterName: clusterName,
+					ClusterName: &clusterName,
 					NextToken:   nt2,
 				})
 				if err != nil {
-					return nil, fmt.Errorf("failed to list fargate profiles for cluster %s: %w", *clusterName, err)
+					return nil, fmt.Errorf("failed to list fargate profiles for cluster %s: %w", clusterName, err)
 				}
 				for _, fpName := range profiles.FargateProfileNames {
 					fpRes, err := svc.DescribeFargateProfile(ctx.Context, &eks.DescribeFargateProfileInput{
-						ClusterName:        clusterName,
-						FargateProfileName: fpName,
+						ClusterName:        &clusterName,
+						FargateProfileName: &fpName,
 					})
 					if err != nil {
-						return nil, fmt.Errorf("failed to describe fargate profile %s for cluster %s: %w", *fpName, *clusterName, err)
+						return nil, fmt.Errorf("failed to describe fargate profile %s for cluster %s: %w", fpName, clusterName, err)
 					}
 					if fp := fpRes.FargateProfile; fp != nil {
-						fpResource := resource.New(ctx, resource.EksFargateProfile, fmt.Sprintf("%s-%s", *clusterName, *fpName), fp.FargateProfileName, fp)
+						fpResource := resource.New(ctx, resource.EksFargateProfile, fmt.Sprintf("%s-%s", clusterName, fpName), fp.FargateProfileName, fp)
 						for _, sn := range fp.Subnets {
 							fpResource.AddRelation(resource.Ec2Subnet, sn, "")
 						}

@@ -140,7 +140,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					Limit:     aws.Int32(100),
 					RestApiId: restapi.Id,
 					Position:  nt2,
-					Embed:     []*string{aws.String("methods")},
+					Embed:     []string{"methods"},
 				})
 				if err != nil {
 					return nil, fmt.Errorf("failed to get resources for restapi %s: %w", *restapi.Id, err)
@@ -163,7 +163,7 @@ func (l AWSApiGatewayRestApi) List(ctx context.AWSetsCtx) (*resource.Group, erro
 			}
 
 			// Gateway Responses
-			gwResponses := make([]*types.GatewayResponse, 0)
+			gwResponses := make([]types.GatewayResponse, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				gwRes, err := svc.GetGatewayResponses(ctx.Context, &apigateway.GetGatewayResponsesInput{
 					Limit:     aws.Int32(100),

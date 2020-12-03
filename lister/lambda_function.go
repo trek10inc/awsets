@@ -82,7 +82,7 @@ func (l AWSLambdaFunction) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 
 			// Invoke Configs
 
-			eics := make([]*types.FunctionEventInvokeConfig, 0)
+			eics := make([]types.FunctionEventInvokeConfig, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				configs, err := svc.ListFunctionEventInvokeConfigs(ctx.Context, &lambda.ListFunctionEventInvokeConfigsInput{
 					FunctionName: function.FunctionArn,

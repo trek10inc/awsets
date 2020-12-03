@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/waf"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -33,7 +32,7 @@ func (l AWSWafXssMatchSet) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	listWafXssMatchSetsOnce.Do(func() {
 		outerErr = Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListXssMatchSets(ctx.Context, &waf.ListXssMatchSetsInput{
-				Limit:      aws.Int32(100),
+				Limit:      100,
 				NextMarker: nt,
 			})
 			if err != nil {

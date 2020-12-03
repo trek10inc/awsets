@@ -36,11 +36,11 @@ func (l AWSConfigRule) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			return nil, fmt.Errorf("failed to list config rules: %w", err)
 		}
 
-		ruleNames := make([]*string, 0)
+		ruleNames := make([]string, 0)
 		for _, rule := range res.ConfigRules {
 			r := resource.New(ctx, resource.ConfigRule, rule.ConfigRuleId, rule.ConfigRuleName, rule)
 			rg.AddResource(r)
-			ruleNames = append(ruleNames, rule.ConfigRuleName)
+			ruleNames = append(ruleNames, *rule.ConfigRuleName)
 		}
 
 		// Remediation Configs for the rules

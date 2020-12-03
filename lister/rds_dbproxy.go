@@ -77,7 +77,7 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 
 			// DB Proxy Targets
-			targets := make([]*types.DBProxyTarget, 0)
+			targets := make([]types.DBProxyTarget, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				proxyTargets, err := svc.DescribeDBProxyTargets(ctx.Context, &rds.DescribeDBProxyTargetsInput{
 					DBProxyName: v.DBProxyName,

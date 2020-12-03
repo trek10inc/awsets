@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -27,7 +26,7 @@ func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeLaunchTemplates(ctx.Context, &ec2.DescribeLaunchTemplatesInput{
-			MaxResults: aws.Int32(200),
+			MaxResults: 200,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -36,7 +35,7 @@ func (l AWSEc2LaunchTemplate) List(ctx context.AWSetsCtx) (*resource.Group, erro
 		for _, v := range res.LaunchTemplates {
 			launchTemplates, err := svc.DescribeLaunchTemplateVersions(ctx.Context, &ec2.DescribeLaunchTemplateVersionsInput{
 				LaunchTemplateId: v.LaunchTemplateId,
-				Versions:         []*string{aws.String(fmt.Sprintf("%d", *v.LatestVersionNumber))},
+				Versions:         []string{fmt.Sprintf("%d", v.LatestVersionNumber)},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to describe launch template version for %s: %w", *v.LaunchTemplateName, err)

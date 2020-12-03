@@ -31,7 +31,7 @@ func (l AWSEc2VpcEndpoint) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeVpcEndpoints(ctx.Context, &ec2.DescribeVpcEndpointsInput{
-			MaxResults: aws.Int32(100),
+			MaxResults: 100,
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -59,12 +59,11 @@ func (l AWSEc2VpcEndpoint) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			err = Paginator(func(nt2 *string) (*string, error) {
 				ecns, err := svc.DescribeVpcEndpointConnectionNotifications(ctx.Context, &ec2.DescribeVpcEndpointConnectionNotificationsInput{
 					ConnectionNotificationId: nil,
-					DryRun:                   nil,
-					Filters: []*types.Filter{{
+					Filters: []types.Filter{{
 						Name:   aws.String("vpc-endpoint-id"),
-						Values: []*string{v.VpcEndpointId},
+						Values: []string{*v.VpcEndpointId},
 					}},
-					MaxResults: aws.Int32(100),
+					MaxResults: 100,
 					NextToken:  nt2,
 				})
 				if err != nil {

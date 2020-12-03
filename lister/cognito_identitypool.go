@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentity"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -29,7 +28,7 @@ func (l AWSCognitoIdentityPool) List(ctx context.AWSetsCtx) (*resource.Group, er
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListIdentityPools(ctx.Context, &cognitoidentity.ListIdentityPoolsInput{
-			MaxResults: aws.Int32(60),
+			MaxResults: 60,
 			NextToken:  nt,
 		})
 		if err != nil {

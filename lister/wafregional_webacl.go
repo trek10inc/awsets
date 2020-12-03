@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional/types"
 	"github.com/trek10inc/awsets/context"
@@ -27,7 +26,7 @@ func (l AWSWafRegionalWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListWebACLs(ctx.Context, &wafregional.ListWebACLsInput{
-			Limit:      aws.Int32(100),
+			Limit:      100,
 			NextMarker: nt,
 		})
 		if err != nil {
@@ -42,7 +41,7 @@ func (l AWSWafRegionalWebAcl) List(ctx context.AWSetsCtx) (*resource.Group, erro
 				//webaclArn := arn.ParseP(webacl.WebACL.WebACLArn)
 				r := resource.New(ctx, resource.WafRegionalWebACL, v.WebACLId, v.Name, v)
 
-				allResources := make([]*string, 0)
+				allResources := make([]string, 0)
 				for _, t := range []types.ResourceType{
 					types.ResourceTypeApiGateway,
 					types.ResourceTypeApplicationLoadBalancer,

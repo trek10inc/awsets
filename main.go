@@ -118,7 +118,7 @@ func Regions(cfg aws.Config, prefixes ...string) ([]string, error) {
 	cfg.Region = "us-east-1"
 	ec2svc := ec2.NewFromConfig(cfg)
 	regionsRes, err := ec2svc.DescribeRegions(ctx2.Background(), &ec2.DescribeRegionsInput{
-		AllRegions: aws.Bool(true),
+		AllRegions: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query regions: %w", err)

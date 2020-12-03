@@ -3,7 +3,6 @@ package lister
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/servicecatalog"
 	"github.com/aws/aws-sdk-go-v2/service/servicecatalog/types"
 	"github.com/trek10inc/awsets/context"
@@ -28,7 +27,7 @@ func (l AWSServiceCatalogPortfolio) List(ctx context.AWSetsCtx) (*resource.Group
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.ListPortfolios(ctx.Context, &servicecatalog.ListPortfoliosInput{
-			PageSize:  aws.Int32(20),
+			PageSize:  20,
 			PageToken: nt,
 		})
 		if err != nil {
@@ -44,11 +43,11 @@ func (l AWSServiceCatalogPortfolio) List(ctx context.AWSetsCtx) (*resource.Group
 			r := resource.New(ctx, resource.ServiceCatalogPortfolio, v.Id, v.DisplayName, detail)
 
 			// Principals
-			principals := make([]*types.Principal, 0)
+			principals := make([]types.Principal, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				pRes, err := svc.ListPrincipalsForPortfolio(ctx.Context, &servicecatalog.ListPrincipalsForPortfolioInput{
 					PortfolioId: v.Id,
-					PageSize:    aws.Int32(20),
+					PageSize:    20,
 					PageToken:   nt2,
 				})
 				if err != nil {

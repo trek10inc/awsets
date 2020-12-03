@@ -75,7 +75,7 @@ func wafv2WebACLQuery(ctx context.AWSetsCtx, scope types.Scope) (*resource.Group
 				} else {
 					r = resource.New(ctx, resource.Wafv2WebACL, v.Id, v.Name, v)
 
-					allResources := make([]*string, 0)
+					allResources := make([]string, 0)
 					for _, t := range []types.ResourceType{
 						types.ResourceTypeApiGateway,
 						types.ResourceTypeApplicationLoadBalancer,

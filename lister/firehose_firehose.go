@@ -34,25 +34,25 @@ func (l AWSFirehoseStream) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to list delivery streams: %w", err)
 		}
-		var lastNameRead *string
+		var lastNameRead string
 		for _, ds := range res.DeliveryStreamNames {
 			lastNameRead = ds
 			describeRes, err := svc.DescribeDeliveryStream(ctx.Context, &firehose.DescribeDeliveryStreamInput{
-				DeliveryStreamName:          ds,
+				DeliveryStreamName:          &ds,
 				ExclusiveStartDestinationId: nil, // TODO actually page through these?
 				Limit:                       aws.Int32(20),
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to describe delivery stream %s: %w", *ds, err)
+				return nil, fmt.Errorf("failed to describe delivery stream %s: %w", ds, err)
 			}
 			if *describeRes.DeliveryStreamDescription.HasMoreDestinations {
-				ctx.SendStatus(context.StatusLogError, fmt.Sprintf("need to page through destinations for %s", *ds))
+				ctx.SendStatus(context.StatusLogError, fmt.Sprintf("need to page through destinations for %s", ds))
 			}
 			dsArn := arn.ParseP(describeRes.DeliveryStreamDescription.DeliveryStreamARN)
 			r := resource.New(ctx, resource.FirehoseDeliveryStream, dsArn.ResourceId, describeRes.DeliveryStreamDescription.DeliveryStreamName, describeRes.DeliveryStreamDescription)
 			rg.AddResource(r)
 		}
-		return lastNameRead, nil
+		return &lastNameRead, nil
 	})
 	return rg, err
 }

@@ -27,7 +27,7 @@ func (l AWSEc2Image) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 
 	images, err := svc.DescribeImages(ctx.Context, &ec2.DescribeImagesInput{
-		Owners: []*string{&ctx.AccountId},
+		Owners: []string{ctx.AccountId},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ec2 images: %w", err)

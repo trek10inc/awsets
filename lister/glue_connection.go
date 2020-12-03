@@ -27,7 +27,7 @@ func (l AWSGlueConnection) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.GetConnections(ctx.Context, &glue.GetConnectionsInput{
-			HidePassword: aws.Bool(true),
+			HidePassword: true,
 			MaxResults:   aws.Int32(100),
 			NextToken:    nt,
 		})

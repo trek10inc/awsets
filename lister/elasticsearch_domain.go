@@ -30,13 +30,13 @@ func (l AWSElasticsearchDomain) List(ctx context.AWSetsCtx) (*resource.Group, er
 		return nil, fmt.Errorf("failed to list domain names: %w", err)
 	}
 
-	domainsByFive := make([][]*string, 0)
-	domainNames := make([]*string, 0)
+	domainsByFive := make([][]string, 0)
+	domainNames := make([]string, 0)
 	for _, domain := range domainListRes.DomainNames {
-		domainNames = append(domainNames, domain.DomainName)
+		domainNames = append(domainNames, *domain.DomainName)
 		if len(domainNames) == 5 {
 			domainsByFive = append(domainsByFive, domainNames)
-			domainNames = make([]*string, 0)
+			domainNames = make([]string, 0)
 		}
 	}
 	if len(domainNames) > 0 {
