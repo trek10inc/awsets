@@ -32,7 +32,7 @@ func (l AWSCloudfrontStreamingDistribution) List(ctx context.AWSetsCtx) (*resour
 	listCloudfrontStreamingDistributionsOnce.Do(func() {
 		outerErr = Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListStreamingDistributions(ctx.Context, &cloudfront.ListStreamingDistributionsInput{
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 				Marker:   nt,
 			})
 			if err != nil {

@@ -32,7 +32,7 @@ func (l AWSCloudfrontKeyGroup) List(ctx context.AWSetsCtx) (*resource.Group, err
 	listCloudfrontKeyGroupOnce.Do(func() {
 		err := Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListKeyGroups(ctx.Context, &cloudfront.ListKeyGroupsInput{
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 				Marker:   nt,
 			})
 			if err != nil {

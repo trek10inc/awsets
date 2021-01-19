@@ -33,7 +33,7 @@ func (l AWSCloudfrontDistribution) List(ctx context.AWSetsCtx) (*resource.Group,
 	listCloudfrontDistributionsOnce.Do(func() {
 		err := Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListDistributions(ctx.Context, &cloudfront.ListDistributionsInput{
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 				Marker:   nt,
 			})
 			if err != nil {

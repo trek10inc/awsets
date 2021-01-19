@@ -32,7 +32,7 @@ func (l AWSCloudfrontPublicKey) List(ctx context.AWSetsCtx) (*resource.Group, er
 	listCloudfrontPublicKeyOnce.Do(func() {
 		err := Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListPublicKeys(ctx.Context, &cloudfront.ListPublicKeysInput{
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 				Marker:   nt,
 			})
 			if err != nil {

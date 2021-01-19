@@ -33,7 +33,7 @@ func (l AWSCloudfrontOriginRequestPolicy) List(ctx context.AWSetsCtx) (*resource
 		err := Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListOriginRequestPolicies(ctx.Context, &cloudfront.ListOriginRequestPoliciesInput{
 				Marker:   nt,
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 			})
 			if err != nil {
 				return nil, err

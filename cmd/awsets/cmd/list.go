@@ -148,8 +148,13 @@ var listCmd = &cli.Command{
 						fmt.Fprintf(os.Stderr, "%s - %s - %s\n", update.Region, update.Lister, update.Message)
 					case context.StatusProcessing:
 					case context.StatusComplete:
-						fallthrough
+						if bar != nil {
+							bar.Increment()
+						}
 					case context.StatusCompleteWithError:
+						if verbose {
+							fmt.Fprintf(os.Stderr, "complte with error: %s - %s - %s\n", update.Region, update.Lister, update.Message)
+						}
 						if bar != nil {
 							bar.Increment()
 						}

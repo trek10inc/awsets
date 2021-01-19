@@ -29,9 +29,9 @@ func Execute(buildInfo map[string]string) {
 
 func configureAWS(ctx *cli.Context) (aws.Config, error) {
 	if ctx.String("profile") != "" {
-		return config.LoadDefaultConfig(config.WithSharedConfigProfile(ctx.String("profile")))
+		return config.LoadDefaultConfig(ctx.Context, config.WithSharedConfigProfile(ctx.String("profile")))
 	}
-	return config.LoadDefaultConfig()
+	return config.LoadDefaultConfig(ctx.Context)
 }
 
 func validateNumArgs(nArgs int) cli.BeforeFunc {

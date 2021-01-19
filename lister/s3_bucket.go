@@ -47,8 +47,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				ctx.SendStatus(context.StatusLogError, fmt.Sprintf("failed to get bucket location for %s from %s: %v\n", *bucket.Name, ctx.Region(), err))
 				continue
 			}
-			// TODO: debugging https://github.com/aws/aws-sdk-go-v2/issues/908
-			//fmt.Printf("bucket: %s - %v\n", *bucket.Name, bucketLocation.LocationConstraint)
+
 			reg := string(bucketLocation.LocationConstraint)
 			if len(reg) == 0 {
 				reg = "us-east-1"
@@ -67,7 +66,7 @@ func (l AWSS3Bucket) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			Bucket: bucket.Name,
 		})
 		if err == nil {
-			buck["Lifecycle"] = structs.Map(lifecycleRes.Rules)
+			buck["Lifecycle"] = lifecycleRes.Rules
 		} else {
 			buck["Lifecycle"] = nil
 		}

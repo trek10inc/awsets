@@ -32,7 +32,7 @@ func (c *config) close() {
 func (c *config) validate() error {
 
 	if c.AWSCfg == nil {
-		awsCfg, err := cfg.LoadDefaultConfig()
+		awsCfg, err := cfg.LoadDefaultConfig(ctx2.Background())
 		if err != nil {
 			return fmt.Errorf("failed to load AWS config: %w", err)
 		}

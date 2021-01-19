@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -33,7 +34,7 @@ func (l AWSCloudfrontCachePolicy) List(ctx context.AWSetsCtx) (*resource.Group, 
 		err := Paginator(func(nt *string) (*string, error) {
 			res, err := svc.ListCachePolicies(ctx.Context, &cloudfront.ListCachePoliciesInput{
 				Marker:   nt,
-				MaxItems: aws.String("100"),
+				MaxItems: aws.Int32(100),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to list cache policies: %w", err)
