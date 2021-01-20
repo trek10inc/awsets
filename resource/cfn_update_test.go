@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"testing"
 )
 
@@ -48,6 +49,7 @@ func Test_updatecfn(t *testing.T) {
 	// If cloudformation resources are missing from code, fail test & print them
 	if len(needsAdded) > 0 {
 		fmt.Printf("The following CFN types need added:\n")
+		sort.Strings(needsAdded)
 		for _, v := range needsAdded {
 			fmt.Printf("%s\n", v)
 		}
