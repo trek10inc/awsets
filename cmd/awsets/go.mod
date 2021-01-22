@@ -8,7 +8,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/emicklei/dot v0.15.0
 	github.com/jmespath/go-jmespath v0.4.0
-	github.com/trek10inc/awsets v0.7.0
+	github.com/trek10inc/awsets v0.8.0
 	github.com/urfave/cli/v2 v2.3.0
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
