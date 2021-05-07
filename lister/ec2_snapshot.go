@@ -30,7 +30,7 @@ func (l AWSEc2Snapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 				Name:   aws.String("owner-id"),
 				Values: []string{ctx.AccountId},
 			}},
-			MaxResults: 100,
+			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
 		if err != nil {

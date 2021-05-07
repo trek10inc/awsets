@@ -32,7 +32,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeTransitGateways(ctx.Context, &ec2.DescribeTransitGatewaysInput{
-			MaxResults: 100,
+			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -55,7 +55,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 							Values: []string{*v.TransitGatewayId},
 						},
 					},
-					MaxResults: 100,
+					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -93,7 +93,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 							Values: []string{*v.TransitGatewayId},
 						},
 					},
-					MaxResults: 100,
+					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 				})
 				if err != nil {
@@ -108,7 +108,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					err = Paginator(func(nt3 *string) (*string, error) {
 						associations, err := svc.GetTransitGatewayRouteTableAssociations(ctx.Context, &ec2.GetTransitGatewayRouteTableAssociationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
-							MaxResults:                 100,
+							MaxResults:                 aws.Int32(100),
 							NextToken:                  nt3,
 						})
 						if err != nil {
@@ -144,7 +144,7 @@ func (l AWSEc2TransitGateway) List(ctx context.AWSetsCtx) (*resource.Group, erro
 					err = Paginator(func(nt3 *string) (*string, error) {
 						propagations, err := svc.GetTransitGatewayRouteTablePropagations(ctx.Context, &ec2.GetTransitGatewayRouteTablePropagationsInput{
 							TransitGatewayRouteTableId: rt.TransitGatewayRouteTableId,
-							MaxResults:                 100,
+							MaxResults:                 aws.Int32(100),
 							NextToken:                  nt3,
 						})
 						if err != nil {

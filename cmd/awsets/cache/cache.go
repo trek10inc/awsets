@@ -14,29 +14,33 @@ import (
 )
 
 type BoltCache struct {
-	db      *bbolt.DB
-	account string
-	refresh bool
+	db       *bbolt.DB
+	cacheDir string
+	account  string
+	refresh  bool
 }
 
 func NewBoltCache(refresh bool) (*BoltCache, error) {
-	home, err := os.UserHomeDir()
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w\n", err)
+		return nil, fmt.Errorf("failed to get cache directory: %w\n", err)
 	}
-	db, err := bbolt.Open(filepath.Join(home, ".awsets_cache"), 0666, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open cache: %w\n", err)
-	}
+	os.Mkdir(filepath.Join(cacheDir, "awsets"), 0755)
 	return &BoltCache{
-		db:      db,
-		refresh: refresh,
+		refresh:  refresh,
+		cacheDir: cacheDir,
 	}, err
 }
 
 func (c *BoltCache) Initialize(accountId string) error {
+	cacheDir, _ := os.UserCacheDir()
 	c.account = accountId
-	err := c.db.Update(func(tx *bbolt.Tx) error {
+	db, err := bbolt.Open(filepath.Join(cacheDir, "awsets", accountId), 0755, nil)
+	if err != nil {
+		return fmt.Errorf("failed to open cache: %w\n", err)
+	}
+	c.db = db
+	err = c.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(c.account))
 		if err != nil {
 			return fmt.Errorf("failed to create or get bucket: %w\n", err)

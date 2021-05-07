@@ -3,6 +3,8 @@ package lister
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -30,7 +32,7 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeVpcEndpointServices(ctx.Context, &ec2.DescribeVpcEndpointServicesInput{
-			MaxResults: 100,
+			MaxResults: aws.Int32(100),
 			NextToken:  nt,
 		})
 		if err != nil {
@@ -46,7 +48,7 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 			configs := make([]types.ServiceConfiguration, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				scs, err := svc.DescribeVpcEndpointServiceConfigurations(ctx.Context, &ec2.DescribeVpcEndpointServiceConfigurationsInput{
-					MaxResults: 100,
+					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 					ServiceIds: []string{*v.ServiceId},
 				})
@@ -67,7 +69,7 @@ func (l AWSEc2VpcEndpointService) List(ctx context.AWSetsCtx) (*resource.Group, 
 			principals := make([]types.AllowedPrincipal, 0)
 			err = Paginator(func(nt2 *string) (*string, error) {
 				perms, err := svc.DescribeVpcEndpointServicePermissions(ctx.Context, &ec2.DescribeVpcEndpointServicePermissionsInput{
-					MaxResults: 100,
+					MaxResults: aws.Int32(100),
 					NextToken:  nt2,
 					ServiceId:  v.ServiceId,
 				})

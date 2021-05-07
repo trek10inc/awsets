@@ -1,6 +1,7 @@
 package lister
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -24,7 +25,7 @@ func (l AWSEc2Instance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	rg := resource.NewGroup()
 	err := Paginator(func(nt *string) (*string, error) {
 		res, err := svc.DescribeInstances(ctx.Context, &ec2.DescribeInstancesInput{
-			MaxResults: 1000,
+			MaxResults: aws.Int32(1000),
 			NextToken:  nt,
 		})
 		if err != nil {

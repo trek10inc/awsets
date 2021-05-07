@@ -55,12 +55,12 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			for _, vpcSg := range dbInstance.VpcSecurityGroups {
 				r.AddRelation(resource.Ec2SecurityGroup, vpcSg.VpcSecurityGroupId, "")
 			}
-			r.AddARNRelation(resource.RdsDbInstance, dbInstance.ReadReplicaSourceDBInstanceIdentifier)
+			r.AddRelation(resource.RdsDbInstance, dbInstance.ReadReplicaSourceDBInstanceIdentifier, "")
 			for _, replicaCluster := range dbInstance.ReadReplicaDBClusterIdentifiers {
 				r.AddRelation(resource.RdsDbCluster, replicaCluster, "")
 			}
 			for _, replicaInstance := range dbInstance.ReadReplicaDBInstanceIdentifiers {
-				r.AddARNRelation(resource.RdsDbInstance, replicaInstance)
+				r.AddRelation(resource.RdsDbInstance, replicaInstance, "")
 			}
 			for _, role := range dbInstance.AssociatedRoles {
 				roleArn := arn.ParseP(role.RoleArn)
