@@ -1,16 +1,12 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"strings"
 
 	"github.com/emicklei/dot"
-	"github.com/jmespath/go-jmespath"
 	"github.com/trek10inc/awsets/resource"
 	"github.com/urfave/cli/v2"
 )
@@ -21,104 +17,8 @@ var processCmd = &cli.Command{
 	ArgsUsage: "[input file]",
 	Subcommands: []*cli.Command{
 		dotGenerator,
-		toCsv,
 		stats,
 		cfn,
-	},
-}
-
-var toCsv = &cli.Command{
-	Name:  "csv",
-	Usage: "converts input file to csv",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:      "input",
-			Aliases:   []string{"i"},
-			Value:     "",
-			Usage:     "input file containing data to process",
-			TakesFile: true,
-		},
-		&cli.StringFlag{
-			Name:      "output",
-			Aliases:   []string{"o"},
-			Value:     "",
-			Usage:     "output file to save results",
-			TakesFile: true,
-		},
-		&cli.StringSliceFlag{
-			Name:    "field",
-			Aliases: []string{"f"},
-			Value:   cli.NewStringSlice(),
-			Usage:   "",
-		},
-	},
-	Action: func(c *cli.Context) error {
-
-		resources, err := loadData(c.String("input"))
-		if err != nil {
-			return fmt.Errorf("failed to load data: %w", err)
-		}
-
-		bb := bytes.NewBuffer(nil)
-
-		out := csv.NewWriter(bb)
-		fields := c.StringSlice("field")
-		if len(fields) == 0 {
-			err = out.Write([]string{"region", "type", "id", "name", "tags"}) //, "raw"})
-			if err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-			for _, r := range resources {
-				tags := make([]string, 0)
-				for k, v := range r.Tags {
-					tags = append(tags, fmt.Sprintf("%s=%s", k, v))
-				}
-				//raw, err := json.Marshal(r)
-				//if err != nil {
-				//	return fmt.Errorf("failed to get json for resource: %w", err)
-				//}
-				err = out.Write([]string{r.Region, r.Type.String(), r.Id, r.Name, strings.Join(tags, ",")}) //, string(raw)})
-				if err != nil {
-					return fmt.Errorf("failed to write line: %w", err)
-				}
-			}
-			out.Flush()
-		} else {
-			data, err := resourcesToGenericJson(resources)
-			if err != nil {
-				return fmt.Errorf("failed to convert json: %w", err)
-			}
-			err = out.Write(fields) //, "raw"})
-			if err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-			for _, r := range data {
-				row := make([]string, 0)
-				for _, f := range fields {
-					v, err := jmespath.Search(f, r)
-					if err != nil {
-						fmt.Printf("jmespath error! %v\n", err)
-						continue
-					}
-					row = append(row, fmt.Sprintf("%s", v))
-				}
-				err = out.Write(row)
-				if err != nil {
-					return fmt.Errorf("failed to write line: %w", err)
-				}
-			}
-			out.Flush()
-		}
-
-		if c.String("output") == "" {
-			fmt.Printf(bb.String())
-		} else {
-			err = ioutil.WriteFile(c.String("output"), bb.Bytes(), 0655)
-			if err != nil {
-				log.Fatalf("failed to write output file: %v\n", err)
-			}
-		}
-		return nil
 	},
 }
 
@@ -421,21 +321,4 @@ func makeLabel(i interface{}) string {
 		parts = append(parts, v.Type.String())
 	}
 	return strings.Join(parts, "\n")
-}
-
-func resourcesToGenericJson(resources map[IdLite]resource.Resource) ([]interface{}, error) {
-	resourcesAsSlice := make([]resource.Resource, 0)
-	for k := range resources {
-		resourcesAsSlice = append(resourcesAsSlice, resources[k])
-	}
-	b, err := json.Marshal(resourcesAsSlice)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal json: %w", err)
-	}
-	var data []interface{}
-	err = json.Unmarshal(b, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall json: %w", err)
-	}
-	return data, nil
 }
