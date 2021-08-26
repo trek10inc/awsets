@@ -13,7 +13,7 @@ builds:
       - darwin
     goarch:
       - amd64
-    main: ./cmd/awsets/main.go
+    dir: ./cmd/awsets
 archives:
   - replacements:
       386: i386
