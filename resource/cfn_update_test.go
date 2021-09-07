@@ -1,3 +1,6 @@
+//go:build check_updates
+// +build check_updates
+
 package resource
 
 import (
