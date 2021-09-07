@@ -67,7 +67,7 @@ func (l AWSIamUser) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 						akR.AddAttribute("LastUsed", lastUsed.AccessKeyLastUsed)
 						rg.AddResource(akR)
 					}
-					return res.Marker, nil
+					return keys.Marker, nil
 				})
 				if err != nil {
 					return nil, err
