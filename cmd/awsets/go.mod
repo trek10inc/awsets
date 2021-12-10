@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.11.0
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/emicklei/dot v0.16.0
-	github.com/trek10inc/awsets v1.0.3
+	github.com/trek10inc/awsets v1.0.4
 	github.com/urfave/cli/v2 v2.3.0
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
