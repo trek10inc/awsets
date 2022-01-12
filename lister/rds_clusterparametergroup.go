@@ -1,7 +1,7 @@
 package lister
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
@@ -26,20 +26,24 @@ func (l AWSRdsDbClusterParameterGroup) List(ctx context.AWSetsCtx) (*resource.Gr
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &rds.DescribeDBClusterParameterGroupsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBClusterParameterGroupsPaginator(svc, &rds.DescribeDBClusterParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list cluster parameter groups: %w", err)
+			return nil, err
 		}
-		for _, pGroup := range res.DBClusterParameterGroups {
+		for _, pGroup := range page.DBClusterParameterGroups {
+			if strings.Contains(*pGroup.DBParameterGroupFamily, "neptune") || strings.Contains(*pGroup.DBParameterGroupFamily, "docdb") {
+				continue
+			}
 			groupArn := arn.ParseP(pGroup.DBClusterParameterGroupArn)
 			r := resource.New(ctx, resource.RdsDbParameterGroup, groupArn.ResourceId, "", pGroup)
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

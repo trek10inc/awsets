@@ -2,6 +2,7 @@ package lister
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
@@ -26,20 +27,24 @@ func (l AWSNeptuneDbClusterParameterGroup) List(ctx context.AWSetsCtx) (*resourc
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &neptune.DescribeDBClusterParameterGroupsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := neptune.NewDescribeDBClusterParameterGroupsPaginator(svc, &neptune.DescribeDBClusterParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list neptune cluster parameter groups: %w", err)
 		}
-		for _, v := range res.DBClusterParameterGroups {
+		for _, v := range page.DBClusterParameterGroups {
+			if !strings.Contains(*v.DBParameterGroupFamily, "neptune") {
+				continue
+			}
 			groupArn := arn.ParseP(v.DBClusterParameterGroupArn)
 			r := resource.New(ctx, resource.NeptuneDbClusterParameterGroup, groupArn.ResourceId, "", v)
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

@@ -2,11 +2,11 @@ package lister
 
 import (
 	"fmt"
-
-	"github.com/aws/aws-sdk-go-v2/service/docdb/types"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/docdb"
+	"github.com/aws/aws-sdk-go-v2/service/docdb/types"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
 )
@@ -27,15 +27,19 @@ func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterParameterGroups(ctx.Context, &docdb.DescribeDBClusterParameterGroupsInput{
-			Marker:     nt,
-			MaxRecords: aws.Int32(100),
-		})
+
+	paginator := docdb.NewDescribeDBClusterParameterGroupsPaginator(svc, &docdb.DescribeDBClusterParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get parameter groups: %w", err)
+			return nil, err
 		}
-		for _, group := range res.DBClusterParameterGroups {
+		for _, group := range page.DBClusterParameterGroups {
+			if !strings.Contains(*group.DBParameterGroupFamily, "docdb") {
+				continue
+			}
 			r := resource.New(ctx, resource.DocDBParameterGroup, group.DBClusterParameterGroupName, group.DBClusterParameterGroupName, group)
 
 			var paramMarker *string
@@ -60,7 +64,6 @@ func (l AWSDocDBParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 			r.AddAttribute("Parameters", parameterList)
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

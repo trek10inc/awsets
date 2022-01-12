@@ -23,19 +23,20 @@ func (l AWSQLDBLedger) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := qldb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.ListLedgers(ctx.Context, &qldb.ListLedgersInput{
-			MaxResults: aws.Int32(100),
-			NextToken:  nt,
-		})
+
+	paginator := qldb.NewListLedgersPaginator(svc, &qldb.ListLedgersInput{
+		MaxResults: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range res.Ledgers {
+		for _, v := range page.Ledgers {
 			r := resource.New(ctx, resource.QLDBLedger, v.Name, v.Name, v)
 			rg.AddResource(r)
 		}
-		return res.NextToken, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

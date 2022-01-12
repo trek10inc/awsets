@@ -24,16 +24,21 @@ func (l AWSRdsDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBSubnetGroups(ctx.Context, &rds.DescribeDBSubnetGroupsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBSubnetGroupsPaginator(svc, &rds.DescribeDBSubnetGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, subnetGroup := range res.DBSubnetGroups {
+		for _, subnetGroup := range page.DBSubnetGroups {
 			subnetArn := arn.ParseP(subnetGroup.DBSubnetGroupArn)
+			if subnetArn.Service != "rds" {
+				continue
+			}
 			r := resource.New(ctx, resource.RdsDbSubnetGroup, subnetArn.ResourceId, "", subnetGroup)
 			r.AddRelation(resource.Ec2Vpc, subnetGroup.VpcId, "")
 			for _, subnet := range subnetGroup.Subnets {
@@ -41,7 +46,6 @@ func (l AWSRdsDbSubnetGroup) List(ctx context.AWSetsCtx) (*resource.Group, error
 			}
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

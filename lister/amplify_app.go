@@ -28,6 +28,7 @@ func (l AWSAmplifyApp) Types() []resource.ResourceType {
 func (l AWSAmplifyApp) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 	svc := amplify.NewFromConfig(ctx.AWSCfg)
+
 	rg := resource.NewGroup()
 
 	err := Paginator(func(nt *string) (*string, error) {

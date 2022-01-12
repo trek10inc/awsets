@@ -1,6 +1,8 @@
 package lister
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
 	"github.com/trek10inc/awsets/arn"
@@ -24,20 +26,24 @@ func (l AWSNeptuneDbParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBParameterGroups(ctx.Context, &neptune.DescribeDBParameterGroupsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := neptune.NewDescribeDBParameterGroupsPaginator(svc, &neptune.DescribeDBParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range res.DBParameterGroups {
+		for _, v := range page.DBParameterGroups {
+			if !strings.Contains(*v.DBParameterGroupFamily, "neptune") {
+				continue
+			}
 			groupArn := arn.ParseP(v.DBParameterGroupArn)
 			r := resource.New(ctx, resource.NeptuneDbParameterGroup, groupArn.ResourceId, "", v)
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

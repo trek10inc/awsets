@@ -1,6 +1,8 @@
 package lister
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/trek10inc/awsets/arn"
@@ -24,20 +26,24 @@ func (l AWSRdsDbParameterGroup) List(ctx context.AWSetsCtx) (*resource.Group, er
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBParameterGroups(ctx.Context, &rds.DescribeDBParameterGroupsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBParameterGroupsPaginator(svc, &rds.DescribeDBParameterGroupsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, pGroup := range res.DBParameterGroups {
+		for _, pGroup := range page.DBParameterGroups {
+			if strings.Contains(*pGroup.DBParameterGroupFamily, "neptune") || strings.Contains(*pGroup.DBParameterGroupFamily, "docdb") {
+				continue
+			}
 			groupArn := arn.ParseP(pGroup.DBParameterGroupArn)
 			r := resource.New(ctx, resource.RdsDbParameterGroup, groupArn.ResourceId, "", pGroup)
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

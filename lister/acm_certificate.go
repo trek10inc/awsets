@@ -26,15 +26,17 @@ func (l AWSAcmCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 	svc := acm.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		req, err := svc.ListCertificates(ctx.Context, &acm.ListCertificatesInput{
-			MaxItems:  aws.Int32(100),
-			NextToken: nt,
-		})
+
+	paginator := acm.NewListCertificatesPaginator(svc, &acm.ListCertificatesInput{
+		MaxItems: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, cert := range req.CertificateSummaryList {
+		for _, cert := range page.CertificateSummaryList {
 
 			res, err := svc.DescribeCertificate(ctx.Context, &acm.DescribeCertificateInput{CertificateArn: cert.CertificateArn})
 			if err != nil {
@@ -55,7 +57,6 @@ func (l AWSAcmCertificate) List(ctx context.AWSetsCtx) (*resource.Group, error) 
 			}
 			rg.AddResource(r)
 		}
-		return req.NextToken, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

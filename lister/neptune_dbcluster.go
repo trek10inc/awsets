@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/aws/aws-sdk-go-v2/service/neptune/types"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -26,15 +27,22 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusters(ctx.Context, &neptune.DescribeDBClustersInput{
-			Marker:     nt,
-			MaxRecords: aws.Int32(100),
-		})
+
+	paginator := neptune.NewDescribeDBClustersPaginator(svc, &neptune.DescribeDBClustersInput{
+		MaxRecords: aws.Int32(100),
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("engine"),
+				Values: []string{"neptune"},
+			},
+		},
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list neptune clusters: %w", err)
 		}
-		for _, cluster := range res.DBClusters {
+		for _, cluster := range page.DBClusters {
 			clusterArn := arn.ParseP(cluster.DBClusterArn)
 			r := resource.New(ctx, resource.NeptuneDbCluster, clusterArn.ResourceId, "", cluster)
 
@@ -62,7 +70,6 @@ func (l AWSNeptuneDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

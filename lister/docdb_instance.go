@@ -3,6 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/docdb"
+	"github.com/aws/aws-sdk-go-v2/service/docdb/types"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -24,15 +25,22 @@ func (l AWSDocDBInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := docdb.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBInstances(ctx.Context, &docdb.DescribeDBInstancesInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := docdb.NewDescribeDBInstancesPaginator(svc, &docdb.DescribeDBInstancesInput{
+		MaxRecords: aws.Int32(100),
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("engine"),
+				Values: []string{"docdb"},
+			},
+		},
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, instance := range res.DBInstances {
+		for _, instance := range page.DBInstances {
 			r := resource.New(ctx, resource.DocDBInstance, instance.DBInstanceIdentifier, instance.DBInstanceIdentifier, instance)
 			r.AddRelation(resource.DocDBCluster, instance.DBClusterIdentifier, "")
 			r.AddRelation(resource.DocDBSubnetGroup, instance.DBSubnetGroup, "")
@@ -46,7 +54,6 @@ func (l AWSDocDBInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

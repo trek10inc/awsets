@@ -24,17 +24,26 @@ func (l AWSRdsDbClusterSnapshot) Types() []resource.ResourceType {
 func (l AWSRdsDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
+	ignoredEngines := map[string]struct{}{
+		"docdb":   {},
+		"neptune": {},
+	}
+
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterSnapshots(ctx.Context, &rds.DescribeDBClusterSnapshotsInput{
-			Marker:     nt,
-			MaxRecords: aws.Int32(100),
-		})
+
+	paginator := rds.NewDescribeDBClusterSnapshotsPaginator(svc, &rds.DescribeDBClusterSnapshotsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list rds db cluster snapshots: %w", err)
 		}
-
-		for _, v := range res.DBClusterSnapshots {
+		for _, v := range page.DBClusterSnapshots {
+			if _, ok := ignoredEngines[*v.Engine]; ok {
+				continue
+			}
 			r := resource.New(ctx, resource.RdsDbClusterSnapshot, v.DBClusterSnapshotIdentifier, v.DBClusterSnapshotIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.RdsDbCluster, v.DBClusterIdentifier, "")
@@ -42,7 +51,6 @@ func (l AWSRdsDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, e
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

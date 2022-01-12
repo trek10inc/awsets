@@ -23,16 +23,27 @@ func (l AWSRdsDbCluster) Types() []resource.ResourceType {
 func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
+	ignoredEngines := map[string]struct{}{
+		"docdb":   {},
+		"neptune": {},
+	}
+
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusters(ctx.Context, &rds.DescribeDBClustersInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBClustersPaginator(svc, &rds.DescribeDBClustersInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, cluster := range res.DBClusters {
+		for _, cluster := range page.DBClusters {
+			if _, ok := ignoredEngines[*cluster.Engine]; ok {
+				continue
+			}
+
 			clusterArn := arn.ParseP(cluster.DBClusterArn)
 			r := resource.New(ctx, resource.RdsDbCluster, clusterArn.ResourceId, "", cluster)
 
@@ -57,7 +68,6 @@ func (l AWSRdsDbCluster) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

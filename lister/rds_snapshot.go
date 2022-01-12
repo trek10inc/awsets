@@ -22,16 +22,26 @@ func (l AWSRdsDbSnapshot) Types() []resource.ResourceType {
 func (l AWSRdsDbSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
+	ignoredEngines := map[string]struct{}{
+		"docdb":   {},
+		"neptune": {},
+	}
+
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBSnapshots(ctx.Context, &rds.DescribeDBSnapshotsInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBSnapshotsPaginator(svc, &rds.DescribeDBSnapshotsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range res.DBSnapshots {
+		for _, v := range page.DBSnapshots {
+			if _, ok := ignoredEngines[*v.Engine]; ok {
+				continue
+			}
 			r := resource.New(ctx, resource.RDSDbSnapshot, v.DBSnapshotIdentifier, v.DBSnapshotIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.RdsDbInstance, v.DBInstanceIdentifier, "")
@@ -39,7 +49,6 @@ func (l AWSRdsDbSnapshot) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

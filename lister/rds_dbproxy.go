@@ -31,11 +31,13 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBProxies(ctx.Context, &rds.DescribeDBProxiesInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBProxiesPaginator(svc, &rds.DescribeDBProxiesInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			if strings.Contains(err.Error(), "InvalidAction") {
 				// If DB Proxy is not supported in a region, returns an InvalidAction error
@@ -43,7 +45,7 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			return nil, err
 		}
-		for _, v := range res.DBProxies {
+		for _, v := range page.DBProxies {
 			proxyArn := arn.ParseP(v.DBProxyArn)
 			r := resource.New(ctx, resource.RdsDbProxy, proxyArn.ResourceId, v.DBProxyName, v)
 			r.AddARNRelation(resource.IamRole, v.RoleArn)
@@ -98,7 +100,6 @@ func (l AWSRdsDbProxy) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 			}
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

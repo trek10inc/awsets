@@ -2,6 +2,7 @@ package lister
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
@@ -25,15 +26,20 @@ func (l AWSNeptuneDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Grou
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBClusterSnapshots(ctx.Context, &neptune.DescribeDBClusterSnapshotsInput{
-			Marker:     nt,
-			MaxRecords: aws.Int32(100),
-		})
+
+	paginator := neptune.NewDescribeDBClusterSnapshotsPaginator(svc, &neptune.DescribeDBClusterSnapshotsInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list neptune cluster snapshots: %w", err)
 		}
-		for _, v := range res.DBClusterSnapshots {
+		for _, v := range page.DBClusterSnapshots {
+			if !strings.Contains(*v.Engine, "neptune") {
+				continue
+			}
 			r := resource.New(ctx, resource.NeptuneDbClusterSnapshot, v.DBClusterSnapshotIdentifier, v.DBClusterSnapshotIdentifier, v)
 			r.AddARNRelation(resource.KmsKey, v.KmsKeyId)
 			r.AddRelation(resource.NeptuneDbCluster, v.DBClusterIdentifier, "")
@@ -41,7 +47,6 @@ func (l AWSNeptuneDbClusterSnapshot) List(ctx context.AWSetsCtx) (*resource.Grou
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

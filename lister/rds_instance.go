@@ -23,16 +23,27 @@ func (l AWSRdsDbInstance) Types() []resource.ResourceType {
 func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 	svc := rds.NewFromConfig(ctx.AWSCfg)
 
+	ignoredEngines := map[string]struct{}{
+		"docdb":   {},
+		"neptune": {},
+	}
+
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBInstances(ctx.Context, &rds.DescribeDBInstancesInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := rds.NewDescribeDBInstancesPaginator(svc, &rds.DescribeDBInstancesInput{
+		MaxRecords: aws.Int32(100),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, dbInstance := range res.DBInstances {
+		for _, dbInstance := range page.DBInstances {
+			if _, ok := ignoredEngines[*dbInstance.Engine]; ok {
+				continue
+			}
+
 			dbArn := arn.ParseP(dbInstance.DBInstanceArn)
 			r := resource.New(ctx, resource.RdsDbInstance, dbArn.ResourceId, "", dbInstance)
 			for _, pgroup := range dbInstance.DBParameterGroups {
@@ -71,7 +82,6 @@ func (l AWSRdsDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, error) {
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }

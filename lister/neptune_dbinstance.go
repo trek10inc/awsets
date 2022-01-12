@@ -3,6 +3,7 @@ package lister
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/aws/aws-sdk-go-v2/service/neptune/types"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
 	"github.com/trek10inc/awsets/resource"
@@ -24,15 +25,23 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 	svc := neptune.NewFromConfig(ctx.AWSCfg)
 
 	rg := resource.NewGroup()
-	err := Paginator(func(nt *string) (*string, error) {
-		res, err := svc.DescribeDBInstances(ctx.Context, &neptune.DescribeDBInstancesInput{
-			MaxRecords: aws.Int32(100),
-			Marker:     nt,
-		})
+
+	paginator := neptune.NewDescribeDBInstancesPaginator(svc, &neptune.DescribeDBInstancesInput{
+		MaxRecords: aws.Int32(100),
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("engine"),
+				Values: []string{"neptune"},
+			},
+		},
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx.Context)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range res.DBInstances {
+		for _, v := range page.DBInstances {
 			dbArn := arn.ParseP(v.DBInstanceArn)
 			r := resource.New(ctx, resource.NeptuneDbInstance, dbArn.ResourceId, "", v)
 			for _, pgroup := range v.DBParameterGroups {
@@ -65,7 +74,6 @@ func (l AWSNeptuneDbInstance) List(ctx context.AWSetsCtx) (*resource.Group, erro
 
 			rg.AddResource(r)
 		}
-		return res.Marker, nil
-	})
-	return rg, err
+	}
+	return rg, nil
 }
