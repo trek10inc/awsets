@@ -63,6 +63,11 @@ brew tap trek10inc/tap
 brew install awsets
 ```
 
+#### MacPorts
+```
+sudo port install awsets
+```
+
 #### From binaries
 Binaries are available [here](https://github.com/trek10inc/awsets/releases)
 
