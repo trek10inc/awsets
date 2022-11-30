@@ -91,6 +91,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
+require gopkg.in/yaml.v3 v3.0.1
+
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.2 // indirect

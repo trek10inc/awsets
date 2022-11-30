@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/structs"
 	"github.com/trek10inc/awsets/arn"
 	"github.com/trek10inc/awsets/context"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Identifier struct {
