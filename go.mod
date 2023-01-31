@@ -88,8 +88,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/wafv2 v1.20.1
 	github.com/aws/aws-sdk-go-v2/service/workspaces v1.18.2
 	github.com/fatih/structs v1.1.0
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+require gopkg.in/yaml.v3 v3.0.1
 
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.1 // indirect
